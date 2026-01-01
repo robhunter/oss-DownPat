@@ -1,0 +1,125 @@
+# DownPat Open Source Migration - .gitignore
+
+# Legacy codebase (not part of open source release)
+.DownPatNode/
+
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+.pnpm-debug.log*
+
+# Build outputs
+dist/
+build/
+out/
+*.tsbuildinfo
+.nx/cache/
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
+
+# Firebase
+.firebase/
+firebase-debug.log
+firestore-debug.log
+database-debug.log
+ui-debug.log
+firestore.indexes.json
+.firebaserc
+firebase.json
+
+# Firebase service account keys (NEVER commit these!)
+*-firebase-adminsdk-*.json
+serviceAccountKey.json
+service-account-*.json
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+.vs/
+
+# OS files
+Thumbs.db
+Desktop.ini
+
+# Testing
+coverage/
+.nyc_output/
+*.lcov
+.jest-cache/
+__snapshots__/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+lerna-debug.log*
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# TypeScript
+*.tsbuildinfo
+
+# ESLint
+.eslintcache
+
+# Misc
+*.orig
+.cache/
+.temp/
+.tmp/
+temp/
+tmp/
+
+# Storybook
+storybook-static/
+
+# NX
+.nx/cache
+.nx/workspace-data
+
+# Package manager
+.pnpm-store/
+.yarn/
+.yarnrc.yml
+
+# Example app specific (if needed)
+example-app/server/.env
+example-app/client/.env
+
+# Documentation build outputs (if using static site generator)
+docs/dist/
+docs/.cache/
+
+# Don't ignore important config files
+!.gitignore
+!.nvmrc
+!.prettierrc
+!.prettierignore
+!.eslintrc*
+!tsconfig*.json
+!jest.config.*
+!tailwind.config.*

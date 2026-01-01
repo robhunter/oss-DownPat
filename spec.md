@@ -1,0 +1,1467 @@
+# DownPat Open Source Migration Specification
+
+## Executive Summary
+
+This specification outlines the plan to extract core functionality from the DownPat legacy codebase and release it as open-source npm packages. The goal is to create reusable packages for:
+- Exercise/prompt creation and management
+- AI-powered conversational interactions with multiple conversation patterns
+- Admin interface for exercise management
+- User-facing conversation UI components
+
+The extracted functionality will be packaged as npm packages with an example application demonstrating integration.
+
+---
+
+## Table of Contents
+
+1. [Background](#background)
+2. [Scope](#scope)
+3. [Architecture Overview](#architecture-overview)
+4. [Key Questions to Address](#key-questions-to-address)
+5. [Proposed Package Structure](#proposed-package-structure)
+6. [Implementation Phases](#implementation-phases)
+7. [Testing Strategy](#testing-strategy)
+8. [Documentation Requirements](#documentation-requirements)
+
+---
+
+## Background
+
+### About DownPat
+
+DownPat was a platform that hosted educational prompts based on books and other materials from non-fiction experts. Key features included:
+
+- **Exercise Creation**: Experts could create AI-powered conversational exercises with various patterns (one-on-one, with commentary, with summaries)
+- **Multi-tenant Architecture**: Each expert had a custom subdomain with branded theming
+- **Payment Integration**: Stripe-based subscriptions
+- **Conversation Management**: Users could interact with exercises, with conversations stored in Firebase
+- **Admin Interface**: Exercise creation, demo link generation, organization management
+- **Real-time Interaction**: Socket.io-based streaming AI responses
+
+### Current Tech Stack
+
+**Backend:**
+- Node.js 22.x + Express.js
+- Firebase Admin SDK (Auth, Firestore)
+- Socket.io
+- Multiple LLM providers (Anthropic, OpenAI, Google Gemini, Groq)
+
+**Frontend:**
+- React 18 + Vite
+- TypeScript
+- TailwindCSS + Radix UI
+- React Query
+- Firebase Client SDK
+
+**Shared:**
+- NX Monorepo
+- Zod validation
+- Multi-tenant theming system
+
+---
+
+## Scope
+
+### In Scope
+
+1. **Exercise Creation & Management**
+   - Exercise definition (tasks, guidelines, starters, welcome messages)
+   - Exercise versioning
+   - Exercise metadata management
+   - Starter message configuration
+
+2. **Conversation Patterns**
+   - One-on-one conversations (ConversationTask)
+   - Conversations with commentary (CommentaryTask)
+   - Conversations with summaries (SummaryTask)
+   - Extract tasks
+   - Simulate tasks
+
+3. **Anonymous/Unauthenticated Access**
+   - Demo link functionality
+   - Public conversation access
+   - Message limits for anonymous users
+
+4. **Admin Interface**
+   - Exercise creation UI
+   - Exercise editing UI
+   - Starter message management
+   - Demo link generation
+
+5. **User-facing Conversation UI**
+   - Message display components
+   - Chat interface
+   - Message actions (rate, regenerate, report)
+   - Message type rendering (user, conversation, commentary, summary, etc.)
+
+6. **AI Integration**
+   - Adapter interface for LLM providers
+   - Support for multiple AI providers
+   - Structured response handling
+   - Streaming responses
+
+7. **Firebase Integration**
+   - Conversation storage
+   - Exercise storage
+   - Demo link storage
+   - Basic authentication hooks
+
+8. **Theming/Styling**
+   - Customizable conversation UI styling
+   - Theme provider pattern
+   - CSS variable-based theming
+
+### Out of Scope (To Be Dropped)
+
+1. **Payment Processing**
+   - Stripe integration
+   - Subscription management
+   - Payment stores
+   - Subscription-related UI
+
+2. **Mobile Support**
+   - SmartBanner components
+   - Mobile-specific code
+   - React Native dependencies
+
+3. **Multi-tenant Subdomain System**
+   - Subdomain parsing and routing
+   - Organization-specific subdomains
+   - Multiple organization management
+   - Assumption: Single organization per host application
+
+4. **Schema Step Functionality**
+   - `responseSchema` fields in tasks
+   - Structured data generation at conversation end
+   - Note: The `responseSchema` is used internally by adapters for response formatting, but specific "schema step" features mentioned by user should be dropped
+
+5. **Additional Features**
+   - Waitlist management
+   - Team management
+   - Job listings
+   - Live chat coaching
+   - Email notifications
+   - Organization file uploads
+   - Feedback system
+   - Creator onboarding
+
+---
+
+## Architecture Overview
+
+### Current Legacy Architecture
+
+```
+.DownPatNode/
+├── apps/
+│   ├── server/          # Express backend
+│   └── web/             # React frontend
+└── libs/
+    ├── shared/          # Models, constants, validations, themes
+    └── ui/              # Reusable UI components
+```
+
+### Proposed Package Architecture
+
+```
+@downpat-oss/
+├── core/                # Core models, constants, types
+├── exercise-manager/    # Exercise creation and management logic
+├── conversation-engine/ # Conversation logic, AI adapters, message handling
+├── firebase-storage/    # Firebase integration layer
+├── ui-components/       # React UI components for conversations
+├── admin-ui/            # React UI components for admin interface
+└── example-app/         # Example Node.js + Express + React app showing integration
+```
+
+---
+
+## Key Questions to Address
+
+### 1. Package Boundaries & Dependencies
+
+#### Q1.1: Core Package Design
+- **Question**: What should be included in the `@downpat-oss/core` package?
+- **Context**: Need to determine minimal shared types, constants, and utilities
+- **Options**:
+  - A) Minimal: Only TypeScript interfaces/types (Exercise, Conversation, Message, Task)
+  - B) Moderate: Types + constants (MessageType, SupportedModels) + basic utilities
+  - C) Comprehensive: All shared code from libs/shared
+- **Dependencies**: All other packages will depend on this
+- **Recommendation Needed**: Which approach balances reusability vs. package bloat?
+
+#### Q1.2: Exercise Manager Package Scope
+- **Question**: Should `@downpat-oss/exercise-manager` be backend-only, frontend-only, or isomorphic?
+- **Context**: Currently exercise logic spans server services, stores, and frontend APIs
+- **Options**:
+  - A) Backend-only: Exercise CRUD operations, versioning logic (requires separate frontend package)
+  - B) Isomorphic: Exercise business logic that works on both client and server
+  - C) Split: `exercise-manager` (isomorphic) + `exercise-api` (backend) + `exercise-client` (frontend)
+- **Considerations**:
+  - How much logic can/should be shared between client and server?
+  - Do we need server-side validation separate from client-side?
+  - Should exercise creation happen client-side or server-side?
+
+#### Q1.3: Conversation Engine Architecture
+- **Question**: How should the conversation engine be structured regarding AI provider adapters?
+- **Context**: Current code has adapters for OpenAI, Anthropic, Gemini, Groq
+- **Options**:
+  - A) Include all adapters in one package
+  - B) Core conversation engine + separate adapter packages (plugin architecture)
+  - C) Conversation engine with "bring your own adapter" interface
+- **Considerations**:
+  - Bundle size for users who only need one provider
+  - Maintenance burden of supporting all providers
+  - Should we support all current providers or just OpenAI/Anthropic?
+
+#### Q1.4: Firebase Coupling
+- **Question**: Should Firebase be a hard requirement or an optional storage backend?
+- **Context**: User said "okay to require Firebase" but we should verify this is the best approach
+- **Decision**: ✅ **Storage abstraction with Firebase as the official/recommended implementation**
+  - Create storage interfaces in `@downpat-oss/core`
+  - Implement Firebase storage in `@downpat-oss/firebase-storage` (recommended package)
+  - Allow community/users to implement other backends if needed
+- **Rationale**:
+  - **Default path is simple**: Most users install firebase-storage, provide credentials, done
+  - **Fresh Firebase DB**: Users get free Firebase credentials, we handle all storage
+  - **No DB migration burden**: Users don't add our data to their existing databases
+  - **Future-proof**: Interface allows PostgreSQL/MongoDB implementations later if needed
+  - **Better architecture**: Clear contracts, easier testing, clean boundaries
+  - **Minimal extra work**: ~5-10% more effort for significant architectural benefits
+- **User's reasoning**:
+  - Most users won't have Firebase already
+  - If users have existing DBs, adding our schema is too burdensome
+  - Better to provide fresh Firebase credentials and we handle everything
+  - Storage abstraction allows flexibility without complicating the default path
+
+#### Q1.5: UI Component Package Structure
+- **Question**: How should UI components be organized?
+- **Context**: Current codebase has libs/ui (generic components) and app-specific components
+- **Options**:
+  - A) Single `@downpat-oss/ui` package with all components
+  - B) Split: `@downpat-oss/ui-primitives` (generic) + `@downpat-oss/conversation-ui` (domain-specific)
+  - C) Three packages: primitives, conversation-ui, admin-ui
+- **Considerations**:
+  - Users may want conversation UI without admin UI
+  - Should we bring Radix UI components or require users to install?
+  - What about TailwindCSS dependency?
+
+### 2. Authentication & Authorization
+
+#### Q2.1: Authentication Interface Design
+- **Question**: How should we expose authentication integration to host applications?
+- **Context**: User wants to leverage host app's auth, not force Firebase Auth
+- **Options**:
+  - A) Auth interface/contract that host app implements
+  - B) Support both Firebase Auth + custom auth providers
+  - C) Assume auth is handled externally, just accept tokens/user IDs
+- **Required Capabilities**:
+  - Identify logged-in users
+  - Determine if user can access a conversation (ownership)
+  - Identify admin users
+  - Support anonymous/demo users
+
+#### Q2.2: Authorization Model
+- **Question**: How should we handle permission checks for exercises and conversations?
+- **Context**: Current code has Gatekeeper class with various permission checks
+- **Specific Questions**:
+  - Who can create exercises? (Admins only? Any authenticated user?)
+  - Who can access a conversation? (Owner only? Public conversations allowed?)
+  - Who can access admin interface? (How does host app designate admins?)
+  - How do demo/anonymous conversations work with this model?
+- **Options**:
+  - A) Simple: Creator (admin) vs Consumer (regular user) roles
+  - B) Flexible: Host app provides authorization callbacks
+  - C) Configurable: Per-exercise access control settings
+
+#### Q2.3: Demo/Anonymous Access
+- **Question**: How should unauthenticated access work?
+- **Context**: Current system has demo links with message limits
+- **Specific Questions**:
+  - Should demo links require backend generation or can they be client-side?
+  - How do we prevent abuse of anonymous access?
+  - Should demo conversations be persisted? For how long?
+  - Can authenticated users also use demo mode?
+- **User Requirement**: "The host application should be able to publish anonymous or unauthenticated versions of exercises similar to our current demo-link functionality"
+
+### 3. Exercise & Conversation Features
+
+#### Q3.1: Task/Schema System
+- **Question**: What level of the task schema system should we keep?
+- **Context**: User said to drop "schema step" but tasks use `responseSchema` for structured responses
+- **Clarification Needed**:
+  - Is "schema step" a specific task type or the entire schema system?
+  - Should we keep ConversationTask, CommentaryTask, SummaryTask as-is?
+  - Should we drop the `responseSchema` field from Task interface?
+  - Or is "schema step" referring to completion tasks that generate structured final outputs?
+- **Options**:
+  - A) Keep all task types including their schemas (conversation, commentary, summary)
+  - B) Drop only specialized schema-based completion tasks
+  - C) Simplify to just basic conversation without structured grading/commentary
+
+#### Q3.2: Message Types
+- **Question**: Which message types should be included?
+- **Context**: Current system has: CONTEXT, MODERATION, STARTER, USER, CONVERSATION, COMMENTARY, EXTRACT, SIMPLE, SIMULATE, SUMMARY
+- **Specific Questions**:
+  - Keep all message types?
+  - Is EXTRACT needed? SIMPLE? SIMULATE?
+  - Is MODERATION a core feature or optional?
+  - Should we simplify to fewer types?
+
+#### Q3.3: Exercise Versioning
+- **Question**: Is exercise versioning necessary for the open source version?
+- **Context**: Current code supports multiple versions per exercise with LATEST constant
+- **Considerations**:
+  - Adds complexity
+  - Useful for iterating on exercises
+  - Do conversations need to lock to a specific version?
+- **Options**:
+  - A) Keep full versioning system
+  - B) Simple version number without version management
+  - C) No versioning (breaking changes require new exercise)
+
+#### Q3.4: Exercise Examples
+- **Question**: Should we include the exercise examples feature?
+- **Context**: Current code has Example model and example store for sample conversations
+- **Use Cases**:
+  - Showing users what a good conversation looks like
+  - Training/demo purposes
+  - Providing context to AI (currently passed to adapters)
+- **Options**:
+  - A) Include example system as-is
+  - B) Simplified example system (just text, no full conversation)
+  - C) Drop examples entirely
+
+### 4. AI Integration
+
+#### Q4.1: Which AI Providers?
+- **Question**: Which AI providers should we support in the initial release?
+- **Context**: Legacy code supports OpenAI, Anthropic, Gemini, Groq
+- **Considerations**:
+  - Maintenance burden of supporting multiple providers
+  - API changes over time
+  - Testing requirements
+- **Options**:
+  - A) All four providers
+  - B) Just OpenAI and Anthropic (most popular)
+  - C) Just OpenAI (most widely used)
+  - D) Provide interface, let users implement their own
+
+#### Q4.2: Streaming vs Non-Streaming
+- **Question**: Should we support both streaming and non-streaming responses?
+- **Context**: Current code uses Socket.io for streaming, has callback-based streaming in adapters
+- **Considerations**:
+  - Streaming provides better UX but more complexity
+  - Not all contexts may support streaming
+  - How does streaming work without Socket.io?
+- **Options**:
+  - A) Streaming only (require real-time transport)
+  - B) Non-streaming only (simpler, works everywhere)
+  - C) Support both (more complexity)
+
+#### Q4.3: Socket.io Dependency
+- **Question**: Should Socket.io be required or should we support other transports?
+- **Context**: Current backend uses Socket.io for real-time messaging
+- **Options**:
+  - A) Require Socket.io (matches current architecture)
+  - B) Transport-agnostic with Socket.io as default
+  - C) Use Server-Sent Events (SSE) instead
+  - D) Support both Socket.io and SSE
+- **Considerations**:
+  - Socket.io requires WebSocket support
+  - SSE simpler but one-way only
+  - HTTP streaming with fetch API as alternative?
+
+#### Q4.4: AI Adapter Configuration
+- **Question**: How should users configure AI adapters (API keys, etc.)?
+- **Context**: Current code gets config from environment variables
+- **Options**:
+  - A) Environment variables only
+  - B) Programmatic configuration
+  - C) Both environment and programmatic
+- **Security Considerations**:
+  - API keys should never be in client code
+  - How do we guide users to secure key management?
+
+### 5. Storage & Data Management
+
+#### Q5.1: Firestore Schema
+- **Question**: Should we document/freeze a Firestore schema or allow customization?
+- **Context**: Current code has specific collection structure (conversations, exercises, examples, demos, users)
+- **Options**:
+  - A) Fixed schema with clear documentation
+  - B) Configurable collection names
+  - C) Allow schema customization via configuration
+- **Considerations**:
+  - Flexibility vs. simplicity
+  - Migration path if schema needs to change
+  - How do we handle schema versioning?
+
+#### Q5.2: User Storage
+- **Question**: Should our packages manage user data or assume host app handles it?
+- **Context**: Current code has user store with profile data
+- **Specific Questions**:
+  - Do we need to store user profiles?
+  - Or just reference user IDs from host app's auth system?
+  - What user metadata do we need (displayName, email)?
+- **Options**:
+  - A) Package manages minimal user data (ID, display name)
+  - B) Host app provides user data via callbacks/hooks
+  - C) No user storage, just IDs
+
+#### Q5.3: Conversation Ownership & Privacy
+- **Question**: How do we ensure users can only access their own conversations?
+- **Context**: Current code has conversation ownership checks in Gatekeeper
+- **Options**:
+  - A) Firestore security rules (documented patterns)
+  - B) Server-side enforcement via middleware
+  - C) Both client-side (Firestore rules) and server-side checks
+- **User Requirement**: "expose an interface to them such that they can keep conversations secure by user"
+
+#### Q5.4: Data Retention
+- **Question**: Should we provide data retention/cleanup utilities?
+- **Context**: Demo conversations, old conversations, expired demo links
+- **Specific Questions**:
+  - Should demo conversations auto-expire?
+  - Should old conversations be archived/deleted?
+  - Who manages data retention policies?
+- **Options**:
+  - A) Provide utilities, host app decides policies
+  - B) Built-in retention policies (configurable)
+  - C) No retention management (host app's responsibility)
+
+### 6. UI & Theming
+
+#### Q6.1: Theming System
+- **Question**: How much of the theming system should we include?
+- **Context**: Current code has elaborate multi-tenant theme system with CSS variable generation
+- **Specific Questions**:
+  - Keep the theme factory and color generation?
+  - Keep multiple pre-built themes or just one default?
+  - How does host app customize appearance?
+- **User Requirement**: "the host application needs to be able to provide styling such that the conversation screens match the look and feel of their site"
+- **Options**:
+  - A) Full theme system (factory, CSS variables, multiple themes)
+  - B) Single default theme + customization guide
+  - C) Unstyled components (headless UI) + styling example
+  - D) CSS variables only, simple theming
+
+#### Q6.2: TailwindCSS Dependency
+- **Question**: Should we require TailwindCSS or make it optional?
+- **Context**: Current UI heavily uses Tailwind classes
+- **Options**:
+  - A) Require Tailwind (simplest, maintains current approach)
+  - B) Provide both Tailwind and vanilla CSS versions
+  - C) CSS modules instead of Tailwind
+  - D) Styled-components or similar CSS-in-JS
+- **Considerations**:
+  - Many React projects use Tailwind
+  - Some projects don't want Tailwind
+  - What about Tailwind config merging?
+
+#### Q6.3: Component Customization
+- **Question**: How should users customize UI components?
+- **Context**: Host apps may want different layouts, colors, typography
+- **Options**:
+  - A) Prop-based customization (colors, sizes via props)
+  - B) CSS class customization (className props)
+  - C) Component composition (export primitives, users build layout)
+  - D) Render props / slots pattern
+  - E) Unstyled components (headless UI pattern)
+
+#### Q6.4: Radix UI Dependency
+- **Question**: Should we keep Radix UI components or make them optional?
+- **Context**: libs/ui is built on Radix UI primitives
+- **Options**:
+  - A) Keep Radix as peer dependency (user installs)
+  - B) Bundle Radix (included in package)
+  - C) Make Radix optional, provide unstyled alternatives
+- **Considerations**:
+  - Radix provides excellent accessibility
+  - Adds to bundle size
+  - Some users may have different component libraries
+
+### 7. Admin Interface
+
+#### Q7.1: Admin UI Framework
+- **Question**: Should admin UI be framework-agnostic or React-specific?
+- **Context**: Current admin UI is React-based
+- **Options**:
+  - A) React components only
+  - B) Web components (framework-agnostic)
+  - C) Both React and web components
+  - D) Headless API, users build their own UI
+- **Considerations**:
+  - React is most common for admin interfaces
+  - Framework-agnostic increases reach but adds complexity
+  - Some users may want Vue/Svelte/etc.
+
+#### Q7.2: Admin Features
+- **Question**: Which admin features are essential vs. nice-to-have?
+- **Context**: Current admin interface has many features
+- **Essential**:
+  - Exercise creation
+  - Exercise editing
+  - Starter message management
+  - Demo link generation (?)
+- **Nice-to-Have**:
+  - Exercise preview
+  - Conversation analytics/viewing
+  - User management
+  - Bulk operations
+- **Question**: What's the minimum viable admin UI?
+
+#### Q7.3: Admin Authorization
+- **Question**: How do we identify admin users?
+- **Context**: Current code checks if user is in ActiveAdmin set
+- **User Requirement**: "we need a way to leverage their authentication solution to identify what users are admins"
+- **Options**:
+  - A) Host app provides isAdmin callback/hook
+  - B) Admin role in user metadata
+  - C) Separate admin credential system
+  - D) No built-in auth, host app wraps admin UI with auth
+
+### 8. Example Application
+
+#### Q8.1: Example App Framework
+- **Question**: What framework should the example app use?
+- **Context**: Example app should be as simple as possible to understand
+- **Decision**: ✅ **Vanilla Node.js + Express + React**
+  - Backend: Simple Express server
+  - Frontend: React with minimal build setup (create-react-app or similar)
+  - No meta-frameworks (Next.js, Remix, etc.)
+  - No complex build tools (Vite, webpack configs, etc.)
+- **Rationale**:
+  - Clearest demonstration of package integration
+  - No magic - shows exactly what's happening
+  - Easiest to understand and modify
+  - Matches "as simple as possible" goal
+  - Users can add complexity in their own apps
+
+#### Q8.2: Example App Scope
+- **Question**: What should the example app demonstrate?
+- **Must Show**:
+  - Exercise creation (admin view)
+  - Conversation interaction (user view)
+  - Authentication integration
+  - Firebase setup
+  - Theming/styling customization
+- **Nice to Show**:
+  - Multiple exercise types
+  - Demo/anonymous access
+  - Multiple AI providers
+  - Test examples
+- **Question**: Minimal example or comprehensive showcase?
+
+#### Q8.3: Example App Authentication
+- **Question**: Which auth provider should example app use?
+- **Context**: Need to show auth integration without mandating Firebase Auth
+- **Options**:
+  - A) Firebase Auth (easiest, already using Firebase for storage)
+  - B) Passport.js (popular Express middleware, many strategies)
+  - C) Clerk (modern, good DX)
+  - D) Simple custom auth with JWT (show integration pattern clearly)
+- **Considerations**:
+  - Should demonstrate auth integration pattern
+  - Should be easy to swap out
+  - Don't want to force users into specific auth provider
+  - Firebase Auth is simplest since we're already using Firebase
+
+### 9. Testing Strategy
+
+#### Q9.1: Test Coverage Requirements
+- **Question**: What level of test coverage do we need?
+- **Context**: User mentioned "healthy test practices" with unit + integration tests
+- **For Packages**:
+  - Core: What percentage coverage? Which critical paths?
+  - Exercise Manager: Test exercise CRUD, versioning?
+  - Conversation Engine: Test message flow, AI adapter mocks?
+  - UI Components: Visual regression? Interaction testing?
+- **For Example App**:
+  - Unit tests for business logic?
+  - Integration tests for full flows?
+  - E2E tests for critical paths?
+
+#### Q9.2: Testing Infrastructure
+- **Question**: Which testing tools should we use?
+- **Current Stack**: Jest, React Testing Library
+- **Options**:
+  - A) Keep Jest + RTL (matches legacy)
+  - B) Vitest + Testing Library (faster, modern)
+  - C) Playwright for E2E
+  - D) Storybook for component testing
+- **Considerations**:
+  - Consistency across packages
+  - Developer experience
+  - CI/CD integration
+
+#### Q9.3: AI Adapter Testing
+- **Question**: How do we test AI adapter integrations?
+- **Challenges**: Real API calls are expensive and slow
+- **Options**:
+  - A) Mock all AI responses
+  - B) Record/replay actual responses
+  - C) Dedicated test API keys with limits
+  - D) Mix of mocks for unit tests, real calls for integration
+- **Considerations**:
+  - Need to verify actual API compatibility
+  - Can't break tests when API changes
+  - Cost of running tests
+
+#### Q9.4: Firebase Testing
+- **Question**: How do we test Firebase integration?
+- **Options**:
+  - A) Firebase emulator suite
+  - B) Mock Firestore
+  - C) Real test Firestore project
+  - D) Abstract storage layer, test both mocks and real
+- **Considerations**:
+  - Emulator is free but requires setup
+  - Mocks may not catch real Firebase issues
+  - Real project costs money
+
+### 10. Documentation
+
+#### Q10.1: Documentation Scope
+- **Question**: What documentation is required for launch?
+- **Per Package**:
+  - API documentation (JSDoc/TypeDoc)?
+  - Integration guides?
+  - Migration guides (from legacy)?
+  - Troubleshooting?
+- **Overall**:
+  - Architecture overview
+  - Getting started guide
+  - Best practices
+  - Security considerations
+- **Example App**:
+  - Setup instructions
+  - Code walkthrough
+  - Deployment guide
+
+#### Q10.2: Documentation Platform
+- **Question**: Where should documentation be hosted?
+- **Options**:
+  - A) README files in each package
+  - B) Dedicated docs site (Docusaurus, VitePress, etc.)
+  - C) GitHub Wiki
+  - D) Both README + docs site
+- **Considerations**:
+  - Searchability
+  - Versioning
+  - Maintenance burden
+
+#### Q10.3: API Documentation Generation
+- **Question**: Should we use automated API doc generation?
+- **Options**:
+  - A) TSDoc/TypeDoc from code comments
+  - B) Hand-written API docs
+  - C) Both generated + hand-written
+- **Considerations**:
+  - Generated docs can get stale with code
+  - Hand-written is more effort but better UX
+  - Balance between automation and quality
+
+### 11. Package Publishing & Maintenance
+
+#### Q11.1: Package Naming
+- **Question**: What should the npm scope be?
+- **Options**:
+  - A) `@downpat/*` (requires npm org ownership)
+  - B) `@downpat-oss/*` (clearly marks as open source)
+  - C) No scope, just `downpat-core`, etc.
+- **Considerations**:
+  - Scope availability
+  - Branding
+  - Future-proofing
+
+#### Q11.2: Versioning Strategy
+- **Question**: How should we version packages?
+- **Options**:
+  - A) Independent versioning (each package has own version)
+  - B) Lockstep versioning (all packages same version)
+  - C) Semantic versioning with major version sync
+- **Tools**: Lerna, Changesets, nx release
+- **Considerations**:
+  - Breaking changes in one package
+  - User upgrade experience
+
+#### Q11.3: Release Cadence
+- **Question**: How often should we release updates?
+- **Initial Release**: MVP feature set
+- **Post-Release**:
+  - Regular scheduled releases?
+  - Release on demand when features ready?
+  - LTS versions?
+- **Considerations**:
+  - Stability vs. new features
+  - User upgrade burden
+  - Maintenance capacity
+
+#### Q11.4: Backward Compatibility
+- **Question**: What's our policy on breaking changes?
+- **Options**:
+  - A) Strict semantic versioning (breaking = major bump)
+  - B) Deprecation warnings before removal
+  - C) Migration guides for breaking changes
+  - D) All of the above
+- **Considerations**:
+  - Users need stability
+  - Need flexibility to improve
+  - Clear communication of changes
+
+### 12. Security & Privacy
+
+#### Q12.1: Secrets Management
+- **Question**: How do we guide users on API key security?
+- **Context**: AI provider API keys must be kept secure
+- **Documentation Needed**:
+  - Never put keys in client code
+  - Environment variable best practices
+  - Key rotation procedures
+  - Rate limiting considerations
+- **Question**: Should packages enforce any security practices?
+
+#### Q12.2: Input Sanitization
+- **Question**: Should we sanitize user input before sending to AI?
+- **Context**: Current code uses sanitize-html
+- **Considerations**:
+  - Prevent prompt injection
+  - Remove malicious HTML/scripts
+  - Balance security vs. functionality
+- **Options**:
+  - A) Built-in sanitization (opinionated)
+  - B) Optional sanitization (configurable)
+  - C) No sanitization (user's responsibility)
+
+#### Q12.3: Content Moderation
+- **Question**: Should we include the content moderation adapter?
+- **Context**: Current code has ModerationAdapter for flagging inappropriate content
+- **Options**:
+  - A) Include moderation as core feature
+  - B) Make moderation optional/pluggable
+  - C) Drop moderation (users implement if needed)
+- **Considerations**:
+  - May be important for public-facing apps
+  - Adds dependency and complexity
+  - Different orgs have different moderation needs
+
+#### Q12.4: Rate Limiting
+- **Question**: Should packages include rate limiting for AI calls?
+- **Context**: Prevent abuse, control costs
+- **Options**:
+  - A) Built-in rate limiting (configurable)
+  - B) Rate limiting utilities (users implement)
+  - C) No rate limiting (users handle at infrastructure level)
+- **Considerations**:
+  - Important for demo/anonymous access
+  - Different users have different limits
+  - May be handled by API gateway
+
+### 13. Licensing & Legal
+
+#### Q13.1: License Choice
+- **Question**: Which open source license should we use?
+- **Options**:
+  - A) MIT (most permissive, simple)
+  - B) Apache 2.0 (patent grant, more formal)
+  - C) GPL/AGPL (copyleft, requires derivative works to be open)
+- **Considerations**:
+  - Maximize adoption (permissive licenses)
+  - Patent protection
+  - Company's legal requirements
+
+#### Q13.2: Dependency Licenses
+- **Question**: Do we need to audit dependency licenses?
+- **Context**: Ensure all dependencies are compatible with our license
+- **Action Items**:
+  - List all dependencies
+  - Check each license
+  - Document any restrictions
+  - Replace incompatible dependencies if needed
+
+#### Q13.3: Attribution & Credits
+- **Question**: How should we handle attribution?
+- **Context**: Extracting from closed-source company code
+- **Considerations**:
+  - Credit original developers?
+  - Mention DownPat origin?
+  - Contributor guidelines for future
+
+### 14. Migration & Adoption
+
+#### Q14.1: Migration Path
+- **Question**: Do we need to support migration from legacy DownPat?
+- **Context**: Any existing DownPat users who want to move to open source version?
+- **If Yes**:
+  - Data migration tools (Firestore schema changes?)
+  - Code migration guide
+  - Feature parity checklist
+- **If No**:
+  - Can ignore legacy compatibility
+  - Focus on clean API design
+
+#### Q14.2: Breaking Changes from Legacy
+- **Question**: What major differences from legacy should we document?
+- **Known Changes**:
+  - No multi-tenant/subdomain support
+  - No payment integration
+  - Different auth integration pattern
+  - Simplified organization model
+  - No mobile support
+- **Documentation**: Migration guide, breaking changes list
+
+---
+
+## Proposed Package Structure
+
+Based on the questions above, here's an initial proposal for package organization:
+
+### Package: `@downpat-oss/core`
+
+**Purpose**: Shared types, interfaces, and constants
+
+**Contents**:
+- TypeScript interfaces (Exercise, Conversation, Message, Task, etc.)
+- **Storage interfaces** (ConversationStorage, ExerciseStorage, etc.)
+- Enums and constants (MessageType, SupportedModels, etc.)
+- Utility functions (UUID generation, etc.)
+- Zod validation schemas
+
+**Dependencies**: Minimal (zod, maybe lodash)
+
+**Exports**:
+```typescript
+// Types
+export { Exercise, Conversation, Message, Task, ... }
+
+// Storage Interfaces (implemented by storage packages)
+export interface ConversationStorage {
+  save(conversation: Conversation): Promise<void>
+  get(id: string): Promise<Conversation>
+  getByUser(userId: string): Promise<Conversation[]>
+  delete(id: string): Promise<void>
+}
+
+export interface ExerciseStorage {
+  save(exercise: Exercise): Promise<void>
+  get(id: string): Promise<Exercise>
+  list(): Promise<Exercise[]>
+  delete(id: string): Promise<void>
+}
+
+// Constants
+export { MessageType, SupportedModels, ... }
+// Utilities
+export { UUIDUtil, ... }
+// Validations
+export { ExerciseSchema, ConversationSchema, ... }
+```
+
+---
+
+### Package: `@downpat-oss/exercise-manager`
+
+**Purpose**: Exercise creation, management, and versioning logic
+
+**Contents**:
+- Exercise CRUD operations
+- Exercise version management
+- Starter message management
+- Exercise validation
+- Exercise metadata handling
+
+**Dependencies**:
+- `@downpat-oss/core` (for types and storage interfaces)
+- Storage implementation (user provides, e.g., `@downpat-oss/firebase-storage`)
+
+**Exports**:
+```typescript
+export class ExerciseManager {
+  createExercise(exercise: Exercise): Promise<Exercise>
+  updateExercise(id: string, updates: Partial<Exercise>): Promise<Exercise>
+  getExercise(id: string): Promise<Exercise>
+  deleteExercise(id: string): Promise<void>
+  // ... etc
+}
+```
+
+**Questions**:
+- Isomorphic or server-only?
+- How does it interact with storage layer?
+
+---
+
+### Package: `@downpat-oss/conversation-engine`
+
+**Purpose**: Conversation logic, message handling, AI integration
+
+**Contents**:
+- Conversation orchestration
+- Message flow management
+- Task execution logic
+- AI adapter interface
+- AI provider adapters (OpenAI, Anthropic, etc.)
+- Streaming response handling
+- Message formatting and filtering
+
+**Dependencies**:
+- `@downpat-oss/core` (for types and storage interfaces)
+- Storage implementation (user provides, e.g., `@downpat-oss/firebase-storage`)
+- AI provider SDKs (OpenAI, Anthropic, etc.)
+- (TBD based on transport decisions - socket.io?)
+
+**Exports**:
+```typescript
+export class ConversationEngine {
+  startConversation(exerciseId: string, userId: string): Promise<Conversation>
+  continueConversation(conversationId: string, userMessage: string): Promise<Message[]>
+  // ... etc
+}
+
+export interface AIAdapter {
+  executeTasks(...): Promise<AdapterResponse[][]>
+  chat(...): Promise<string>
+}
+
+export { OpenAIAdapter, AnthropicAdapter, ... }
+```
+
+**Questions**:
+- How does streaming work?
+- Which adapters to include?
+- How does it interact with storage?
+
+---
+
+### Package: `@downpat-oss/firebase-storage`
+
+**Purpose**: Official Firebase/Firestore implementation of storage interfaces (recommended)
+
+**Contents**:
+- Conversation store implementation
+- Exercise store implementation
+- Demo link store implementation
+- User store implementation (if needed)
+- Firestore initialization utilities
+- Security rules documentation
+- Migration scripts (if needed)
+
+**Dependencies**:
+- `@downpat-oss/core` (for storage interfaces)
+- `firebase-admin` (server)
+- `firebase` (client)
+
+**Exports**:
+```typescript
+// Implements interfaces from @downpat-oss/core
+export class FirebaseConversationStorage implements ConversationStorage {
+  save(conversation: Conversation): Promise<void>
+  get(id: string): Promise<Conversation>
+  getByUser(userId: string): Promise<Conversation[]>
+  delete(id: string): Promise<void>
+}
+
+export class FirebaseExerciseStorage implements ExerciseStorage { ... }
+export class FirebaseDemoStorage implements DemoStorage { ... }
+```
+
+**Note**: This is the **recommended** storage implementation. Most users will use this package.
+
+---
+
+### Package: `@downpat-oss/ui-components`
+
+**Purpose**: React UI components for conversation interface
+
+**Contents**:
+- ChatMessages component
+- ChatMessage component
+- Message type renderers (UserMessage, PartnerMessage, CommentaryMessage, etc.)
+- Message actions (rate, regenerate, report)
+- Chat input component
+- Loading states
+- Theme provider
+
+**Dependencies**:
+- `@downpat-oss/core`
+- React
+- Radix UI (peer dependency?)
+- TailwindCSS (peer dependency?)
+
+**Exports**:
+```typescript
+export { ChatMessages, ChatMessage, ChatInput }
+export { UserMessage, PartnerMessage, CommentaryMessage, ... }
+export { ThemeProvider, useTheme }
+export { ChatMessageActions }
+```
+
+**Questions**:
+- Styled or unstyled?
+- Tailwind required?
+- How much customization?
+
+---
+
+### Package: `@downpat-oss/admin-ui`
+
+**Purpose**: React UI components for admin/exercise management
+
+**Contents**:
+- Exercise creation form
+- Exercise editor
+- Starter message editor
+- Exercise list/grid
+- Demo link generator
+- Preview components
+
+**Dependencies**:
+- `@downpat-oss/core`
+- `@downpat-oss/exercise-manager`
+- React
+- Form library (react-hook-form?)
+- UI components (Radix UI?)
+
+**Exports**:
+```typescript
+export { ExerciseCreator, ExerciseEditor }
+export { StarterMessageEditor }
+export { ExerciseList, ExerciseCard }
+export { DemoLinkGenerator }
+```
+
+**Questions**:
+- Integrated forms or headless?
+- Validation handling?
+
+---
+
+### Package: `@downpat-oss/react-hooks` (Optional)
+
+**Purpose**: React hooks for common operations
+
+**Contents**:
+- `useConversation` - Manage conversation state
+- `useExercise` - Fetch/manage exercises
+- `useAuth` - Auth integration
+- `useSocket` - Socket connection (if applicable)
+
+**Dependencies**:
+- `@downpat-oss/core`
+- `@downpat-oss/conversation-engine`
+- `@downpat-oss/exercise-manager`
+- React
+
+**Exports**:
+```typescript
+export function useConversation(conversationId: string) { ... }
+export function useExercise(exerciseId: string) { ... }
+export function useAuth() { ... }
+```
+
+---
+
+### Example App: `downpat-example-app`
+
+**Purpose**: Reference implementation showing integration (as simple as possible)
+
+**Tech Stack**:
+- Backend: Node.js + Express
+- Frontend: React (simple setup, create-react-app or similar)
+- TypeScript
+- TailwindCSS or vanilla CSS
+- Firebase (Firestore + Auth)
+- One AI provider (OpenAI or Anthropic)
+- **No meta-frameworks**: Keep it simple and clear
+
+**Features**:
+- User authentication
+- Exercise creation (admin view)
+- Exercise list
+- Conversation interface
+- Demo/anonymous access
+- Theming example
+
+**Structure**:
+```
+example-app/
+├── server/                    # Express backend
+│   ├── src/
+│   │   ├── routes/           # API routes
+│   │   ├── config/           # Configuration
+│   │   └── server.js         # Express app
+│   └── package.json
+├── client/                    # React frontend
+│   ├── src/
+│   │   ├── components/       # App-specific components
+│   │   ├── pages/            # Page components
+│   │   ├── lib/              # Integration code
+│   │   └── index.js          # React entry point
+│   ├── public/               # Static assets
+│   └── package.json
+├── tests/                     # Integration & E2E tests
+└── README.md                  # Setup guide
+```
+
+---
+
+## Implementation Phases
+
+### Phase 0: Planning & Setup (Current Phase)
+- [ ] Answer all key questions in this spec
+- [ ] Get stakeholder approval on decisions
+- [ ] Set up repository structure
+- [ ] Configure build tools (NX, TypeScript, etc.)
+- [ ] Set up CI/CD pipeline
+- [ ] Choose and document license
+
+### Phase 1: Core Package
+- [ ] Extract and clean core types/interfaces
+- [ ] Set up validation schemas
+- [ ] Create utility functions
+- [ ] Write unit tests
+- [ ] Document APIs
+- [ ] Publish v0.1.0
+
+### Phase 2: Storage Layer
+- [ ] Design storage interface
+- [ ] Implement Firebase storage package
+- [ ] Write storage tests (with emulator)
+- [ ] Document Firestore schema
+- [ ] Document security rules
+- [ ] Publish v0.1.0
+
+### Phase 3: Exercise Manager
+- [ ] Extract exercise business logic
+- [ ] Implement CRUD operations
+- [ ] Add versioning (if included)
+- [ ] Write unit tests
+- [ ] Integration tests with storage
+- [ ] Document API
+- [ ] Publish v0.1.0
+
+### Phase 4: Conversation Engine
+- [ ] Extract conversation orchestration logic
+- [ ] Implement task execution
+- [ ] Port AI adapters
+- [ ] Add streaming support (if included)
+- [ ] Write adapter tests (mocked)
+- [ ] Integration tests
+- [ ] Document AI integration
+- [ ] Publish v0.1.0
+
+### Phase 5: UI Components - Conversation
+- [ ] Extract and clean conversation UI components
+- [ ] Set up theming system
+- [ ] Implement message renderers
+- [ ] Add message actions
+- [ ] Write component tests
+- [ ] Create Storybook stories
+- [ ] Document customization
+- [ ] Publish v0.1.0
+
+### Phase 6: Admin UI Components
+- [ ] Extract and clean admin UI components
+- [ ] Create exercise forms
+- [ ] Implement editors
+- [ ] Write component tests
+- [ ] Create Storybook stories
+- [ ] Document usage
+- [ ] Publish v0.1.0
+
+### Phase 7: Example Application
+- [ ] Set up Next.js/Vite project
+- [ ] Integrate all packages
+- [ ] Implement authentication
+- [ ] Create admin pages
+- [ ] Create conversation pages
+- [ ] Add demo/anonymous access
+- [ ] Write integration tests
+- [ ] Write comprehensive README
+- [ ] Deploy demo instance
+
+### Phase 8: Documentation & Polish
+- [ ] Create documentation site
+- [ ] Write getting started guide
+- [ ] Write integration guides
+- [ ] Document best practices
+- [ ] Create video tutorials (optional)
+- [ ] Write migration guide (if needed)
+- [ ] Security audit
+- [ ] Performance optimization
+
+### Phase 9: Release
+- [ ] Final testing across all packages
+- [ ] Security audit
+- [ ] License compliance check
+- [ ] Publish all packages to npm
+- [ ] Tag v1.0.0 release on GitHub
+- [ ] Announce release
+- [ ] Monitor for issues
+
+---
+
+## Testing Strategy
+
+### Unit Tests (All Packages)
+- **Tool**: Jest or Vitest
+- **Coverage Target**: 80%+ for core logic
+- **Focus**:
+  - Business logic
+  - Utilities
+  - Validation
+  - Edge cases
+
+### Integration Tests
+- **Tool**: Jest/Vitest
+- **Focus**:
+  - Package interactions
+  - Firebase integration (with emulator)
+  - AI adapter integration (mocked)
+  - End-to-end flows
+
+### Component Tests (UI Packages)
+- **Tool**: React Testing Library
+- **Focus**:
+  - Component rendering
+  - User interactions
+  - State management
+  - Accessibility
+
+### E2E Tests (Example App)
+- **Tool**: Playwright
+- **Focus**:
+  - Critical user flows
+  - Exercise creation
+  - Conversation flow
+  - Auth flow
+  - Cross-browser compatibility
+
+### Visual Regression (UI Packages)
+- **Tool**: Storybook + Chromatic (optional)
+- **Focus**:
+  - Component appearance
+  - Theme variations
+  - Responsive layouts
+
+---
+
+## Documentation Requirements
+
+### Per Package Documentation
+
+#### README.md
+- Package description
+- Installation instructions
+- Quick start example
+- Basic usage
+- Link to full docs
+
+#### API Documentation
+- All public APIs documented
+- TypeScript types documented
+- Examples for each major function
+- Common use cases
+
+#### CHANGELOG.md
+- Version history
+- Breaking changes highlighted
+- Migration guides for major versions
+
+### Overall Documentation
+
+#### Getting Started Guide
+- Prerequisites
+- Installation
+- Basic setup
+- First exercise creation
+- First conversation
+
+#### Architecture Overview
+- System design
+- Package relationships
+- Data flow
+- Key concepts
+
+#### Integration Guides
+- Firebase setup
+- Authentication integration
+- AI provider setup
+- Theming customization
+- Deployment
+
+#### Best Practices
+- Security considerations
+- Performance optimization
+- Error handling
+- Testing strategies
+
+#### API Reference
+- Complete API docs for all packages
+- Searchable
+- With examples
+
+#### Example App Walkthrough
+- Code tour
+- Architecture decisions
+- Customization points
+
+---
+
+## Success Criteria
+
+### Functional Requirements
+- [ ] Can create and edit exercises
+- [ ] Can have conversations with exercises
+- [ ] Supports at least 2 AI providers
+- [ ] Supports anonymous/demo access
+- [ ] Admin UI works
+- [ ] User UI works
+- [ ] Firebase integration works
+- [ ] Auth integration works
+- [ ] Theming customization works
+
+### Quality Requirements
+- [ ] 80%+ test coverage on packages
+- [ ] All packages have documentation
+- [ ] Example app runs without errors
+- [ ] Example app is well-documented
+- [ ] No security vulnerabilities
+- [ ] No license conflicts
+- [ ] TypeScript types are complete
+- [ ] Accessibility standards met (WCAG 2.1 AA)
+
+### Developer Experience
+- [ ] Clear installation process
+- [ ] Good error messages
+- [ ] Helpful TypeScript types
+- [ ] Example code available
+- [ ] Active documentation
+
+### Performance
+- [ ] Conversation responses < 500ms (non-streaming)
+- [ ] UI renders < 100ms
+- [ ] Bundle size reasonable (< 100kb per package gzipped)
+
+---
+
+## Open Questions Summary
+
+The following questions MUST be answered before implementation begins:
+
+### Critical (Block Implementation)
+1. **Storage abstraction**: Hard require Firebase or create storage interface?
+2. **Auth pattern**: What auth integration pattern do we expose?
+3. **Schema/Task system**: What exactly is "schema step" to drop?
+4. **AI providers**: Which providers to support initially?
+5. **Streaming**: Required or optional? Transport layer?
+6. **Package scope**: What npm scope to use?
+
+### High Priority (Affect Architecture)
+7. **Exercise manager**: Backend-only, isomorphic, or split?
+8. **UI framework**: Styled, unstyled, or hybrid approach?
+9. **Theming**: Full theme system or simple CSS variables?
+10. **Admin auth**: How do host apps designate admins?
+11. **Demo access**: Backend or client-side demo link generation?
+
+### Medium Priority (Affect Features)
+12. **Message types**: Keep all or simplify?
+13. **Exercise versioning**: Keep, simplify, or drop?
+14. **Exercise examples**: Keep or drop?
+15. **Content moderation**: Include, optional, or drop?
+16. **Rate limiting**: Built-in or user's responsibility?
+
+### Lower Priority (Can Decide During Implementation)
+17. **Example app framework**: Next.js or Vite?
+18. **Testing tools**: Jest or Vitest?
+19. **Documentation platform**: README or dedicated site?
+20. **Radix UI**: Bundle or peer dependency?
+
+---
+
+## Next Steps
+
+1. **Review this spec** with stakeholders
+2. **Answer all critical questions** before proceeding
+3. **Make architectural decisions** on high-priority questions
+4. **Refine package structure** based on answers
+5. **Create detailed implementation plan** for Phase 1
+6. **Set up repository** and development environment
+7. **Begin Phase 1 implementation**
+
+---
+
+## Notes for Implementation Agent
+
+### Code Extraction Guidelines
+- Preserve existing business logic where possible
+- Remove all payment-related code
+- Remove all mobile-specific code
+- Remove all subdomain/multi-tenant specific code
+- Simplify organization model (single org assumption)
+- Update imports/dependencies to match new package structure
+- Ensure no secrets in extracted code
+- Add proper error handling where missing
+- Add TypeScript types where missing
+- Follow existing code style and patterns
+
+### Testing Guidelines
+- Write tests as you extract code
+- Use Firebase emulator for storage tests
+- Mock AI providers for conversation tests
+- Test error cases
+- Test edge cases
+- Ensure backward compatibility within major versions
+
+### Documentation Guidelines
+- Document as you build
+- Include JSDoc comments on public APIs
+- Write README for each package
+- Include runnable examples
+- Document breaking changes from legacy
+- Note any assumptions or limitations
+
+---
+
+## Appendix A: Current Codebase Analysis
+
+(Comprehensive codebase analysis from exploration is preserved for reference)
+
+### File Locations Reference
+
+#### Core Models
+- Exercise: `.DownPatNode/libs/shared/src/lib/models/exercises/exercise.ts`
+- Conversation: `.DownPatNode/libs/shared/src/lib/models/conversation.ts`
+- Message: `.DownPatNode/libs/shared/src/lib/models/messages/message.ts`
+- Tasks: `.DownPatNode/libs/shared/src/lib/models/tasks/*.ts`
+
+#### Backend Services
+- Conversation: `.DownPatNode/apps/server/src/services/conversation-service.ts`
+- Exercise: `.DownPatNode/apps/server/src/services/exercise-service.ts`
+- Admin: `.DownPatNode/apps/server/src/services/admin-service.ts`
+
+#### Frontend Components
+- Chat: `.DownPatNode/apps/web/src/components/chat/`
+- Exercise: `.DownPatNode/apps/web/src/components/exercise/`
+- Admin: `.DownPatNode/apps/web/src/components/pages/PageCreatorDashboard.tsx`
+
+#### AI Integration
+- Adapters: `.DownPatNode/apps/server/src/adapters/`
+- Interface: `.DownPatNode/apps/server/src/adapters/adapter-interface.ts`
+
+#### Storage
+- Stores: `.DownPatNode/apps/server/src/stores/`
+- Firebase Init: `.DownPatNode/apps/server/src/firebase.ts`
+
+### Dependencies to Review
+- Which can stay?
+- Which need updating?
+- Which should be peer dependencies?
+- Any security vulnerabilities?
+
+---
+
+**End of Specification**
+
+*This specification is a living document. As questions are answered and decisions are made, this document should be updated to reflect the current plan.*
