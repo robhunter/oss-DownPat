@@ -162,18 +162,21 @@ DownPat was a platform that hosted educational prompts based on books and other 
     └── ui/              # Reusable UI components
 ```
 
-### Proposed Package Architecture
+### Package Architecture
 
 ```
-@downpat-oss/
-├── core/                # Core models, constants, types
+@downpat/
+├── core/                # Types, constants, controllers (framework-agnostic)
 ├── exercise-manager/    # Exercise creation and management logic
 ├── conversation-engine/ # Conversation logic, AI adapters, message handling
-├── firebase-storage/    # Firebase integration layer
+├── firebase-storage/    # Firebase integration layer (recommended)
+├── express/             # Express integration (HTTP routes + Socket.io)
 ├── ui-components/       # React UI components for conversations
 ├── admin-ui/            # React UI components for admin interface
 └── example-app/         # Example Node.js + Express + React app showing integration
 ```
+
+**Note**: All 6 critical architectural decisions are now complete. Package structure is finalized.
 
 ---
 
@@ -182,7 +185,7 @@ DownPat was a platform that hosted educational prompts based on books and other 
 ### 1. Package Boundaries & Dependencies
 
 #### Q1.1: Core Package Design
-- **Question**: What should be included in the `@downpat-oss/core` package?
+- **Question**: What should be included in the `@downpat/core` package?
 - **Context**: Need to determine minimal shared types, constants, and utilities
 - **Options**:
   - A) Minimal: Only TypeScript interfaces/types (Exercise, Conversation, Message, Task)
@@ -192,7 +195,7 @@ DownPat was a platform that hosted educational prompts based on books and other 
 - **Recommendation Needed**: Which approach balances reusability vs. package bloat?
 
 #### Q1.2: Exercise Manager Package Scope
-- **Question**: Should `@downpat-oss/exercise-manager` be backend-only, frontend-only, or isomorphic?
+- **Question**: Should `@downpat/exercise-manager` be backend-only, frontend-only, or isomorphic?
 - **Context**: Currently exercise logic spans server services, stores, and frontend APIs
 - **Options**:
   - A) Backend-only: Exercise CRUD operations, versioning logic (requires separate frontend package)
@@ -219,8 +222,8 @@ DownPat was a platform that hosted educational prompts based on books and other 
 - **Question**: Should Firebase be a hard requirement or an optional storage backend?
 - **Context**: User said "okay to require Firebase" but we should verify this is the best approach
 - **Decision**: ✅ **Storage abstraction with Firebase as the official/recommended implementation**
-  - Create storage interfaces in `@downpat-oss/core`
-  - Implement Firebase storage in `@downpat-oss/firebase-storage` (recommended package)
+  - Create storage interfaces in `@downpat/core`
+  - Implement Firebase storage in `@downpat/firebase-storage` (recommended package)
   - Allow community/users to implement other backends if needed
 - **Rationale**:
   - **Default path is simple**: Most users install firebase-storage, provide credentials, done
@@ -239,8 +242,8 @@ DownPat was a platform that hosted educational prompts based on books and other 
 - **Question**: How should UI components be organized?
 - **Context**: Current codebase has libs/ui (generic components) and app-specific components
 - **Options**:
-  - A) Single `@downpat-oss/ui` package with all components
-  - B) Split: `@downpat-oss/ui-primitives` (generic) + `@downpat-oss/conversation-ui` (domain-specific)
+  - A) Single `@downpat/ui` package with all components
+  - B) Split: `@downpat/ui-primitives` (generic) + `@downpat/conversation-ui` (domain-specific)
   - C) Three packages: primitives, conversation-ui, admin-ui
 - **Considerations**:
   - Users may want conversation UI without admin UI
@@ -413,7 +416,7 @@ DownPat was a platform that hosted educational prompts based on books and other 
   - **Same origin**: Single server, single port, no CORS issues
 - **Framework Requirements**:
   - v1 requires Express (or Express-compatible framework)
-  - Future: Can add `@downpat-oss/nextjs`, `@downpat-oss/fastify` adapters
+  - Future: Can add `@downpat/nextjs`, `@downpat/fastify` adapters
   - No refactoring needed: Controller pattern keeps core framework-agnostic
 - **Socket.io Benefits**:
   - Built-in fallbacks (automatically uses long-polling if WebSockets blocked)
@@ -734,7 +737,7 @@ DownPat was a platform that hosted educational prompts based on books and other 
 - **Question**: What should the npm scope be?
 - **Options**:
   - A) `@downpat/*` (requires npm org ownership)
-  - B) `@downpat-oss/*` (clearly marks as open source)
+  - B) `@downpat/*` (clearly marks as open source)
   - C) No scope, just `downpat-core`, etc.
 - **Considerations**:
   - Scope availability
@@ -883,7 +886,7 @@ DownPat was a platform that hosted educational prompts based on books and other 
 
 Based on the questions above, here's an initial proposal for package organization:
 
-### Package: `@downpat-oss/core`
+### Package: `@downpat/core`
 
 **Purpose**: Shared types, interfaces, constants, and **framework-agnostic controllers**
 
@@ -959,7 +962,7 @@ export { ExerciseSchema, ConversationSchema, ... }
 
 ---
 
-### Package: `@downpat-oss/exercise-manager`
+### Package: `@downpat/exercise-manager`
 
 **Purpose**: Exercise creation, management, and versioning logic
 
@@ -971,8 +974,8 @@ export { ExerciseSchema, ConversationSchema, ... }
 - Exercise metadata handling
 
 **Dependencies**:
-- `@downpat-oss/core` (for types and storage interfaces)
-- Storage implementation (user provides, e.g., `@downpat-oss/firebase-storage`)
+- `@downpat/core` (for types and storage interfaces)
+- Storage implementation (user provides, e.g., `@downpat/firebase-storage`)
 
 **Exports**:
 ```typescript
@@ -991,7 +994,7 @@ export class ExerciseManager {
 
 ---
 
-### Package: `@downpat-oss/conversation-engine`
+### Package: `@downpat/conversation-engine`
 
 **Purpose**: Conversation logic, message handling, AI integration
 
@@ -1005,8 +1008,8 @@ export class ExerciseManager {
 - Message formatting and filtering
 
 **Dependencies**:
-- `@downpat-oss/core` (for types and storage interfaces)
-- Storage implementation (user provides, e.g., `@downpat-oss/firebase-storage`)
+- `@downpat/core` (for types and storage interfaces)
+- Storage implementation (user provides, e.g., `@downpat/firebase-storage`)
 - AI provider SDKs (OpenAI, Anthropic, etc.)
 - (TBD based on transport decisions - socket.io?)
 
@@ -1033,7 +1036,7 @@ export { OpenAIAdapter, AnthropicAdapter, ... }
 
 ---
 
-### Package: `@downpat-oss/firebase-storage`
+### Package: `@downpat/firebase-storage`
 
 **Purpose**: Official Firebase/Firestore implementation of storage interfaces (recommended)
 
@@ -1047,13 +1050,13 @@ export { OpenAIAdapter, AnthropicAdapter, ... }
 - Migration scripts (if needed)
 
 **Dependencies**:
-- `@downpat-oss/core` (for storage interfaces)
+- `@downpat/core` (for storage interfaces)
 - `firebase-admin` (server)
 - `firebase` (client)
 
 **Exports**:
 ```typescript
-// Implements interfaces from @downpat-oss/core
+// Implements interfaces from @downpat/core
 export class FirebaseConversationStorage implements ConversationStorage {
   save(conversation: Conversation): Promise<void>
   get(id: string): Promise<Conversation>
@@ -1069,7 +1072,7 @@ export class FirebaseDemoStorage implements DemoStorage { ... }
 
 ---
 
-### Package: `@downpat-oss/express`
+### Package: `@downpat/express`
 
 **Purpose**: Express integration providing HTTP routes and Socket.io setup (thin wrapper around core controllers)
 
@@ -1084,7 +1087,7 @@ export class FirebaseDemoStorage implements DemoStorage { ... }
 **Key Architecture**: Thin wrapper that extracts data from Express requests, calls core controllers, formats responses
 
 **Dependencies**:
-- `@downpat-oss/core` (for controllers and types)
+- `@downpat/core` (for controllers and types)
 - `express` (peer dependency)
 - `socket.io` (for streaming)
 
@@ -1122,7 +1125,7 @@ export interface DownpatRouter {
 **Usage Example**:
 ```javascript
 const express = require('express');
-const { createDownpatRouter } = require('@downpat-oss/express');
+const { createDownpatRouter } = require('@downpat/express');
 
 const app = express();
 
@@ -1163,12 +1166,12 @@ downpat.attachSocketIO(server);
 - `stream-complete` - Emitted when response finished
 
 **Future Packages**:
-- `@downpat-oss/nextjs` - Next.js API route handlers (same controllers, different wrapper)
-- `@downpat-oss/fastify` - Fastify integration (same controllers, different wrapper)
+- `@downpat/nextjs` - Next.js API route handlers (same controllers, different wrapper)
+- `@downpat/fastify` - Fastify integration (same controllers, different wrapper)
 
 ---
 
-### Package: `@downpat-oss/ui-components`
+### Package: `@downpat/ui-components`
 
 **Purpose**: React UI components for conversation interface
 
@@ -1182,7 +1185,7 @@ downpat.attachSocketIO(server);
 - Theme provider
 
 **Dependencies**:
-- `@downpat-oss/core`
+- `@downpat/core`
 - React
 - Radix UI (peer dependency?)
 - TailwindCSS (peer dependency?)
@@ -1202,7 +1205,7 @@ export { ChatMessageActions }
 
 ---
 
-### Package: `@downpat-oss/admin-ui`
+### Package: `@downpat/admin-ui`
 
 **Purpose**: React UI components for admin/exercise management
 
@@ -1215,8 +1218,8 @@ export { ChatMessageActions }
 - Preview components
 
 **Dependencies**:
-- `@downpat-oss/core`
-- `@downpat-oss/exercise-manager`
+- `@downpat/core`
+- `@downpat/exercise-manager`
 - React
 - Form library (react-hook-form?)
 - UI components (Radix UI?)
@@ -1235,7 +1238,7 @@ export { DemoLinkGenerator }
 
 ---
 
-### Package: `@downpat-oss/react-hooks` (Optional)
+### Package: `@downpat/react-hooks` (Optional)
 
 **Purpose**: React hooks for common operations
 
@@ -1246,9 +1249,9 @@ export { DemoLinkGenerator }
 - `useSocket` - Socket connection (if applicable)
 
 **Dependencies**:
-- `@downpat-oss/core`
-- `@downpat-oss/conversation-engine`
-- `@downpat-oss/exercise-manager`
+- `@downpat/core`
+- `@downpat/conversation-engine`
+- `@downpat/exercise-manager`
 - React
 
 **Exports**:
@@ -1554,7 +1557,7 @@ The following questions MUST be answered before implementation begins:
 3. ✅ **Schema/Task system**: Drop ExtractTask (schema extraction to PDF)
 4. ✅ **AI providers**: OpenAI, Anthropic, Gemini (dynamic availability based on config)
 5. ✅ **Streaming**: Socket.io required, Express integration with controller pattern
-6. ⏳ **Package scope**: What npm scope to use?
+6. ✅ **Package scope**: `@downpat/` for all packages
 
 ### High Priority (Affect Architecture)
 7. **Exercise manager**: Backend-only, isomorphic, or split?

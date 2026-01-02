@@ -214,15 +214,24 @@ downpat.attachSocketIO(server);
 
 **Impact**: Express dependency for v1, core uses controller pattern for framework independence
 
-### 6. Package Scope/Naming (CRITICAL)
-**Question**: What npm scope should we use?
+### 6. Package Scope/Naming (CRITICAL) ✅ DECIDED
 
-Options:
-- `@downpat/*`
-- `@downpat-oss/*`
-- No scope (e.g., `downpat-core`)
+**Decision**: Use `@downpat/` scope
 
-**Impact**: Publishing, branding, availability
+**Package Names**:
+- `@downpat/core`
+- `@downpat/express`
+- `@downpat/exercise-manager`
+- `@downpat/conversation-engine`
+- `@downpat/firebase-storage`
+- `@downpat/ui-components`
+- `@downpat/admin-ui`
+
+**Prerequisites**: Create/own npm organization `@downpat` (register on npmjs.com if needed)
+
+**Rationale**: Clean, professional, matches branding, consistent naming
+
+**Impact**: All packages published under `@downpat` scope
 
 ## Other Important Decisions Needed
 

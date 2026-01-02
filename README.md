@@ -57,10 +57,10 @@ We're creating a set of open-source npm packages that enable developers to build
 - **Anonymous Access**: Demo/public sharing functionality
 - **Multi-AI Support**: OpenAI, Anthropic, Gemini (dynamic availability)
 
-## 📦 Proposed Package Structure
+## 📦 Package Structure
 
 ```
-@downpat-oss/
+@downpat/
 ├── core                 # Types, constants, controllers (framework-agnostic)
 ├── exercise-manager     # Exercise creation and management
 ├── conversation-engine  # Conversation logic and AI adapters
@@ -98,7 +98,7 @@ Before implementation can begin, these 6 critical questions must be answered:
 3. ✅ **"Schema Step" Clarification**: Drop ExtractTask (structured data extraction to PDF)
 4. ✅ **AI Provider Support**: OpenAI, Anthropic, Gemini (dynamic availability based on configured keys)
 5. ✅ **Streaming & Transport**: Socket.io required, Express integration with controller pattern
-6. ⏳ **Package Scope**: What npm scope/naming to use?
+6. ✅ **Package Scope**: `@downpat/` for all packages
 
 See [SUMMARY.md](SUMMARY.md) for details on each question and [AUTH_INTEGRATION.md](AUTH_INTEGRATION.md) for the complete authentication guide.
 

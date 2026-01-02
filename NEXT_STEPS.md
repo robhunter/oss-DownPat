@@ -242,25 +242,35 @@ downpat.attachSocketIO(server); // Same server, same origin
 
 ---
 
-### 6. Package Scope & Naming
+### 6. Package Scope & Naming ✅ DECIDED
 
-**Decision**: What npm organization/scope should we use?
+**Decision**: Use `@downpat/` scope
 
-**Your Choice**:
-- [ ] **@downpat/*** (requires npm org ownership)
-- [ ] **@downpat-oss/*** (clearly marks as open source)
-- [ ] **No scope** (e.g., `downpat-core`, `downpat-ui`)
-- [ ] **Other**: _____________________
+- [x] **Selected**: `@downpat/*` scope
+  - Clean, professional naming
+  - Matches branding
+  - Requires npm organization ownership (create if needed)
 
-**Your Decision**: _____________________
+**Package Names**:
+- **Core**: `@downpat/core`
+- **Express**: `@downpat/express`
+- **Exercise Manager**: `@downpat/exercise-manager`
+- **Conversation Engine**: `@downpat/conversation-engine`
+- **Firebase Storage**: `@downpat/firebase-storage`
+- **UI Components**: `@downpat/ui-components`
+- **Admin UI**: `@downpat/admin-ui`
 
-**Package Names** (based on your scope choice):
-- Core: _____________________
-- Exercise Manager: _____________________
-- Conversation Engine: _____________________
-- Firebase Storage: _____________________
-- UI Components: _____________________
-- Admin UI: _____________________
+**Prerequisites**:
+- Create/own npm organization: `@downpat`
+- Register organization on npmjs.com if not already owned
+
+**Rationale**:
+- Clean, short package names
+- Professional branding
+- Consistent with project name
+- Clear ownership
+
+**Impact**: All packages published under `@downpat` scope
 
 ---
 
@@ -546,8 +556,9 @@ Once you've made your decisions, fill out this summary:
 - **AI Providers**: OpenAI, Anthropic, Gemini (dynamic availability) ✅
 
 ### Package Scope
-- **Scope**: _____________________
-- **Core Package Name**: _____________________
+- **Scope**: `@downpat/` ✅
+- **Core Package Name**: `@downpat/core` ✅
+- **All Packages**: `@downpat/core`, `@downpat/express`, `@downpat/firebase-storage`, `@downpat/ui-components`, `@downpat/admin-ui`
 
 ### Features
 - **Task System**: Drop ExtractTask, keep all other tasks ✅
