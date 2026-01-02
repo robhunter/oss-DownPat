@@ -106,16 +106,32 @@ I've identified **20 key questions** that must be answered before implementation
 
 **Impact**: Clean architecture with simple default path for 90% of users
 
-### 2. Authentication Pattern (CRITICAL)
-**Question**: How do we integrate with host application authentication?
+### 2. Authentication Pattern (CRITICAL) ✅ DECIDED
 
-You mentioned host apps should handle auth, but we need to define:
-- What interface do we expose for auth integration?
-- How do host apps tell us if a user is authenticated?
-- How do they designate admin users?
-- How does anonymous/demo access work?
+**Decision**: Token-based authentication with client/server provider pattern
 
-**Impact**: Affects security, API design, example app
+**Approach**:
+- **Client**: Provides opaque tokens via `ClientAuthProvider` interface
+- **Server**: Validates tokens via `ServerAuthProvider` interface and returns `User` model
+- **User Model**: `{ userId, displayName, isAdmin, isSubscriber }`
+- **Token Type**: Opaque (works with JWT, session tokens, API keys, Firebase tokens, etc.)
+- **Demo Mode**: No token required, uses shared "demo-user" ID
+- **Token Refresh**: Single retry pattern (validate → fail → get fresh token → retry)
+- **Validation**: Fresh validation on every request, no caching
+
+**Rationale**:
+- Security: Server-side validation only, never trust client userId
+- Flexibility: Works with any auth system (Firebase, Auth0, custom, etc.)
+- Simple demo: No authentication required for demo users
+- Host control: Host app validates tokens however they want
+
+**Access Control**:
+- Conversation access: Owner + admins
+- Start conversation: Subscribers only (demo users bypass)
+- Admin UI: Admins only
+- Exercise creation: Admins only
+
+**Impact**: See AUTH_INTEGRATION.md for complete implementation guide
 
 ### 3. "Schema Step" Clarification (CRITICAL)
 **Question**: What exactly is the "schema step" functionality to drop?

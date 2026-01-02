@@ -88,18 +88,18 @@ We're creating a set of open-source npm packages that enable developers to build
 ### Phase 2+: Implementation
 See [spec.md](spec.md) for detailed implementation phases
 
-## ⚠️ Critical Decisions Needed
+## ⚠️ Critical Decisions
 
 Before implementation can begin, these 6 critical questions must be answered:
 
-1. **Storage Architecture**: Hard require Firebase or create abstraction?
-2. **Authentication Pattern**: How do host apps integrate their auth?
-3. **"Schema Step" Clarification**: What exactly should we drop?
-4. **AI Provider Support**: Which providers to support?
-5. **Streaming & Transport**: How to handle real-time responses?
-6. **Package Scope**: What npm scope/naming to use?
+1. ✅ **Storage Architecture**: Storage abstraction with Firebase as official implementation
+2. ✅ **Authentication Pattern**: Token-based (client provides tokens, server validates)
+3. ⏳ **"Schema Step" Clarification**: What exactly should we drop?
+4. ⏳ **AI Provider Support**: Which providers to support?
+5. ⏳ **Streaming & Transport**: How to handle real-time responses?
+6. ⏳ **Package Scope**: What npm scope/naming to use?
 
-See [SUMMARY.md](SUMMARY.md) for details on each question.
+See [SUMMARY.md](SUMMARY.md) for details on each question and [AUTH_INTEGRATION.md](AUTH_INTEGRATION.md) for the complete authentication guide.
 
 ## 📋 What's In vs Out
 

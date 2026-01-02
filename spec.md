@@ -248,41 +248,66 @@ DownPat was a platform that hosted educational prompts based on books and other 
 
 ### 2. Authentication & Authorization
 
-#### Q2.1: Authentication Interface Design
-- **Question**: How should we expose authentication integration to host applications?
-- **Context**: User wants to leverage host app's auth, not force Firebase Auth
-- **Options**:
-  - A) Auth interface/contract that host app implements
-  - B) Support both Firebase Auth + custom auth providers
-  - C) Assume auth is handled externally, just accept tokens/user IDs
-- **Required Capabilities**:
-  - Identify logged-in users
-  - Determine if user can access a conversation (ownership)
-  - Identify admin users
-  - Support anonymous/demo users
+#### Q2.1: Authentication Interface Design ✅ DECIDED
+- **Decision**: Token-based authentication with client/server provider pattern
+- **Selected**: Option A (Auth interface/contract that host app implements)
+- **Implementation**:
+  ```typescript
+  // Client-side: Provides opaque auth tokens
+  interface ClientAuthProvider {
+    getToken(): Promise<string | null>
+    onAuthChange(callback: (hasAuth: boolean) => void): () => void
+  }
 
-#### Q2.2: Authorization Model
-- **Question**: How should we handle permission checks for exercises and conversations?
-- **Context**: Current code has Gatekeeper class with various permission checks
-- **Specific Questions**:
-  - Who can create exercises? (Admins only? Any authenticated user?)
-  - Who can access a conversation? (Owner only? Public conversations allowed?)
-  - Who can access admin interface? (How does host app designate admins?)
-  - How do demo/anonymous conversations work with this model?
-- **Options**:
-  - A) Simple: Creator (admin) vs Consumer (regular user) roles
-  - B) Flexible: Host app provides authorization callbacks
-  - C) Configurable: Per-exercise access control settings
+  // Server-side: Validates tokens and returns user data
+  interface ServerAuthProvider {
+    validateToken(token: string): Promise<User>
+    getDemoUser(): User
+  }
 
-#### Q2.3: Demo/Anonymous Access
-- **Question**: How should unauthenticated access work?
-- **Context**: Current system has demo links with message limits
-- **Specific Questions**:
-  - Should demo links require backend generation or can they be client-side?
-  - How do we prevent abuse of anonymous access?
-  - Should demo conversations be persisted? For how long?
-  - Can authenticated users also use demo mode?
-- **User Requirement**: "The host application should be able to publish anonymous or unauthenticated versions of exercises similar to our current demo-link functionality"
+  // User model
+  interface User {
+    userId: string        // Unique identifier
+    displayName: string   // Display name for UI
+    isAdmin: boolean      // Can access admin interface, view all conversations
+    isSubscriber: boolean // Can start new conversations
+  }
+  ```
+- **Key Decisions**:
+  - **Opaque tokens**: Works with JWT, session tokens, API keys, Firebase tokens, etc.
+  - **Server-side validation**: Never trust client userId, always validate server-side
+  - **Token refresh**: Single retry pattern (validate → fail → get fresh token → retry)
+  - **No caching**: Fresh validation on every request
+  - **Demo mode**: No token required, uses shared "demo-user" ID
+- **Rationale**: Security (server validates), flexibility (any auth system), simplicity (clear interfaces)
+- **See**: AUTH_INTEGRATION.md for complete implementation guide
+
+#### Q2.2: Authorization Model ✅ DECIDED
+- **Decision**: Simple role-based access control via User model
+- **Access Control Rules**:
+  - **Conversation access**: Owner + admins can view (packages enforce via userId check)
+  - **Start conversation**: Subscribers only (`isSubscriber: true`), demo users bypass this check
+  - **Admin UI**: Admins only (`isAdmin: true`)
+  - **Exercise creation**: Admins only (`isAdmin: true`)
+  - **Exercise viewing**: All authenticated users can view exercises
+- **Implementation**: Packages handle access control checks using User properties
+- **Flexibility**: Host apps control roles by setting `isAdmin` and `isSubscriber` in `validateToken()`
+- **Rationale**: Simple, secure, sufficient for most use cases
+
+#### Q2.3: Demo/Anonymous Access ✅ DECIDED
+- **Decision**: Simplified demo mode with shared demo user
+- **Implementation**:
+  - No authentication token required for demo users
+  - Shared userId: "demo-user"
+  - Demo conversations ARE stored in database (for quality control)
+  - Demo users marked with `isAdmin: false` and `isSubscriber: false`
+  - Demo users bypass subscription checks (can start conversations)
+  - Demo users can only access their own conversations (not other demos)
+- **Demo Link Generation**:
+  - Simple approach: Just a demo code/link
+  - No usage tracking or limits in v1 (can be added later)
+  - Host app can generate demo links as needed
+- **Rationale**: Simplicity, security (conversations stored for review), flexibility (host controls demo access)
 
 ### 3. Exercise & Conversation Features
 

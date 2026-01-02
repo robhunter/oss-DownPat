@@ -33,45 +33,55 @@ This checklist helps you make the critical decisions needed before implementatio
 
 ---
 
-### 2. Authentication Integration
+### 2. Authentication Integration ✅ DECIDED
 
-**Decision**: How do host applications integrate their authentication?
+**Decision**: Token-based authentication with client/server provider pattern
 
-- [ ] **Option A**: Provide auth interface/callbacks that host implements
-  ```typescript
-  interface AuthProvider {
-    getCurrentUser(): Promise<User | null>
-    isAdmin(user: User): Promise<boolean>
-    onAuthChange(callback: (user: User | null) => void): () => void
-  }
-  ```
+- [x] **Selected**: Two-sided authentication pattern
+  - **Client-side**: `ClientAuthProvider` provides opaque tokens
+  - **Server-side**: `ServerAuthProvider` validates tokens and returns user data
+  - Opaque tokens (host validates however they want - JWT, session, API key, etc.)
 
-- [ ] **Option B**: Support both Firebase Auth + custom providers
-  ```typescript
-  // Either use Firebase Auth
-  initWithFirebase(firebaseConfig)
-  // Or provide custom auth
-  initWithCustomAuth(authProvider)
-  ```
+```typescript
+// Client provides tokens
+interface ClientAuthProvider {
+  getToken(): Promise<string | null>
+  onAuthChange(callback: (hasAuth: boolean) => void): () => void
+}
 
-- [ ] **Option C**: Auth handled entirely externally, we just accept user IDs
-  ```typescript
-  // Caller provides user context with each request
-  conversationEngine.continueConversation(conversationId, message, { userId, isAdmin })
-  ```
+// Server validates tokens and extracts user info
+interface ServerAuthProvider {
+  validateToken(token: string): Promise<User>
+  getDemoUser(): User
+}
 
-**Your Decision**: _____________________
+// User model
+interface User {
+  userId: string
+  displayName: string
+  isAdmin: boolean
+  isSubscriber: boolean
+}
+```
 
-**Details**:
-- How should host app provide user information?
-- How do we identify admin users?
-- How does anonymous/demo access fit in?
+**Rationale**:
+- **Security**: Tokens validated server-side, never trust client userId
+- **Flexibility**: Opaque tokens work with any auth system (Firebase, Auth0, custom JWT, sessions)
+- **Simple demo**: No token required for demo users
+- **Token refresh**: Single retry pattern (validate → fail → get fresh token → retry)
+- **Fresh validation**: No caching, validate on every request
 
-**Example App Auth Choice**:
-- [ ] Firebase Auth (easiest for example)
-- [ ] NextAuth.js (shows custom integration)
-- [ ] Clerk (modern, shows SaaS integration)
-- [ ] Simple custom auth (shows minimal integration)
+**Access Control Rules**:
+- **Conversation access**: Owner + admins can view
+- **Start conversation**: Subscribers only (demo users bypass this check)
+- **Admin UI**: Admins only
+- **Exercise creation**: Admins only
+
+**Impact**:
+- Host apps implement both client and server auth providers
+- Packages handle validation logic and access control
+- Demo mode works without authentication
+- See AUTH_INTEGRATION.md for complete implementation guide
 
 ---
 
@@ -464,7 +474,7 @@ Once you've made your decisions, fill out this summary:
 
 ### Core Architecture
 - **Storage**: Storage abstraction with Firebase as official implementation ✅
-- **Auth Pattern**: _____________________
+- **Auth Pattern**: Token-based (client provides tokens, server validates) ✅
 - **Streaming**: _____________________
 - **AI Providers**: _____________________
 
