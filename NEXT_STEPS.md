@@ -276,15 +276,26 @@ downpat.attachSocketIO(server); // Same server, same origin
 
 ## HIGH PRIORITY DECISIONS
 
-### 7. Exercise Manager Architecture
+### 7. Exercise Manager Architecture ✅ RESOLVED
 
-**Decision**: Should exercise-manager be backend-only, isomorphic, or split?
+**Decision**: Not needed as separate package - logic lives in core controllers
 
-- [ ] **Backend only**: Server-side CRUD operations only
-- [ ] **Isomorphic**: Works on both client and server
-- [ ] **Split packages**: Core logic + backend API + frontend client
+- [x] **Backend only** (via ExerciseController in `@downpat/core`)
+  - ExerciseController contains all business logic (framework-agnostic)
+  - Express package provides HTTP routes (thin wrapper)
+  - Admin UI provides React components (forms/dashboard)
 
-**Your Decision**: _____________________
+**Rationale**: Controller pattern (from streaming decision) already handles this. No need for separate `exercise-manager` or `conversation-engine` packages.
+
+**Package Structure Updated**:
+```
+@downpat/
+├── core          # ExerciseController + ConversationController (business logic)
+├── express       # HTTP routes + Socket.io (thin wrapper)
+├── admin-ui      # Admin dashboard React components
+```
+
+**Status**: Resolved by controller pattern decision
 
 ---
 
@@ -328,33 +339,40 @@ Current system has elaborate multi-tenant theme factory with CSS variables.
 
 ---
 
-### 10. Demo Link Generation
+### 10. Demo Link Generation ✅ DECIDED
 
-**Decision**: Where should demo links be generated?
+**Decision**: Backend only (server generates demo links)
 
-- [ ] **Backend only**: Server generates links (more secure)
-- [ ] **Client-side allowed**: Frontend can create demo codes
-- [ ] **Configurable**: Support both modes
+- [x] **Backend only**: Server generates links via admin-only endpoint
+  - More secure (only admins can create demo links)
+  - Prevents abuse
+  - Simpler implementation
 
-**Your Decision**: _____________________
+**Rationale**: Security and access control - only authenticated admins should create demo links
+
+**Implementation**: Admin UI calls POST `/api/downpat/demo-links` endpoint
 
 ---
 
 ## MEDIUM PRIORITY DECISIONS
 
-### 11. Message Types
+### 11. Message Types ⚠️ PARTIALLY DECIDED
 
-**Decision**: Keep all 10 message types or simplify?
+**Decision**: Which message types to keep?
 
 Current types: CONTEXT, MODERATION, STARTER, USER, CONVERSATION, COMMENTARY, EXTRACT, SIMPLE, SIMULATE, SUMMARY
 
-**Your choices** (check all that apply):
-- [ ] Keep all 10
-- [ ] Drop EXTRACT
-- [ ] Drop SIMPLE
-- [ ] Drop SIMULATE
-- [ ] Drop MODERATION
-- [ ] Other changes: _____________________
+**Decided**:
+- [x] Drop EXTRACT (decided with ExtractTask)
+
+**Still to decide**:
+- [ ] Keep SIMPLE? (simple AI responses without structure)
+- [ ] Keep SIMULATE? (role-reversal simulation scenarios)
+- [ ] Keep MODERATION? (content moderation warnings)
+- [ ] Keep all remaining types?
+
+**Core types (definitely keeping)**:
+- USER, CONVERSATION, COMMENTARY, SUMMARY, CONTEXT, STARTER
 
 ---
 
@@ -447,18 +465,11 @@ Examples show users what good conversations look like and provide AI context.
 
 ---
 
-### 19. Component Styling Dependencies
+### 19. Component Styling Dependencies ✅ CONSOLIDATED
 
-**Radix UI**:
-- [ ] Bundle with components
-- [ ] Peer dependency
+**Status**: This is a duplicate of Question 8 (UI Component Approach)
 
-**TailwindCSS**:
-- [ ] Required
-- [ ] Peer dependency
-- [ ] Optional
-
-**Your Decisions**: _____________________
+See Question 8 for decision on TailwindCSS and Radix UI dependencies.
 
 ---
 
@@ -507,6 +518,39 @@ Confirm testing approach:
 - [ ] E2E tests for critical flows
 - [ ] Component tests for UI packages
 - [ ] Document testing best practices
+
+---
+
+## REMAINING DECISIONS SUMMARY
+
+### ✅ Completed (9 questions)
+1. Storage Architecture
+2. Authentication Integration
+3. "Schema Step" Clarification
+4. AI Provider Support
+5. Streaming & Real-time Transport
+6. Package Scope & Naming
+7. Exercise Manager Architecture (resolved by controller pattern)
+10. Demo Link Generation (backend only)
+16. Example App Framework (Vanilla Node.js + Express + React)
+
+### ⚠️ Still Need Decisions (10 questions)
+
+**HIGH PRIORITY** (affect architecture/user experience):
+- **Q8: UI Component Approach** - Styled vs unstyled? TailwindCSS requirement?
+- **Q9: Theming System** - How much theming to include?
+
+**MEDIUM PRIORITY** (affect features):
+- **Q11: Message Types** - Keep SIMPLE, SIMULATE, MODERATION?
+- **Q12: Exercise Versioning** - Keep versioning system?
+- **Q13: Exercise Examples** - Keep examples feature?
+- **Q14: Content Moderation** - Include, make optional, or drop?
+- **Q15: Rate Limiting** - Built-in or user responsibility?
+
+**LOWER PRIORITY** (can decide during implementation):
+- **Q17: Testing Tools** - Jest vs Vitest?
+- **Q18: Documentation Platform** - READMEs vs docs site?
+- **Q20: License** - MIT, Apache 2.0, or other?
 
 ---
 
