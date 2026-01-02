@@ -299,26 +299,58 @@ downpat.attachSocketIO(server); // Same server, same origin
 
 ---
 
-### 8. UI Component Approach
+### 8. UI Component Approach ✅ DECIDED
 
-**Decision**: How should we provide UI components?
+**Decision**: Styled components pre-styled with TailwindCSS
 
-- [ ] **Styled components**: Pre-styled with TailwindCSS (easy to use)
-- [ ] **Unstyled/headless**: Logic only, users style (maximum flexibility)
-- [ ] **Hybrid**: Unstyled primitives + styled examples
-- [ ] **Multiple packages**: Both styled and unstyled versions
-
-**Your Decision**: _____________________
+- [x] **Styled components**: Pre-styled with TailwindCSS (easy to use)
+  - Components come with built-in styles using Tailwind classes
+  - Users can customize via CSS variables for color schemes
+  - TailwindCSS is a peer dependency (users must install)
+  - Dark mode support via CSS variables
 
 **TailwindCSS requirement**:
-- [ ] Required
-- [ ] Optional (provide vanilla CSS alternative)
-- [ ] Not used (different styling approach)
+- [x] **Peer dependency** (required - users must install TailwindCSS)
+  - Host app includes TailwindCSS
+  - Our components use Tailwind utility classes
+  - No bundled CSS to avoid conflicts
 
 **Radix UI dependency**:
-- [ ] Bundle with components
-- [ ] Peer dependency (user installs)
-- [ ] Don't use Radix
+- [x] **Don't use Radix** (keep dependencies minimal)
+  - Current codebase uses 19 Radix packages
+  - Only Avatar and Slot components used in core conversation UI
+  - **Avatar replacement**: Simple div showing user initials (no email/gravatar)
+  - **Slot**: Not needed - use standard composition patterns
+
+**Critical Requirement - Color Customization**:
+```css
+/* Host app provides CSS variables for theming */
+:root {
+  --downpat-primary: #3b82f6;
+  --downpat-background: #ffffff;
+  --downpat-text: #1f2937;
+  /* etc. */
+}
+
+[data-theme="dark"] {
+  --downpat-background: #1f2937;
+  --downpat-text: #f9fafb;
+  /* etc. */
+}
+```
+
+**Rationale**:
+- **Easiest to use**: Users get working UI out of the box
+- **Customizable**: CSS variables allow color scheme changes without forking components
+- **Minimal deps**: No Radix reduces bundle size and complexity
+- **Tailwind peer dep**: Avoids version conflicts, lets host control Tailwind config
+- **Simple Avatar**: Initials in colored circle, no external services needed
+
+**Impact**:
+- TailwindCSS required in host app
+- No Radix UI dependencies
+- Provide default color scheme + CSS variable documentation
+- Simple Avatar component showing user initials
 
 ---
 
@@ -523,7 +555,7 @@ Confirm testing approach:
 
 ## REMAINING DECISIONS SUMMARY
 
-### ✅ Completed (9 questions)
+### ✅ Completed (10 questions)
 1. Storage Architecture
 2. Authentication Integration
 3. "Schema Step" Clarification
@@ -531,13 +563,13 @@ Confirm testing approach:
 5. Streaming & Real-time Transport
 6. Package Scope & Naming
 7. Exercise Manager Architecture (resolved by controller pattern)
+8. UI Component Approach (styled components with Tailwind + CSS variables)
 10. Demo Link Generation (backend only)
 16. Example App Framework (Vanilla Node.js + Express + React)
 
-### ⚠️ Still Need Decisions (10 questions)
+### ⚠️ Still Need Decisions (9 questions)
 
 **HIGH PRIORITY** (affect architecture/user experience):
-- **Q8: UI Component Approach** - Styled vs unstyled? TailwindCSS requirement?
 - **Q9: Theming System** - How much theming to include?
 
 **MEDIUM PRIORITY** (affect features):
@@ -612,10 +644,10 @@ Once you've made your decisions, fill out this summary:
 - **Moderation**: _____________________
 
 ### UI Approach
-- **Component Style**: _____________________
-- **Theming**: _____________________
-- **TailwindCSS**: _____________________
-- **Radix UI**: _____________________
+- **Component Style**: Styled components pre-styled with TailwindCSS ✅
+- **Theming**: CSS variables for color customization (dark mode support) ✅
+- **TailwindCSS**: Peer dependency (required) ✅
+- **Radix UI**: Not using (replace Avatar with initials, skip other Radix components) ✅
 
 ### Example App
 - **Framework**: Vanilla Node.js + Express (backend) + React (frontend)
