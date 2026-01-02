@@ -164,32 +164,81 @@ const config = {
 
 ---
 
-### 5. Streaming & Real-time Transport
+### 5. Streaming & Real-time Transport ✅ DECIDED
 
-**Decision**: How should we handle real-time AI response streaming?
+**Decision**: Streaming required via Socket.io only
 
-Current implementation uses Socket.io for streaming responses.
+- [x] **Selected**: Option A - Require Socket.io for streaming
+  - Streaming is essential for good UX with AI responses
+  - Socket.io only (no SSE, no HTTP streaming alternatives in v1)
+  - Socket.io has built-in fallbacks (long-polling) for environments where WebSockets are blocked
 
-**Your Choice**:
-- [ ] **Option A**: Require Socket.io
-  - Pros: Matches current code, bidirectional
-  - Cons: Infrastructure requirement
+**Architecture - Express Integration with Controller Pattern**:
 
-- [ ] **Option B**: Support multiple transports (Socket.io, SSE, HTTP streaming)
-  - Pros: Flexible
-  - Cons: More complexity
+```typescript
+// @downpat-oss/core (framework-agnostic controllers)
+export class ConversationController {
+  async continueConversation(conversationId, message, user) {
+    // Business logic - no framework dependencies
+  }
+}
 
-- [ ] **Option C**: Non-streaming only
-  - Pros: Simpler
-  - Cons: Worse UX for long responses
+// @downpat-oss/express (thin HTTP wrapper)
+export function createDownpatRouter(config) {
+  const controller = new ConversationController(...);
+  const router = express.Router();
 
-- [ ] **Option D**: Streaming optional, support both
+  // REST endpoints
+  router.post('/conversations/:id/messages', async (req, res) => {
+    const user = await config.serverAuth.validateToken(req.headers.authorization);
+    const result = await controller.continueConversation(...);
+    res.json(result);
+  });
 
-**Your Decision**: _____________________
+  return { router, controller };
+}
 
-**If streaming, preferred transport**: _____________________
+export function attachSocketIO(httpServer, config) {
+  const io = new Server(httpServer);
+  const controller = new ConversationController(...);
 
-**Fallback for non-streaming environments**: _____________________
+  io.on('connection', (socket) => {
+    socket.on('continue-chat', async (data) => {
+      // Stream AI responses via Socket.io
+    });
+  });
+
+  return io;
+}
+
+// Host's server.js
+const app = express();
+const downpat = createDownpatRouter(config);
+app.use('/api/downpat', downpat.router);
+
+const server = app.listen(3000);
+downpat.attachSocketIO(server); // Same server, same origin
+```
+
+**Framework Requirements**:
+- **v1**: Requires Express (or Express-compatible framework)
+- **Future**: Can add `@downpat-oss/nextjs`, `@downpat-oss/fastify` adapters
+- **No refactoring needed**: Core controllers are framework-agnostic
+- **Custom frameworks**: Advanced users can implement their own adapters
+
+**Rationale**:
+- **Same origin**: No CORS issues, simpler deployment
+- **Socket.io benefits**: Bidirectional, auto-reconnect, built-in fallbacks
+- **Single server**: Frontend and backend on same process/port
+- **Matches current code**: Less migration work
+- **Express widely used**: Acceptable requirement for v1
+- **Extensible**: Controller pattern allows future framework adapters
+
+**Impact**:
+- Express dependency for v1
+- Core packages use controller pattern (framework-agnostic)
+- Express package is thin wrapper around controllers
+- Future framework support via new adapter packages
 
 ---
 
@@ -493,7 +542,7 @@ Once you've made your decisions, fill out this summary:
 ### Core Architecture
 - **Storage**: Storage abstraction with Firebase as official implementation ✅
 - **Auth Pattern**: Token-based (client provides tokens, server validates) ✅
-- **Streaming**: _____________________
+- **Streaming**: Socket.io required, Express integration ✅
 - **AI Providers**: OpenAI, Anthropic, Gemini (dynamic availability) ✅
 
 ### Package Scope

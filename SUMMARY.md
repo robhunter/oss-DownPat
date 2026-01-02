@@ -182,15 +182,37 @@ I've identified **20 key questions** that must be answered before implementation
 
 **Impact**: Adapter interface for three providers, provider configuration system, dynamic UI filtering based on available providers
 
-### 5. Streaming & Transport (CRITICAL)
-**Question**: How do we handle real-time streaming responses?
+### 5. Streaming & Transport (CRITICAL) ✅ DECIDED
 
-Current code uses Socket.io for streaming. Options:
-- Require Socket.io
-- Support multiple transports (Socket.io, SSE, HTTP streaming)
-- Non-streaming only (simpler but worse UX)
+**Decision**: Streaming required via Socket.io only, Express integration with controller pattern
 
-**Impact**: Infrastructure requirements, user experience, complexity
+**Streaming**:
+- Required for good UX with AI responses
+- Socket.io only (no SSE or HTTP streaming in v1)
+- Built-in fallbacks (long-polling) for restricted environments
+
+**Architecture**:
+- **Core packages**: Framework-agnostic controllers (business logic)
+- **Express package**: Thin wrapper providing HTTP routes + Socket.io integration
+- **Integration**: Host adds router to existing Express app, attaches Socket.io to same server
+- **Same origin**: No CORS, single port, simplified deployment
+
+**Framework Requirements**:
+- v1 requires Express (or Express-compatible)
+- Future: `@downpat-oss/nextjs`, `@downpat-oss/fastify` adapters
+- Controller pattern enables framework adapters without refactoring
+
+**Example**:
+```javascript
+const downpat = createDownpatRouter(config);
+app.use('/api/downpat', downpat.router);
+const server = app.listen(3000);
+downpat.attachSocketIO(server);
+```
+
+**Rationale**: Same-origin benefits, Socket.io's auto-reconnect/fallbacks, matches current code, Express widely used, extensible via controller pattern
+
+**Impact**: Express dependency for v1, core uses controller pattern for framework independence
 
 ### 6. Package Scope/Naming (CRITICAL)
 **Question**: What npm scope should we use?

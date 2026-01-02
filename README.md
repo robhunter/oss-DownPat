@@ -55,16 +55,17 @@ We're creating a set of open-source npm packages that enable developers to build
 - **Admin Interface**: UI for creating and managing exercises
 - **User Interface**: Conversation UI components
 - **Anonymous Access**: Demo/public sharing functionality
-- **Multi-AI Support**: OpenAI, Anthropic, Gemini, Groq
+- **Multi-AI Support**: OpenAI, Anthropic, Gemini (dynamic availability)
 
 ## 📦 Proposed Package Structure
 
 ```
 @downpat-oss/
-├── core                 # TypeScript types, constants, utilities, storage interfaces
+├── core                 # Types, constants, controllers (framework-agnostic)
 ├── exercise-manager     # Exercise creation and management
 ├── conversation-engine  # Conversation logic and AI adapters
 ├── firebase-storage     # Firebase implementation (recommended storage)
+├── express              # Express integration (HTTP routes + Socket.io)
 ├── ui-components        # React conversation UI components
 ├── admin-ui            # React admin UI components
 └── example-app         # Reference implementation
@@ -96,7 +97,7 @@ Before implementation can begin, these 6 critical questions must be answered:
 2. ✅ **Authentication Pattern**: Token-based (client provides tokens, server validates)
 3. ✅ **"Schema Step" Clarification**: Drop ExtractTask (structured data extraction to PDF)
 4. ✅ **AI Provider Support**: OpenAI, Anthropic, Gemini (dynamic availability based on configured keys)
-5. ⏳ **Streaming & Transport**: How to handle real-time responses?
+5. ✅ **Streaming & Transport**: Socket.io required, Express integration with controller pattern
 6. ⏳ **Package Scope**: What npm scope/naming to use?
 
 See [SUMMARY.md](SUMMARY.md) for details on each question and [AUTH_INTEGRATION.md](AUTH_INTEGRATION.md) for the complete authentication guide.

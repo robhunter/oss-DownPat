@@ -394,30 +394,33 @@ DownPat was a platform that hosted educational prompts based on books and other 
   ```
 - **Rationale**: Covers most use cases, flexible, no lock-in, manageable maintenance
 
-#### Q4.2: Streaming vs Non-Streaming
-- **Question**: Should we support both streaming and non-streaming responses?
-- **Context**: Current code uses Socket.io for streaming, has callback-based streaming in adapters
-- **Considerations**:
-  - Streaming provides better UX but more complexity
-  - Not all contexts may support streaming
-  - How does streaming work without Socket.io?
-- **Options**:
-  - A) Streaming only (require real-time transport)
-  - B) Non-streaming only (simpler, works everywhere)
-  - C) Support both (more complexity)
+#### Q4.2: Streaming vs Non-Streaming ✅ DECIDED
+- **Decision**: Streaming required (Option A)
+- **Rationale**:
+  - Essential for good UX with AI responses
+  - Real-time feedback as AI generates text
+  - Matches current implementation
+  - Users expect streaming for modern AI chat interfaces
+- **Implementation**: All AI responses stream via Socket.io callbacks
 
-#### Q4.3: Socket.io Dependency
-- **Question**: Should Socket.io be required or should we support other transports?
-- **Context**: Current backend uses Socket.io for real-time messaging
-- **Options**:
-  - A) Require Socket.io (matches current architecture)
-  - B) Transport-agnostic with Socket.io as default
-  - C) Use Server-Sent Events (SSE) instead
-  - D) Support both Socket.io and SSE
-- **Considerations**:
-  - Socket.io requires WebSocket support
-  - SSE simpler but one-way only
-  - HTTP streaming with fetch API as alternative?
+#### Q4.3: Socket.io Dependency ✅ DECIDED
+- **Decision**: Require Socket.io (Option A)
+- **Selected**: Socket.io only, no SSE or HTTP streaming alternatives in v1
+- **Architecture**: Express integration with controller pattern
+  - **Core packages**: Framework-agnostic controllers (no Express dependencies)
+  - **Express package**: Thin wrapper providing HTTP routes + Socket.io integration
+  - **Integration**: Host adds router to existing Express server, attaches Socket.io to same HTTP server
+  - **Same origin**: Single server, single port, no CORS issues
+- **Framework Requirements**:
+  - v1 requires Express (or Express-compatible framework)
+  - Future: Can add `@downpat-oss/nextjs`, `@downpat-oss/fastify` adapters
+  - No refactoring needed: Controller pattern keeps core framework-agnostic
+- **Socket.io Benefits**:
+  - Built-in fallbacks (automatically uses long-polling if WebSockets blocked)
+  - Auto-reconnection logic
+  - Bidirectional communication (needed for chat)
+  - Matches current codebase
+- **Rationale**: Same-origin deployment, Socket.io's robustness, Express widely used, extensible architecture
 
 #### Q4.4: AI Adapter Configuration ✅ PARTIALLY DECIDED
 - **Decision**: Programmatic configuration with dynamic provider availability
@@ -882,14 +885,18 @@ Based on the questions above, here's an initial proposal for package organizatio
 
 ### Package: `@downpat-oss/core`
 
-**Purpose**: Shared types, interfaces, and constants
+**Purpose**: Shared types, interfaces, constants, and **framework-agnostic controllers**
 
 **Contents**:
 - TypeScript interfaces (Exercise, Conversation, Message, Task, etc.)
 - **Storage interfaces** (ConversationStorage, ExerciseStorage, etc.)
+- **Auth interfaces** (ClientAuthProvider, ServerAuthProvider, User)
+- **Controllers** (ExerciseController, ConversationController - framework-agnostic business logic)
 - Enums and constants (MessageType, SupportedModels, etc.)
 - Utility functions (UUID generation, etc.)
 - Zod validation schemas
+
+**Key Architectural Decision**: Controllers contain all business logic with NO framework dependencies (no Express, no HTTP concepts). This enables framework adapters without refactoring.
 
 **Dependencies**: Minimal (zod, maybe lodash)
 
@@ -911,6 +918,35 @@ export interface ExerciseStorage {
   get(id: string): Promise<Exercise>
   list(): Promise<Exercise[]>
   delete(id: string): Promise<void>
+}
+
+// Auth Interfaces (see AUTH_INTEGRATION.md)
+export interface ServerAuthProvider {
+  validateToken(token: string): Promise<User>
+  getDemoUser(): User
+}
+
+export interface User {
+  userId: string
+  displayName: string
+  isAdmin: boolean
+  isSubscriber: boolean
+}
+
+// Framework-Agnostic Controllers
+export class ExerciseController {
+  constructor(storage: ExerciseStorage, auth: ServerAuthProvider) { ... }
+  async createExercise(data: Exercise, user: User): Promise<Exercise>
+  async getExercise(id: string, user: User): Promise<Exercise>
+  async listExercises(user: User): Promise<Exercise[]>
+  // ... pure business logic, no HTTP/framework code
+}
+
+export class ConversationController {
+  constructor(storage: ConversationStorage, auth: ServerAuthProvider, aiProviders: AIProviderConfig) { ... }
+  async startConversation(exerciseId: string, user: User): Promise<Conversation>
+  async continueConversation(conversationId: string, message: string, user: User, streamCallback?: StreamCallback): Promise<void>
+  // ... pure business logic, no HTTP/framework code
 }
 
 // Constants
@@ -1030,6 +1066,105 @@ export class FirebaseDemoStorage implements DemoStorage { ... }
 ```
 
 **Note**: This is the **recommended** storage implementation. Most users will use this package.
+
+---
+
+### Package: `@downpat-oss/express`
+
+**Purpose**: Express integration providing HTTP routes and Socket.io setup (thin wrapper around core controllers)
+
+**Contents**:
+- Express Router factory
+- Socket.io integration
+- HTTP request/response handling
+- Authentication middleware
+- Error handling middleware
+- Route definitions for all endpoints
+
+**Key Architecture**: Thin wrapper that extracts data from Express requests, calls core controllers, formats responses
+
+**Dependencies**:
+- `@downpat-oss/core` (for controllers and types)
+- `express` (peer dependency)
+- `socket.io` (for streaming)
+
+**Exports**:
+```typescript
+export function createDownpatRouter(config: DownpatConfig): DownpatRouter {
+  // Creates Express router with all endpoints
+  // Returns: { router: express.Router, controllers, attachSocketIO }
+}
+
+export interface DownpatConfig {
+  storage: {
+    conversations: ConversationStorage
+    exercises: ExerciseStorage
+    demos: DemoStorage
+  }
+  serverAuth: ServerAuthProvider
+  aiProviders: {
+    openai?: { apiKey: string }
+    anthropic?: { apiKey: string }
+    gemini?: { apiKey: string }
+  }
+}
+
+export interface DownpatRouter {
+  router: express.Router  // Mount with app.use('/api/downpat', router)
+  controllers: {
+    exercise: ExerciseController
+    conversation: ConversationController
+  }
+  attachSocketIO(httpServer: http.Server): void  // Sets up Socket.io
+}
+```
+
+**Usage Example**:
+```javascript
+const express = require('express');
+const { createDownpatRouter } = require('@downpat-oss/express');
+
+const app = express();
+
+// Create router
+const downpat = createDownpatRouter({
+  storage: {
+    conversations: new FirebaseConversationStorage(firebaseApp),
+    exercises: new FirebaseExerciseStorage(firebaseApp),
+    demos: new FirebaseDemoStorage(firebaseApp)
+  },
+  serverAuth: myServerAuthProvider,
+  aiProviders: {
+    openai: { apiKey: process.env.OPENAI_API_KEY }
+  }
+});
+
+// Mount routes
+app.use('/api/downpat', downpat.router);
+
+// Start server with Socket.io
+const server = app.listen(3000);
+downpat.attachSocketIO(server);
+```
+
+**Routes Provided**:
+- `POST /exercises` - Create exercise (admin only)
+- `GET /exercises` - List exercises
+- `GET /exercises/:id` - Get exercise
+- `PUT /exercises/:id` - Update exercise (admin only)
+- `DELETE /exercises/:id` - Delete exercise (admin only)
+- `POST /conversations` - Start conversation
+- `GET /conversations/:id` - Get conversation
+- `GET /conversations` - List user's conversations
+
+**Socket.io Events**:
+- `continue-chat` - Send message, receive streaming response
+- `stream-response` - Emitted as AI generates response
+- `stream-complete` - Emitted when response finished
+
+**Future Packages**:
+- `@downpat-oss/nextjs` - Next.js API route handlers (same controllers, different wrapper)
+- `@downpat-oss/fastify` - Fastify integration (same controllers, different wrapper)
 
 ---
 
@@ -1418,7 +1553,7 @@ The following questions MUST be answered before implementation begins:
 2. ✅ **Auth pattern**: Token-based (client provides tokens, server validates)
 3. ✅ **Schema/Task system**: Drop ExtractTask (schema extraction to PDF)
 4. ✅ **AI providers**: OpenAI, Anthropic, Gemini (dynamic availability based on config)
-5. ⏳ **Streaming**: Required or optional? Transport layer?
+5. ✅ **Streaming**: Socket.io required, Express integration with controller pattern
 6. ⏳ **Package scope**: What npm scope to use?
 
 ### High Priority (Affect Architecture)
