@@ -94,7 +94,7 @@
 | `models/tasks/conversation-task.ts` | One-on-one conversation | ✅ KEEP |
 | `models/tasks/commentary-task.ts` | With feedback/grading | ✅ KEEP |
 | `models/tasks/summary-task.ts` | End summary | ✅ KEEP |
-| `models/tasks/extract-task.ts` | Extract key points | ❓ DECIDE |
+| `models/tasks/extract-task.ts` | Extract structured data to PDF | ❌ DROP |
 | `models/tasks/simulate-task.ts` | Simulation scenarios | ❓ DECIDE |
 
 #### Other Core Models
@@ -275,7 +275,7 @@
 | `components/chat/messages/types/CoachMessage.tsx` | Coach message | ✅ KEEP |
 | `components/chat/messages/types/SummaryMessage.tsx` | Summary | ✅ KEEP |
 | `components/chat/messages/types/CommentaryMessage.tsx` | Commentary | ✅ KEEP |
-| `components/chat/messages/types/ExtractMessage.tsx` | Extract | ❓ DECIDE |
+| `components/chat/messages/types/ExtractMessage.tsx` | Extract data to PDF | ❌ DROP |
 | `components/chat/messages/types/ContextMessage.tsx` | Context | ✅ KEEP |
 | `components/chat/messages/types/ModerationMessage.tsx` | Moderation | ❓ DECIDE |
 | `components/chat/messages/actions/ChatActions.tsx` | Action buttons | ✅ KEEP |

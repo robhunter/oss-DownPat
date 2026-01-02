@@ -35,7 +35,7 @@ enum MessageType {
   // AI-generated messages (from tasks)
   CONVERSATION // AI partner's conversational response
   COMMENTARY   // AI feedback/coaching commentary
-  EXTRACT      // Key points extracted from conversation
+  EXTRACT      // ❌ DROPPING - Structured data extraction to PDF
   SIMPLE       // Simple AI response
   SIMULATE     // AI simulation scenario
   SUMMARY      // End-of-conversation summary
@@ -316,16 +316,15 @@ You can have multiple continuation tasks that execute in sequence:
 continuationTasks: [
   new ConversationTask(...),     // 1. Generate response
   new CommentaryTask(...),       // 2. Provide feedback
-  new ExtractTask(               // 3. Extract key learning
-    prompt: "Extract the key principle demonstrated"
-  )
+  // Note: ExtractTask removed in open source version
 ]
 ```
 
-This would generate three messages after each user input:
+This would generate multiple messages after each user input:
 1. Conversational response
 2. Commentary/feedback
-3. Key principle extracted
+
+**Note**: The legacy codebase also had `ExtractTask` for extracting structured data to PDF templates, but this feature is being dropped from the open source version.
 
 ### Conditional Task Execution
 
@@ -432,10 +431,12 @@ System parses this and creates ServerMessage with:
 }
 ```
 
-**ExtractSchema**:
+**ExtractSchema** ❌ DROPPING:
 ```typescript
+// ExtractTask and ExtractSchema being dropped from open source version
+// This was used for extracting structured data to PDF templates
 {
-  extract: string
+  extract: string  // or custom schema: Record<string, string>
 }
 ```
 
@@ -564,32 +565,32 @@ Mark conversation as finished
 
 ---
 
-## Question for Clarification
+## Decision: ExtractTask ("Schema Step") Dropped ✅
 
-### "Schema Step" to Drop
+### What's Being Dropped
 
-The user mentioned dropping "schema step" functionality. This likely refers to one of:
+**ExtractTask** - the "schema step" functionality - has been identified and will be **dropped** from the open source version:
 
-**Option A**: Drop the entire `responseSchema` system
-- Would break structured responses
-- AI would return plain text
-- No automatic grade extraction
-- Major refactoring needed
+**What ExtractTask Does**:
+- Completion task that extracts structured data from conversations into custom schemas
+- AI fills in schema fields based on conversation (e.g., `{problemStatement: string, solution: string}`)
+- Used for specialized templates like Lean Canvas forms
+- Displays as message with download button to export data as PDF
+- Constructor: `new ExtractTask(role: string, schema: Record<string, string>)`
 
-**Option B**: Drop specific schema-based completion tasks
-- Keep conversation, commentary, summary as-is
-- Drop any specialized end-of-conversation schema extraction
-- Minimal changes needed
+**What We're Dropping**:
+- `ExtractTask` class (`.DownPatNode/libs/shared/src/lib/models/tasks/extract-task.ts`)
+- `MessageType.EXTRACT` message type
+- `ExtractMessage` UI component with PDF download
+- PDF template system for extracted schemas
+- Extract schema parsing in exercise creation
 
-**Option C**: Drop a specific task type we haven't identified yet
-- There might be additional schema-based tasks in the codebase
-- Need to search for other uses of responseSchema
+**What We're Keeping**:
+- ✅ `responseSchema` for core tasks (ConversationTask, CommentaryTask, SummaryTask)
+- ✅ All core conversation patterns unchanged
+- ✅ Structured responses for conversation, commentary, and summary
 
-### Recommendation
-
-Most likely **Option B** - the user wants to drop specialized data extraction that happens at conversation end, but keep the core conversation patterns (conversation, commentary, summary) that use schemas internally for response parsing.
-
-Need clarification before proceeding with implementation.
+**Rationale**: ExtractTask is specialized for specific use cases (form filling), adds PDF generation complexity, and is not core to conversational training functionality.
 
 ---
 

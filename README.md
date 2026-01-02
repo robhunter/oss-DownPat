@@ -94,7 +94,7 @@ Before implementation can begin, these 6 critical questions must be answered:
 
 1. ✅ **Storage Architecture**: Storage abstraction with Firebase as official implementation
 2. ✅ **Authentication Pattern**: Token-based (client provides tokens, server validates)
-3. ⏳ **"Schema Step" Clarification**: What exactly should we drop?
+3. ✅ **"Schema Step" Clarification**: Drop ExtractTask (structured data extraction to PDF)
 4. ⏳ **AI Provider Support**: Which providers to support?
 5. ⏳ **Streaming & Transport**: How to handle real-time responses?
 6. ⏳ **Package Scope**: What npm scope/naming to use?
@@ -125,7 +125,7 @@ See [SUMMARY.md](SUMMARY.md) for details on each question and [AUTH_INTEGRATION.
   - ⚠️ **KEEPING**: Text-based "Talk to Coach" sidebar (talkToCoachEnabled)
 - Job listings
 - File uploads
-- "Schema step" functionality (pending clarification)
+- **ExtractTask/Schema extraction** (structured data extraction to PDF templates)
 
 ## 🏗️ Current Codebase Structure
 

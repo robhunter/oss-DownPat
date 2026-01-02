@@ -85,29 +85,35 @@ interface User {
 
 ---
 
-### 3. "Schema Step" Clarification
+### 3. "Schema Step" Clarification ✅ DECIDED
 
-**Decision**: What exactly should we drop?
+**Decision**: Drop ExtractTask (structured data extraction feature)
 
-Current understanding of responseSchema usage:
-- All tasks use `responseSchema` to define expected AI response structure
-- ConversationTask: `{conversation: string}`
-- CommentaryTask: `{commentary: string, grade: string}`
-- SummaryTask: `{summary: string, grade: string}`
+- [x] **Selected**: Drop ExtractTask and EXTRACT message type
+  - **What it is**: Completion task that extracts structured data from conversations into custom schemas
+  - **How it works**: AI fills in schema fields (e.g., Lean Canvas template) based on conversation
+  - **Display**: Shows message with download button to get extracted data as PDF
+  - **Schema format**: `Record<string, string>` with field names and descriptions
 
-**What does "schema step" refer to?**
+**What we're dropping**:
+- `ExtractTask` class and all related code
+- `MessageType.EXTRACT` message type
+- `ExtractMessage` UI component
+- PDF template system for extracted data
+- Extract schema parsing/validation in exercise creation
 
-- [ ] **Option A**: Drop entire responseSchema system (major change, AI returns plain text)
-- [ ] **Option B**: Drop only specialized completion/schema tasks, keep core patterns
-- [ ] **Option C**: Drop a specific task type (which one? _______)
-- [ ] **Option D**: Keep everything, "schema step" was misunderstood
+**What we're keeping**:
+- ✅ `responseSchema` for other tasks (ConversationTask, CommentaryTask, SummaryTask)
+- ✅ Core conversation patterns remain unchanged
+- ✅ All other task types and message types
 
-**Your Decision**: _____________________
+**Rationale**:
+- Specialized feature for specific use cases (e.g., Lean Canvas forms)
+- Adds complexity with PDF templates and schema management
+- Not core to basic conversational training functionality
+- Can be added back as optional extension if needed
 
-**Clarification Needed**:
-- Do you want to keep ConversationTask, CommentaryTask, SummaryTask as-is?
-- Or should we simplify the task system?
-- Is there a specific feature you're thinking of?
+**Impact**: Simplifies task system, removes PDF generation dependency, cleaner core feature set
 
 ---
 
@@ -483,8 +489,8 @@ Once you've made your decisions, fill out this summary:
 - **Core Package Name**: _____________________
 
 ### Features
-- **Task System**: _____________________
-- **Message Types**: _____________________
+- **Task System**: Drop ExtractTask, keep all other tasks ✅
+- **Message Types**: Drop EXTRACT, others TBD _____________________
 - **Versioning**: _____________________
 - **Examples**: _____________________
 - **Moderation**: _____________________

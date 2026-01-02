@@ -133,21 +133,29 @@ I've identified **20 key questions** that must be answered before implementation
 
 **Impact**: See AUTH_INTEGRATION.md for complete implementation guide
 
-### 3. "Schema Step" Clarification (CRITICAL)
-**Question**: What exactly is the "schema step" functionality to drop?
+### 3. "Schema Step" Clarification (CRITICAL) ✅ DECIDED
 
-Current understanding:
-- All tasks have a `responseSchema` field that defines expected AI response structure
-- ConversationTask expects: `{conversation: string}`
-- CommentaryTask expects: `{commentary: string, grade: string}`
-- SummaryTask expects: `{summary: string, grade: string}`
+**Decision**: Drop ExtractTask (structured data extraction feature)
 
-Is "schema step" referring to:
-- A) The entire structured response system (drop all schemas)?
-- B) A specific type of completion task that generates structured data?
-- C) Something else?
+**What ExtractTask is**:
+- Completion task that extracts structured information from conversations into custom schemas
+- AI fills in schema fields (e.g., `{problemStatement: "...", targetCustomer: "...", ...}`) based on conversation content
+- Displays message with download button to get extracted data as PDF
+- Used for specialized templates like Lean Canvas forms
 
-**Impact**: Affects core conversation functionality
+**What we're dropping**:
+- ExtractTask class and MessageType.EXTRACT
+- ExtractMessage UI component
+- PDF generation from extracted schemas
+- Extract schema management in exercise creation
+
+**What we're keeping**:
+- responseSchema for core tasks (ConversationTask, CommentaryTask, SummaryTask)
+- All other conversation patterns and task types
+
+**Rationale**: Specialized feature that adds complexity (PDF templates, schema parsing) without being core to conversational training
+
+**Impact**: Simplified task system, cleaner core feature set
 
 ### 4. AI Providers (CRITICAL)
 **Question**: Which AI providers should we support initially?

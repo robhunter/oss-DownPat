@@ -130,10 +130,11 @@ DownPat was a platform that hosted educational prompts based on books and other 
    - Multiple organization management
    - Assumption: Single organization per host application
 
-4. **Schema Step Functionality**
-   - `responseSchema` fields in tasks
-   - Structured data generation at conversation end
-   - Note: The `responseSchema` is used internally by adapters for response formatting, but specific "schema step" features mentioned by user should be dropped
+4. **ExtractTask/Schema Extraction** ✅ DECIDED TO DROP
+   - ExtractTask class and MessageType.EXTRACT
+   - Structured data extraction to custom schemas
+   - PDF download of extracted data
+   - Note: `responseSchema` for other tasks (Conversation, Commentary, Summary) is KEPT
 
 5. **Additional Features**
    - Waitlist management
@@ -311,27 +312,35 @@ DownPat was a platform that hosted educational prompts based on books and other 
 
 ### 3. Exercise & Conversation Features
 
-#### Q3.1: Task/Schema System
-- **Question**: What level of the task schema system should we keep?
-- **Context**: User said to drop "schema step" but tasks use `responseSchema` for structured responses
-- **Clarification Needed**:
-  - Is "schema step" a specific task type or the entire schema system?
-  - Should we keep ConversationTask, CommentaryTask, SummaryTask as-is?
-  - Should we drop the `responseSchema` field from Task interface?
-  - Or is "schema step" referring to completion tasks that generate structured final outputs?
-- **Options**:
-  - A) Keep all task types including their schemas (conversation, commentary, summary)
-  - B) Drop only specialized schema-based completion tasks
-  - C) Simplify to just basic conversation without structured grading/commentary
+#### Q3.1: Task/Schema System ✅ DECIDED
+- **Decision**: Drop ExtractTask, keep all other tasks with their responseSchema
+- **Selected**: Option B (Drop only specialized schema-based completion tasks)
+- **What ExtractTask is**:
+  - Completion task that extracts structured data from conversations into custom schemas
+  - AI fills in schema fields (e.g., `{problemStatement: string, solution: string, ...}`)
+  - Displays message with download button to export data as PDF
+  - Used for specialized templates (e.g., Lean Canvas forms)
+  - Constructor: `new ExtractTask(role: string, schema: Record<string, string>)`
+- **What we're dropping**:
+  - `ExtractTask` class (`.DownPatNode/libs/shared/src/lib/models/tasks/extract-task.ts`)
+  - `MessageType.EXTRACT` message type
+  - `ExtractMessage` UI component with PDF download
+  - PDF template system for extracted schemas
+  - Extract schema parsing in exercise creation form
+- **What we're keeping**:
+  - ✅ `responseSchema` for other tasks (ConversationTask, CommentaryTask, SummaryTask)
+  - ✅ All core conversation patterns unchanged
+  - ✅ ConversationTask, CommentaryTask, SummaryTask, SimulateTask
+- **Rationale**: ExtractTask is specialized for specific use cases, adds PDF dependency, not core to conversational training
 
-#### Q3.2: Message Types
-- **Question**: Which message types should be included?
+#### Q3.2: Message Types ✅ PARTIALLY DECIDED
 - **Context**: Current system has: CONTEXT, MODERATION, STARTER, USER, CONVERSATION, COMMENTARY, EXTRACT, SIMPLE, SIMULATE, SUMMARY
-- **Specific Questions**:
-  - Keep all message types?
-  - Is EXTRACT needed? SIMPLE? SIMULATE?
-  - Is MODERATION a core feature or optional?
-  - Should we simplify to fewer types?
+- **Decided**: Drop EXTRACT message type (goes with ExtractTask decision above)
+- **Still to decide**:
+  - Keep MODERATION? (content moderation feature)
+  - Keep SIMPLE? (simple AI responses without structure)
+  - Keep SIMULATE? (role-reversal simulation)
+  - Simplify to fewer core types?
 
 #### Q3.3: Exercise Versioning
 - **Question**: Is exercise versioning necessary for the open source version?
@@ -1376,12 +1385,12 @@ example-app/
 The following questions MUST be answered before implementation begins:
 
 ### Critical (Block Implementation)
-1. **Storage abstraction**: Hard require Firebase or create storage interface?
-2. **Auth pattern**: What auth integration pattern do we expose?
-3. **Schema/Task system**: What exactly is "schema step" to drop?
-4. **AI providers**: Which providers to support initially?
-5. **Streaming**: Required or optional? Transport layer?
-6. **Package scope**: What npm scope to use?
+1. ✅ **Storage abstraction**: Storage interface with Firebase as official implementation
+2. ✅ **Auth pattern**: Token-based (client provides tokens, server validates)
+3. ✅ **Schema/Task system**: Drop ExtractTask (schema extraction to PDF)
+4. ⏳ **AI providers**: Which providers to support initially?
+5. ⏳ **Streaming**: Required or optional? Transport layer?
+6. ⏳ **Package scope**: What npm scope to use?
 
 ### High Priority (Affect Architecture)
 7. **Exercise manager**: Backend-only, isomorphic, or split?
