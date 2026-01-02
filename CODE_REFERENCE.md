@@ -173,8 +173,8 @@
 | `adapters/adapter-util.ts` | Shared utilities | ~200 | ✅ KEEP |
 | `adapters/openai-adapter.ts` | OpenAI integration | ~400 | ✅ KEEP |
 | `adapters/anthropic-adapter.ts` | Claude integration | ~400 | ✅ KEEP |
-| `adapters/gemini-adapter.ts` | Gemini integration | ~400 | ❓ DECIDE |
-| `adapters/groq-adapter.ts` | Groq integration | ~400 | ❓ DECIDE |
+| `adapters/gemini-adapter.ts` | Gemini integration | ~400 | ✅ KEEP |
+| `adapters/groq-adapter.ts` | Groq integration | ~400 | ❌ DROP |
 | `adapters/moderation-adapter.ts` | Content moderation | ~150 | ❓ DECIDE |
 
 #### Services (Core Business Logic)

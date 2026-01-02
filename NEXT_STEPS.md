@@ -117,38 +117,50 @@ interface User {
 
 ---
 
-### 4. AI Provider Support
+### 4. AI Provider Support ✅ DECIDED
 
-**Decision**: Which AI providers should we support?
+**Decision**: Support OpenAI, Anthropic, and Google Gemini with dynamic provider availability
 
-Current code has adapters for:
-- OpenAI (GPT models)
-- Anthropic (Claude models)
-- Google Gemini
-- Groq
+- [x] **Selected**: Three providers with optional configuration
+  - **Include**: OpenAI, Anthropic (Claude), Google Gemini
+  - **Drop**: Groq (users can add if needed via adapter interface)
 
-**Your Choice**:
-- [ ] **Option A**: All four providers
-  - Pros: Maximum flexibility
-  - Cons: More maintenance, testing, bundle size
+**Key Requirement - Dynamic Provider Availability**:
+```typescript
+// Host app provides only the API keys they want to use
+const config = {
+  aiProviders: {
+    openai: { apiKey: process.env.OPENAI_API_KEY },
+    // anthropic not configured
+    // gemini not configured
+  }
+}
 
-- [ ] **Option B**: OpenAI + Anthropic only
-  - Pros: Covers most use cases, manageable maintenance
-  - Cons: Users wanting Gemini/Groq need to add themselves
+// UI automatically shows only configured providers
+// In exercise creation: Only OpenAI models appear in dropdown
+// No requirement to provide keys for all providers
+```
 
-- [ ] **Option C**: OpenAI only
-  - Pros: Simplest, most widely used
-  - Cons: Limited flexibility
+**Implementation**:
+- Packages include adapters for all three providers
+- Host app configures which providers to enable (via API keys)
+- Exercise creation UI dynamically shows only configured providers
+- Model selection dropdown filtered based on available providers
+- No errors if providers are missing - just don't show them
 
-- [ ] **Option D**: Adapter interface only, users implement
-  - Pros: Most flexible, smallest package
-  - Cons: More work for users
+**Examples**:
+- **Host provides only OpenAI key**: Only GPT models in UI
+- **Host provides OpenAI + Anthropic**: Both GPT and Claude models available
+- **Host provides all three**: All models available
 
-**Your Decision**: _____________________
+**Rationale**:
+- Covers most use cases (OpenAI, Anthropic, Gemini are most popular)
+- Flexible: Hosts choose their preferred provider(s)
+- No lock-in: Can switch or add providers later
+- Manageable maintenance burden
+- Groq users can implement custom adapter if needed
 
-**Initial Release**: _____________________
-
-**Future Additions**: _____________________
+**Impact**: Adapter interface, provider configuration system, dynamic UI filtering
 
 ---
 
@@ -482,7 +494,7 @@ Once you've made your decisions, fill out this summary:
 - **Storage**: Storage abstraction with Firebase as official implementation ✅
 - **Auth Pattern**: Token-based (client provides tokens, server validates) ✅
 - **Streaming**: _____________________
-- **AI Providers**: _____________________
+- **AI Providers**: OpenAI, Anthropic, Gemini (dynamic availability) ✅
 
 ### Package Scope
 - **Scope**: _____________________

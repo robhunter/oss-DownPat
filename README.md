@@ -95,7 +95,7 @@ Before implementation can begin, these 6 critical questions must be answered:
 1. ✅ **Storage Architecture**: Storage abstraction with Firebase as official implementation
 2. ✅ **Authentication Pattern**: Token-based (client provides tokens, server validates)
 3. ✅ **"Schema Step" Clarification**: Drop ExtractTask (structured data extraction to PDF)
-4. ⏳ **AI Provider Support**: Which providers to support?
+4. ✅ **AI Provider Support**: OpenAI, Anthropic, Gemini (dynamic availability based on configured keys)
 5. ⏳ **Streaming & Transport**: How to handle real-time responses?
 6. ⏳ **Package Scope**: What npm scope/naming to use?
 

@@ -157,16 +157,30 @@ I've identified **20 key questions** that must be answered before implementation
 
 **Impact**: Simplified task system, cleaner core feature set
 
-### 4. AI Providers (CRITICAL)
-**Question**: Which AI providers should we support initially?
+### 4. AI Providers (CRITICAL) ✅ DECIDED
 
-Options:
-- All four (OpenAI, Anthropic, Gemini, Groq)
-- Just OpenAI + Anthropic (most popular)
-- Just OpenAI (simplest)
-- Provide interface, let users implement
+**Decision**: Support OpenAI, Anthropic, and Google Gemini with dynamic provider availability
 
-**Impact**: Maintenance burden, testing requirements, bundle size
+**Included Providers**:
+- ✅ OpenAI (GPT models)
+- ✅ Anthropic (Claude models)
+- ✅ Google Gemini
+- ❌ Groq (dropped - users can add via adapter interface if needed)
+
+**Key Feature - Dynamic Provider Availability**:
+- Host apps configure only the providers they want (via API keys)
+- UI automatically shows only configured providers
+- Exercise creation dropdown filters to available models only
+- **No requirement to provide keys for all three providers**
+
+**Examples**:
+- Host with only OpenAI key → Only GPT models shown
+- Host with OpenAI + Anthropic → Both GPT and Claude models shown
+- Host with all three → All models available
+
+**Rationale**: Covers most use cases, flexible configuration, no provider lock-in, manageable maintenance
+
+**Impact**: Adapter interface for three providers, provider configuration system, dynamic UI filtering based on available providers
 
 ### 5. Streaming & Transport (CRITICAL)
 **Question**: How do we handle real-time streaming responses?

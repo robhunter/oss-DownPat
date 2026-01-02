@@ -368,18 +368,31 @@ DownPat was a platform that hosted educational prompts based on books and other 
 
 ### 4. AI Integration
 
-#### Q4.1: Which AI Providers?
-- **Question**: Which AI providers should we support in the initial release?
-- **Context**: Legacy code supports OpenAI, Anthropic, Gemini, Groq
-- **Considerations**:
-  - Maintenance burden of supporting multiple providers
-  - API changes over time
-  - Testing requirements
-- **Options**:
-  - A) All four providers
-  - B) Just OpenAI and Anthropic (most popular)
-  - C) Just OpenAI (most widely used)
-  - D) Provide interface, let users implement their own
+#### Q4.1: Which AI Providers? ✅ DECIDED
+- **Decision**: Support OpenAI, Anthropic, and Google Gemini with dynamic provider availability
+- **Selected**: Option A (modified) - Three providers with flexible configuration
+- **Included Providers**:
+  - ✅ OpenAI (GPT models)
+  - ✅ Anthropic (Claude models)
+  - ✅ Google Gemini
+  - ❌ Groq (dropped - users can implement via adapter interface if needed)
+- **Key Requirement**: Dynamic provider availability based on configured API keys
+  - Host apps configure only the providers they want to use
+  - UI dynamically shows only configured providers in exercise creation
+  - Model selection dropdown filtered to available providers
+  - **No requirement to provide keys for all three providers**
+- **Implementation**:
+  ```typescript
+  // Example: Host only provides OpenAI key
+  const config = {
+    aiProviders: {
+      openai: { apiKey: process.env.OPENAI_API_KEY }
+      // anthropic and gemini not configured
+    }
+  }
+  // Result: Only OpenAI models appear in exercise creation UI
+  ```
+- **Rationale**: Covers most use cases, flexible, no lock-in, manageable maintenance
 
 #### Q4.2: Streaming vs Non-Streaming
 - **Question**: Should we support both streaming and non-streaming responses?
@@ -406,16 +419,32 @@ DownPat was a platform that hosted educational prompts based on books and other 
   - SSE simpler but one-way only
   - HTTP streaming with fetch API as alternative?
 
-#### Q4.4: AI Adapter Configuration
-- **Question**: How should users configure AI adapters (API keys, etc.)?
-- **Context**: Current code gets config from environment variables
-- **Options**:
-  - A) Environment variables only
-  - B) Programmatic configuration
-  - C) Both environment and programmatic
+#### Q4.4: AI Adapter Configuration ✅ PARTIALLY DECIDED
+- **Decision**: Programmatic configuration with dynamic provider availability
+- **Requirements** (based on Q4.1 decision):
+  - Host apps provide configuration object with API keys for desired providers
+  - Only configured providers are available in the system
+  - No requirement to configure all three providers
+  - Dynamic UI filtering based on configured providers
+- **Configuration Pattern**:
+  ```typescript
+  const aiConfig = {
+    openai: {
+      apiKey: process.env.OPENAI_API_KEY,
+      // optional: organization, timeout, etc.
+    },
+    anthropic: {
+      apiKey: process.env.ANTHROPIC_API_KEY
+    }
+    // gemini not configured - won't appear in UI
+  }
+  ```
 - **Security Considerations**:
-  - API keys should never be in client code
-  - How do we guide users to secure key management?
+  - API keys should NEVER be in client code
+  - Configuration happens server-side only
+  - Guide users on environment variable best practices
+  - Document secure key management patterns
+- **Still to decide**: Specific configuration API design
 
 ### 5. Storage & Data Management
 
@@ -1388,7 +1417,7 @@ The following questions MUST be answered before implementation begins:
 1. ✅ **Storage abstraction**: Storage interface with Firebase as official implementation
 2. ✅ **Auth pattern**: Token-based (client provides tokens, server validates)
 3. ✅ **Schema/Task system**: Drop ExtractTask (schema extraction to PDF)
-4. ⏳ **AI providers**: Which providers to support initially?
+4. ✅ **AI providers**: OpenAI, Anthropic, Gemini (dynamic availability based on config)
 5. ⏳ **Streaming**: Required or optional? Transport layer?
 6. ⏳ **Package scope**: What npm scope to use?
 
