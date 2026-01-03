@@ -355,17 +355,15 @@ DownPat was a platform that hosted educational prompts based on books and other 
 - **Rationale**: Solves the core problem (edit without affecting live exercise) without the complexity of unlimited versions
 - **Impact**: Significant code simplification, clearer mental model for users
 
-#### Q3.4: Exercise Examples
-- **Question**: Should we include the exercise examples feature?
-- **Context**: Current code has Example model and example store for sample conversations
-- **Use Cases**:
-  - Showing users what a good conversation looks like
-  - Training/demo purposes
-  - Providing context to AI (currently passed to adapters)
-- **Options**:
-  - A) Include example system as-is
-  - B) Simplified example system (just text, no full conversation)
-  - C) Drop examples entirely
+#### Q3.4: Exercise Examples ✅ DECIDED
+- **Decision**: Drop examples for v1
+- **Selected**: Option C - Drop examples entirely
+- **Rationale**:
+  - Simplifies v1 implementation (fewer models, stores, UI components)
+  - Not blocking - exercises work fine with good guidelines/prompts
+  - Few-shot learning can be achieved through well-written task prompts
+  - Can be added in v2 if users request it
+- **Impact**: Removes Example model, ExampleStore, and example management UI (~5-10 files)
 
 ### 4. AI Integration
 

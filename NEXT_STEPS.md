@@ -548,17 +548,34 @@ ExerciseMetadata {
 
 ---
 
-### 13. Exercise Examples
+### 13. Exercise Examples ✅ DECIDED
 
-**Decision**: Include exercise examples feature?
+**Decision**: Drop examples for v1
 
-Examples show users what good conversations look like and provide AI context.
+- [x] **Drop examples entirely** - Can be added in v2 if needed
+  - Remove Example model
+  - Remove ExampleStore
+  - Remove example UI components
+  - Admins provide good guidelines/prompts instead
 
-- [ ] Include full example system
-- [ ] Simplified examples (text only)
-- [ ] Drop examples
+**Rationale**:
+- **Simplifies v1**: Fewer models, stores, and UI components to build
+- **Not blocking**: Exercises work fine without examples via good guidelines
+- **Few-shot learning**: Can be achieved through well-written prompts in tasks
+- **Can add later**: If users request it, examples can be added in v2 without breaking changes
 
-**Your Decision**: _____________________
+**What we're dropping**:
+- Example model and validation
+- ExampleStore (Firestore collection)
+- Example creation/editing UI in admin panel
+- Example display in exercise preview
+- Example-based few-shot learning (AI context from examples)
+
+**Impact**:
+- Removes ~5-10 files from implementation
+- Simpler admin UI (no example management)
+- Admins focus on writing clear guidelines and task prompts
+- Reduces initial scope and development time
 
 ---
 
@@ -683,7 +700,7 @@ Confirm testing approach:
 
 ## REMAINING DECISIONS SUMMARY
 
-### ✅ Completed (13 questions)
+### ✅ Completed (14 questions)
 1. Storage Architecture
 2. Authentication Integration
 3. "Schema Step" Clarification
@@ -696,15 +713,15 @@ Confirm testing approach:
 10. Demo Link Generation (backend only)
 11. Message Types (keep core + SIMPLE + optional MODERATION, drop SIMULATE)
 12. Exercise Versioning (simplified draft/published only)
+13. Exercise Examples (drop for v1)
 16. Example App Framework (Vanilla Node.js + Express + React)
 
-### ⚠️ Still Need Decisions (6 questions)
+### ⚠️ Still Need Decisions (5 questions)
 
 **HIGH PRIORITY** (affect architecture/user experience):
 - ✅ All high-priority questions completed!
 
 **MEDIUM PRIORITY** (affect features):
-- **Q13: Exercise Examples** - Keep examples feature?
 - **Q14: Content Moderation** - Include, make optional, or drop?
 - **Q15: Rate Limiting** - Built-in or user responsibility?
 
@@ -769,7 +786,7 @@ Once you've made your decisions, fill out this summary:
 - **Task System**: Drop ExtractTask, keep all other tasks ✅
 - **Message Types**: Keep core + SIMPLE + MODERATION (optional), drop EXTRACT + SIMULATE ✅
 - **Versioning**: Simplified draft/published only (two documents, no version history) ✅
-- **Examples**: _____________________
+- **Examples**: Drop for v1 (can add in v2 if requested) ✅
 - **Moderation**: Optional (global toggle via admin panel, requires OpenAI key) ✅
 
 ### UI Approach
