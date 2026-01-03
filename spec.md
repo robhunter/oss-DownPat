@@ -812,9 +812,11 @@ DownPat was a platform that hosted educational prompts based on books and other 
 - **Rationale**: Safety feature essential for public-facing apps, toggleable for flexibility, simple implementation
 - **Impact**: Implement OpenAI moderation adapter (required), add admin UI toggle (required), no pluggable interface
 
-#### Q12.4: Rate Limiting
-- **Question**: Should packages include rate limiting for AI calls?
-- **Context**: Prevent abuse, control costs
+#### Q12.4: Rate Limiting ✅ DECIDED
+- **Decision**: No built-in rate limiting for v1
+- **Selected**: Rely on API provider limits and budgets
+- **Rationale**: OpenAI, Anthropic, and Gemini all have built-in rate limits and budget controls; infrastructure-level concern better handled by API providers or gateways
+- **Impact**: No rate limiting code, simpler implementation, documentation recommends API provider budget controls
 - **Options**:
   - A) Built-in rate limiting (configurable)
   - B) Rate limiting utilities (users implement)

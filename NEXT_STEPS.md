@@ -613,15 +613,32 @@ ExerciseMetadata {
 
 ---
 
-### 15. Rate Limiting
+### 15. Rate Limiting ✅ DECIDED
 
-**Decision**: Built-in rate limiting for AI calls?
+**Decision**: No built-in rate limiting for v1
 
-- [ ] Built-in rate limiting (configurable)
-- [ ] Provide utilities, users implement
-- [ ] No rate limiting (users handle at infrastructure level)
+- [x] **No rate limiting** - Rely on API provider limits and budgets
+  - Not implementing custom rate limiting in packages
+  - Users rely on API provider controls (OpenAI, Anthropic, Gemini)
+  - Can be added in v2 if users request it
 
-**Your Decision**: _____________________
+**Rationale:**
+- **API provider limits**: OpenAI, Anthropic, and Gemini all have built-in rate limits and budget controls
+- **Infrastructure concern**: Better handled at API gateway or cloud provider level
+- **Complexity vs value**: Custom rate limiting adds significant complexity for minimal benefit
+- **User control**: API keys already have budget limits and usage alerts
+- **Simplifies v1**: One less system to build and maintain
+
+**What users can do for rate limiting:**
+- Set budget limits on their API provider accounts
+- Use API gateway rate limiting (if needed)
+- Monitor usage via provider dashboards
+- Set up alerts for high usage
+
+**Impact:**
+- No rate limiting code in packages
+- Documentation recommends API provider budget controls
+- Simpler implementation, faster development
 
 ---
 
@@ -722,7 +739,7 @@ Confirm testing approach:
 
 ## REMAINING DECISIONS SUMMARY
 
-### ✅ Completed (15 questions)
+### ✅ Completed (16 questions)
 1. Storage Architecture
 2. Authentication Integration
 3. "Schema Step" Clarification
@@ -733,19 +750,20 @@ Confirm testing approach:
 8. UI Component Approach (styled components with Tailwind + CSS variables)
 9. Theming System (default theme + generator utility)
 10. Demo Link Generation (backend only)
-11. Message Types (keep core + SIMPLE + optional MODERATION, drop SIMULATE)
+11. Message Types (keep core + SIMPLE + toggleable MODERATION, drop SIMULATE)
 12. Exercise Versioning (simplified draft/published only)
 13. Exercise Examples (drop for v1)
-14. Content Moderation (optional/pluggable with global toggle)
+14. Content Moderation (toggleable with global toggle, must implement in v1)
+15. Rate Limiting (no built-in rate limiting, rely on API provider limits)
 16. Example App Framework (Vanilla Node.js + Express + React)
 
-### ⚠️ Still Need Decisions (4 questions)
+### ⚠️ Still Need Decisions (3 questions)
 
 **HIGH PRIORITY** (affect architecture/user experience):
 - ✅ All high-priority questions completed!
 
 **MEDIUM PRIORITY** (affect features):
-- **Q15: Rate Limiting** - Built-in or user responsibility?
+- ✅ All medium-priority questions completed!
 
 **LOWER PRIORITY** (can decide during implementation):
 - **Q17: Testing Tools** - Jest vs Vitest?
