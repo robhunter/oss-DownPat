@@ -656,28 +656,71 @@ ExerciseMetadata {
 
 ---
 
-### 17. Testing Tools
+### 17. Testing Tools ✅ DECIDED
 
-- [ ] Keep Jest + React Testing Library
-- [ ] Vitest + Testing Library (faster, modern)
-- [ ] Mix: Vitest for packages, Jest for app
+**Decision**: Vitest + Testing Library for all packages
 
-**Your Decision**: _____________________
+- [x] **Vitest + Testing Library** - Modern, fast, great DX
+  - Vitest for unit/integration tests
+  - React Testing Library for component tests
+  - Compatible with Jest APIs (easy migration from legacy code)
+  - Native ESM support, faster execution
+  - Better watch mode and developer experience
 
 **E2E Testing**:
-- [ ] Playwright
-- [ ] Cypress
-- [ ] None initially
+- **Playwright** (recommended for example app if needed)
+- Can be added later based on need
+
+**Rationale:**
+- **Modern standard**: Vitest is the current standard for new TypeScript projects
+- **Performance**: Significantly faster than Jest, especially in watch mode
+- **Better DX**: Clearer error messages, better HMR integration
+- **Jest compatible**: Can reuse Jest patterns and expectations
+- **TypeScript-first**: Built with TypeScript in mind
+
+**Impact:**
+- All packages use Vitest for testing
+- Test configuration simpler than Jest
+- Faster CI/CD builds
+- Better local development experience
 
 ---
 
-### 18. Documentation Platform
+### 18. Documentation Platform ✅ DECIDED
 
-- [ ] README files only
-- [ ] Dedicated docs site (Docusaurus, VitePress, etc.)
-- [ ] Both README + docs site
+**Decision**: README files only for v1
 
-**Your Decision**: _____________________
+- [x] **README files only** - Comprehensive package documentation
+  - Each package gets detailed README with examples
+  - API documentation via TSDoc comments
+  - Lives with code (easier to maintain and keep in sync)
+  - Can add dedicated docs site in v2 if needed
+
+**What each README should include:**
+- Installation instructions
+- Quick start guide
+- API reference
+- Usage examples
+- Configuration options
+- Troubleshooting
+
+**Project-level documentation:**
+- Root README with overall architecture
+- AUTH_INTEGRATION.md (authentication guide)
+- Individual package READMEs for specifics
+
+**Rationale:**
+- **Simpler for v1**: No docs infrastructure to build/maintain
+- **Lives with code**: Documentation stays in sync with implementation
+- **Developer-friendly**: Developers expect good README files
+- **Sufficient for launch**: Can add docs site later if project grows
+- **Lower maintenance**: No separate docs deployment pipeline
+
+**Impact:**
+- Focus on writing excellent README files
+- Use TSDoc for inline API documentation
+- No docs site infrastructure needed
+- Can add Docusaurus/VitePress in v2 if adoption warrants it
 
 ---
 
@@ -689,16 +732,43 @@ See Question 8 for decision on TailwindCSS and Radix UI dependencies.
 
 ---
 
-### 20. License
+### 20. License ✅ DECIDED
 
-**Decision**: Which open source license?
+**Decision**: MIT License
 
-- [ ] MIT (most permissive, maximizes adoption)
-- [ ] Apache 2.0 (patent grant, more formal)
-- [ ] GPL/AGPL (copyleft, derivative works must be open)
-- [ ] Other: _____________________
+- [x] **MIT** - Most permissive, maximizes adoption
+  - Simple and widely understood
+  - No restrictions on commercial use
+  - Compatible with all other licenses
+  - Standard choice for developer tools and libraries
 
-**Your Decision**: _____________________
+**Rationale:**
+- **Maximum adoption**: No restrictions discourage potential users
+- **Commercial-friendly**: Companies can use without legal concerns
+- **Simple**: Easy to understand, no complex requirements
+- **Standard**: Most npm packages use MIT
+- **Trust**: Well-established and trusted by developers
+
+**License text:**
+```
+MIT License
+
+Copyright (c) [year] [copyright holder]
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+[standard MIT license text]
+```
+
+**Impact:**
+- Add LICENSE file to root and all packages
+- Include license header in package.json files
+- Note license in all README files
 
 ---
 
@@ -739,7 +809,8 @@ Confirm testing approach:
 
 ## REMAINING DECISIONS SUMMARY
 
-### ✅ Completed (16 questions)
+### ✅ ALL DECISIONS COMPLETE! (19/19 questions)
+
 1. Storage Architecture
 2. Authentication Integration
 3. "Schema Step" Clarification
@@ -756,19 +827,12 @@ Confirm testing approach:
 14. Content Moderation (toggleable with global toggle, must implement in v1)
 15. Rate Limiting (no built-in rate limiting, rely on API provider limits)
 16. Example App Framework (Vanilla Node.js + Express + React)
+17. Testing Tools (Vitest + Testing Library)
+18. Documentation Platform (README files only for v1)
+19. Component Styling Dependencies (consolidated with Q8)
+20. License (MIT)
 
-### ⚠️ Still Need Decisions (3 questions)
-
-**HIGH PRIORITY** (affect architecture/user experience):
-- ✅ All high-priority questions completed!
-
-**MEDIUM PRIORITY** (affect features):
-- ✅ All medium-priority questions completed!
-
-**LOWER PRIORITY** (can decide during implementation):
-- **Q17: Testing Tools** - Jest vs Vitest?
-- **Q18: Documentation Platform** - READMEs vs docs site?
-- **Q20: License** - MIT, Apache 2.0, or other?
+**🎉 All critical, high, medium, and lower priority questions are complete!**
 
 ---
 
@@ -841,12 +905,12 @@ Once you've made your decisions, fill out this summary:
 - **Auth Provider**: _____________________
 
 ### Testing & Tools
-- **Test Framework**: _____________________
-- **E2E Tool**: _____________________
-- **Docs Platform**: _____________________
+- **Test Framework**: Vitest + Testing Library ✅
+- **E2E Tool**: Playwright (recommended for example app if needed) ✅
+- **Docs Platform**: README files only for v1 ✅
 
 ### Legal
-- **License**: _____________________
+- **License**: MIT ✅
 
 ---
 
