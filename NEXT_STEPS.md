@@ -453,11 +453,11 @@ Current types: CONTEXT, MODERATION, STARTER, USER, CONVERSATION, COMMENTARY, EXT
   - Used by talkToCoachEnabled sidebar chat
   - Validated in conversation service (SIMPLE + USER only for coach chat)
 
-- [x] **MODERATION** (optional):
+- [x] **MODERATION** (toggleable):
   - Content moderation warnings
-  - Optional feature (can be enabled/disabled globally via admin panel)
-  - Requires OpenAI API key to function
-  - **New work**: Add admin UI toggle for global moderation setting
+  - Toggleable feature (enabled/disabled globally via admin panel)
+  - Hardcoded to use OpenAI moderation API
+  - **Must implement in v1**: Admin UI toggle for global moderation setting
 
 **Dropped types**:
 - [x] Drop EXTRACT (structured data extraction - decided with ExtractTask)
@@ -465,7 +465,7 @@ Current types: CONTEXT, MODERATION, STARTER, USER, CONVERSATION, COMMENTARY, EXT
 
 **Rationale**:
 - **SIMPLE required**: Essential for "Talk to Coach" feature we're keeping
-- **MODERATION optional**: Useful safety feature but should be configurable
+- **MODERATION toggleable**: Safety feature for public-facing apps, enabled/disabled per organization
 - **SIMULATE dropped**: Specialized feature, can be added later if needed
 
 **Impact**:
@@ -579,15 +579,37 @@ ExerciseMetadata {
 
 ---
 
-### 14. Content Moderation
+### 14. Content Moderation ✅ DECIDED
 
-**Decision**: Include content moderation adapter?
+**Decision**: Toggleable feature with global on/off switch (must implement in v1)
 
-- [ ] Include as core feature
-- [ ] Make it optional/pluggable
-- [ ] Drop entirely (users implement if needed)
+- [x] **Toggleable moderation** - Enabled/disabled globally per organization
+  - Global toggle in admin panel (organization-level setting)
+  - Hardcoded to use OpenAI moderation API (no pluggable interface)
+  - When enabled, checks user messages for policy violations
+  - Returns MODERATION message type with warnings/blocks
+  - **Must be implemented in v1** (not optional to skip)
 
-**Your Decision**: _____________________
+**Implementation:**
+- Include OpenAI moderation adapter in core packages
+- Default: Disabled (organizations enable as needed)
+- Admin UI: Global toggle to enable/disable moderation
+- Configuration: Requires OpenAI API key (in addition to chat model keys)
+- Behavior: When enabled, all user messages checked before processing
+- No pluggable interface - always uses OpenAI moderation API
+
+**Rationale:**
+- **Safety feature**: Essential for public-facing applications
+- **Toggleable**: Not all use cases need moderation (internal training, controlled environments)
+- **Simple implementation**: Hardcoded to OpenAI (no adapter interface complexity)
+- **Must ship in v1**: Core safety feature, not deferrable
+- **Consistent with Q11**: Aligns with MODERATION message type decision
+
+**Impact:**
+- Implement OpenAI moderation adapter (required in v1)
+- Add admin UI toggle (new work, required in v1)
+- Document OpenAI moderation API requirement
+- Default disabled but must be available to toggle on
 
 ---
 
@@ -700,7 +722,7 @@ Confirm testing approach:
 
 ## REMAINING DECISIONS SUMMARY
 
-### ✅ Completed (14 questions)
+### ✅ Completed (15 questions)
 1. Storage Architecture
 2. Authentication Integration
 3. "Schema Step" Clarification
@@ -714,15 +736,15 @@ Confirm testing approach:
 11. Message Types (keep core + SIMPLE + optional MODERATION, drop SIMULATE)
 12. Exercise Versioning (simplified draft/published only)
 13. Exercise Examples (drop for v1)
+14. Content Moderation (optional/pluggable with global toggle)
 16. Example App Framework (Vanilla Node.js + Express + React)
 
-### ⚠️ Still Need Decisions (5 questions)
+### ⚠️ Still Need Decisions (4 questions)
 
 **HIGH PRIORITY** (affect architecture/user experience):
 - ✅ All high-priority questions completed!
 
 **MEDIUM PRIORITY** (affect features):
-- **Q14: Content Moderation** - Include, make optional, or drop?
 - **Q15: Rate Limiting** - Built-in or user responsibility?
 
 **LOWER PRIORITY** (can decide during implementation):
@@ -784,10 +806,10 @@ Once you've made your decisions, fill out this summary:
 
 ### Features
 - **Task System**: Drop ExtractTask, keep all other tasks ✅
-- **Message Types**: Keep core + SIMPLE + MODERATION (optional), drop EXTRACT + SIMULATE ✅
+- **Message Types**: Keep core + SIMPLE + MODERATION (toggleable), drop EXTRACT + SIMULATE ✅
 - **Versioning**: Simplified draft/published only (two documents, no version history) ✅
 - **Examples**: Drop for v1 (can add in v2 if requested) ✅
-- **Moderation**: Optional (global toggle via admin panel, requires OpenAI key) ✅
+- **Moderation**: Toggleable (global on/off via admin panel, hardcoded to OpenAI, must implement in v1) ✅
 
 ### UI Approach
 - **Component Style**: Styled components pre-styled with TailwindCSS ✅

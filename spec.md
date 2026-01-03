@@ -336,14 +336,15 @@ DownPat was a platform that hosted educational prompts based on books and other 
   - ✅ ConversationTask, CommentaryTask, SummaryTask, SimulateTask
 - **Rationale**: ExtractTask is specialized for specific use cases, adds PDF dependency, not core to conversational training
 
-#### Q3.2: Message Types ✅ PARTIALLY DECIDED
+#### Q3.2: Message Types ✅ DECIDED
 - **Context**: Current system has: CONTEXT, MODERATION, STARTER, USER, CONVERSATION, COMMENTARY, EXTRACT, SIMPLE, SIMULATE, SUMMARY
-- **Decided**: Drop EXTRACT message type (goes with ExtractTask decision above)
-- **Still to decide**:
-  - Keep MODERATION? (content moderation feature)
-  - Keep SIMPLE? (simple AI responses without structure)
-  - Keep SIMULATE? (AI-generated simulated user messages)
-  - Simplify to fewer core types?
+- **Decision**: Keep core types + SIMPLE + MODERATION, drop EXTRACT + SIMULATE
+- **Final message types**:
+  - ✅ Core types: CONTEXT, STARTER, USER, CONVERSATION, COMMENTARY, SUMMARY
+  - ✅ SIMPLE (required for "Talk to Coach" feature)
+  - ✅ MODERATION (toggleable content moderation, hardcoded to OpenAI, must implement in v1)
+  - ❌ EXTRACT (dropped with ExtractTask)
+  - ❌ SIMULATE (AI-generated simulated user messages - not needed for v1)
 
 #### Q3.3: Exercise Versioning ✅ DECIDED
 - **Decision**: Simplified draft/published versioning (two versions max)
@@ -799,17 +800,17 @@ DownPat was a platform that hosted educational prompts based on books and other 
   - B) Optional sanitization (configurable)
   - C) No sanitization (user's responsibility)
 
-#### Q12.3: Content Moderation
-- **Question**: Should we include the content moderation adapter?
-- **Context**: Current code has ModerationAdapter for flagging inappropriate content
-- **Options**:
-  - A) Include moderation as core feature
-  - B) Make moderation optional/pluggable
-  - C) Drop moderation (users implement if needed)
-- **Considerations**:
-  - May be important for public-facing apps
-  - Adds dependency and complexity
-  - Different orgs have different moderation needs
+#### Q12.3: Content Moderation ✅ DECIDED
+- **Decision**: Toggleable feature (must implement in v1)
+- **Selected**: Toggleable on/off switch, hardcoded to OpenAI
+- **Implementation**:
+  - Global toggle in admin panel (organization-level setting)
+  - Hardcoded to use OpenAI moderation API (no pluggable interface)
+  - Default: Disabled (organizations enable as needed)
+  - Returns MODERATION message type when violations detected
+  - **Must be implemented in v1** - core safety feature
+- **Rationale**: Safety feature essential for public-facing apps, toggleable for flexibility, simple implementation
+- **Impact**: Implement OpenAI moderation adapter (required), add admin UI toggle (required), no pluggable interface
 
 #### Q12.4: Rate Limiting
 - **Question**: Should packages include rate limiting for AI calls?
