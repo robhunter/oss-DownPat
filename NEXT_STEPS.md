@@ -354,20 +354,64 @@ downpat.attachSocketIO(server); // Same server, same origin
 
 ---
 
-### 9. Theming System
+### 9. Theming System ✅ DECIDED
 
-**Decision**: How much of the theming system should we include?
+**Decision**: Ship default theme + theme generator utility
 
-Current system has elaborate multi-tenant theme factory with CSS variables.
+- [x] **Default theme**: Complete theme using Tailwind color palette (works out of the box)
+- [x] **Theme generator utility**: Helper function to generate full themes from 3-5 base colors
+- [x] **CSS variable override**: Advanced users can manually override any variables
 
-- [ ] **Full system**: Keep theme factory, color generation, multiple themes
-- [ ] **Simple**: One default theme + CSS variable customization guide
-- [ ] **Unstyled**: No theming, host app styles everything
-- [ ] **Minimal**: Just CSS variables, no factory
+**Implementation**:
 
-**Your Decision**: _____________________
+```typescript
+// Default theme ships with @downpat/ui-components
+// Uses Tailwind's blue palette as default
+:root {
+  --downpat-primary-50: #eff6ff;
+  --downpat-primary-500: #3b82f6;
+  --downpat-primary-900: #1e3a8a;
+  /* ... complete set of variables */
+}
 
-**Default themes to include**: _____________________
+// Theme generator utility (in @downpat/core or separate @downpat/theme-generator)
+import { generateTheme } from '@downpat/core';
+
+const customTheme = generateTheme({
+  primary: '#8b5cf6',      // Brand purple
+  secondary: '#06b6d4',    // Brand cyan
+  success: '#10b981',      // Optional
+  danger: '#ef4444',       // Optional
+  neutral: '#6b7280'       // Optional
+});
+
+// Apply theme (returns CSS variable declarations)
+// Host app includes in their CSS or applies via JavaScript
+```
+
+**Customization Levels**:
+
+1. **No customization**: Use default theme (blue) - zero config
+2. **Basic branding**: Use theme generator with 2-3 brand colors - simple
+3. **Full control**: Manually override any/all CSS variables - advanced
+
+**Documentation needed**:
+- Default theme color reference
+- Theme generator API documentation
+- Examples of each customization level
+- Dark mode implementation guide
+
+**Rationale**:
+- **Easy default**: Works immediately with good-looking blue theme
+- **Easy customization**: Generate brand-matched theme with 3-5 colors
+- **Advanced control**: Override individual variables if needed
+- **Manageable maintenance**: One generator to maintain vs complex factory
+
+**Impact**:
+- Include theme generator in core package (or separate optional package)
+- Document all CSS variables in README
+- Provide theme generator examples
+- Show dark mode implementation pattern
 
 ---
 
@@ -388,35 +432,119 @@ Current system has elaborate multi-tenant theme factory with CSS variables.
 
 ## MEDIUM PRIORITY DECISIONS
 
-### 11. Message Types ⚠️ PARTIALLY DECIDED
+### 11. Message Types ✅ DECIDED
 
-**Decision**: Which message types to keep?
+**Decision**: Keep core types + SIMPLE + optional MODERATION
 
 Current types: CONTEXT, MODERATION, STARTER, USER, CONVERSATION, COMMENTARY, EXTRACT, SIMPLE, SIMULATE, SUMMARY
 
-**Decided**:
-- [x] Drop EXTRACT (decided with ExtractTask)
+**Final message types to include**:
 
-**Still to decide**:
-- [ ] Keep SIMPLE? (simple AI responses without structure)
-- [ ] Keep SIMULATE? (role-reversal simulation scenarios)
-- [ ] Keep MODERATION? (content moderation warnings)
-- [ ] Keep all remaining types?
+- [x] **Core types** (required):
+  - USER - User messages
+  - CONVERSATION - AI conversational responses
+  - COMMENTARY - AI coaching/feedback
+  - SUMMARY - End-of-conversation summaries
+  - CONTEXT - Background information
+  - STARTER - Initial conversation prompts
 
-**Core types (definitely keeping)**:
-- USER, CONVERSATION, COMMENTARY, SUMMARY, CONTEXT, STARTER
+- [x] **SIMPLE** (required):
+  - Simple AI responses for "Talk to Coach" feature
+  - Used by talkToCoachEnabled sidebar chat
+  - Validated in conversation service (SIMPLE + USER only for coach chat)
+
+- [x] **MODERATION** (optional):
+  - Content moderation warnings
+  - Optional feature (can be enabled/disabled globally via admin panel)
+  - Requires OpenAI API key to function
+  - **New work**: Add admin UI toggle for global moderation setting
+
+**Dropped types**:
+- [x] Drop EXTRACT (structured data extraction - decided with ExtractTask)
+- [x] Drop SIMULATE (AI-generated simulated user messages - not needed for v1)
+
+**Rationale**:
+- **SIMPLE required**: Essential for "Talk to Coach" feature we're keeping
+- **MODERATION optional**: Useful safety feature but should be configurable
+- **SIMULATE dropped**: Specialized feature, can be added later if needed
+
+**Impact**:
+- Message type handling for 8 types total
+- Admin panel needs moderation toggle (new UI work)
+- Moderation configuration tied to OpenAI API key availability
+- Talk to Coach validates SIMPLE + USER message types only
 
 ---
 
-### 12. Exercise Versioning
+### 12. Exercise Versioning ✅ DECIDED
 
-**Decision**: Include exercise versioning system?
+**Decision**: Simplified draft/published versioning (two versions max)
 
-- [ ] Keep full versioning (versions, metadata, LATEST constant)
-- [ ] Simple version number only
-- [ ] No versioning
+- [x] **Simplified versioning**: Draft and Published only (replacing complex multi-version system)
+  - Two separate exercise documents (draft + published)
+  - No arbitrary version names
+  - No version history array
 
-**Your Decision**: _____________________
+**Data Structure:**
+```typescript
+// Simplified from current system
+ExerciseMetadata {
+  draft: string       // Exercise ID of draft version (always editable)
+  published?: string  // Exercise ID of published version (optional, read-only)
+}
+
+// Remove these:
+// ❌ latest: string
+// ❌ versions: ExerciseVersion[]
+// ❌ arbitrary version names
+```
+
+**Core Operations:**
+1. **Create**: Only draft exists (`published` is null)
+2. **Edit**: Admin can only edit draft (never published directly)
+3. **Publish**: Copy draft document → published document
+4. **Restore from published**: Copy published → draft (with warning if draft has unsaved changes)
+5. **Republish**: Copy draft → published (overwrites previous published)
+
+**Implementation Changes:**
+
+**Models & Helpers:**
+- Update `ExerciseMetadata`: Change `latest` → `draft`, remove `versions[]`
+- Simplify `ExerciseMetadataHelper`: Remove version array logic
+- Remove or simplify `ExerciseVersion` model
+
+**Store Layer (exercise-store.ts):**
+- ✅ `createExercise()`: Already only creates draft - just rename field
+- ✅ `getExercisesByOrganization()`: Already uses `.latest` - rename to `.draft`
+- 🔄 `publishExercise()`: Modify to copy draft → published
+- ❌ `createExerciseVersion()`: **Remove entirely** (no longer needed)
+- ➕ `restoreFromPublished()`: **New method** - copy published → draft
+
+**Service Layer:**
+- Remove arbitrary version parameter support
+- Simplify to draft vs published toggle only
+
+**Admin UI:**
+- ❌ Remove version creation interface (no more arbitrary versions)
+- ➕ Add "Restore from Published" button (with warning for unsaved changes)
+- 🔄 Simplify version selector: Draft/Published toggle instead of dropdown
+- 🔄 Simplify publish flow: Just "Publish Draft" button
+
+**Migration:**
+- No migration needed (fresh deployment)
+
+**Rationale:**
+- **Problem solved**: Can edit draft without affecting live published exercise
+- **Simpler**: Only two states (draft, published) vs unlimited versions
+- **No complexity**: No version naming, no unbounded arrays, no arbitrary version selection
+- **Current system issues**: Complex version management was source of bugs
+- **Two documents**: Clean separation, draft edits never affect published
+
+**Impact:**
+- Significant code simplification (remove ~100+ lines of version management)
+- Simpler admin UI (remove version creation, simplify selectors)
+- Better UX (clear draft/published mental model vs arbitrary versions)
+- Estimated implementation: 8-12 hours total
 
 ---
 
@@ -555,7 +683,7 @@ Confirm testing approach:
 
 ## REMAINING DECISIONS SUMMARY
 
-### ✅ Completed (10 questions)
+### ✅ Completed (13 questions)
 1. Storage Architecture
 2. Authentication Integration
 3. "Schema Step" Clarification
@@ -564,17 +692,18 @@ Confirm testing approach:
 6. Package Scope & Naming
 7. Exercise Manager Architecture (resolved by controller pattern)
 8. UI Component Approach (styled components with Tailwind + CSS variables)
+9. Theming System (default theme + generator utility)
 10. Demo Link Generation (backend only)
+11. Message Types (keep core + SIMPLE + optional MODERATION, drop SIMULATE)
+12. Exercise Versioning (simplified draft/published only)
 16. Example App Framework (Vanilla Node.js + Express + React)
 
-### ⚠️ Still Need Decisions (9 questions)
+### ⚠️ Still Need Decisions (6 questions)
 
 **HIGH PRIORITY** (affect architecture/user experience):
-- **Q9: Theming System** - How much theming to include?
+- ✅ All high-priority questions completed!
 
 **MEDIUM PRIORITY** (affect features):
-- **Q11: Message Types** - Keep SIMPLE, SIMULATE, MODERATION?
-- **Q12: Exercise Versioning** - Keep versioning system?
 - **Q13: Exercise Examples** - Keep examples feature?
 - **Q14: Content Moderation** - Include, make optional, or drop?
 - **Q15: Rate Limiting** - Built-in or user responsibility?
@@ -638,16 +767,17 @@ Once you've made your decisions, fill out this summary:
 
 ### Features
 - **Task System**: Drop ExtractTask, keep all other tasks ✅
-- **Message Types**: Drop EXTRACT, others TBD _____________________
-- **Versioning**: _____________________
+- **Message Types**: Keep core + SIMPLE + MODERATION (optional), drop EXTRACT + SIMULATE ✅
+- **Versioning**: Simplified draft/published only (two documents, no version history) ✅
 - **Examples**: _____________________
-- **Moderation**: _____________________
+- **Moderation**: Optional (global toggle via admin panel, requires OpenAI key) ✅
 
 ### UI Approach
 - **Component Style**: Styled components pre-styled with TailwindCSS ✅
-- **Theming**: CSS variables for color customization (dark mode support) ✅
+- **Theming**: Default theme + generator utility (3-5 colors → full theme) ✅
 - **TailwindCSS**: Peer dependency (required) ✅
 - **Radix UI**: Not using (replace Avatar with initials, skip other Radix components) ✅
+- **Dark Mode**: Supported via CSS variables ✅
 
 ### Example App
 - **Framework**: Vanilla Node.js + Express (backend) + React (frontend)

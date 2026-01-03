@@ -37,7 +37,7 @@ enum MessageType {
   COMMENTARY   // AI feedback/coaching commentary
   EXTRACT      // ❌ DROPPING - Structured data extraction to PDF
   SIMPLE       // Simple AI response
-  SIMULATE     // AI simulation scenario
+  SIMULATE     // AI-generated simulated user message
   SUMMARY      // End-of-conversation summary
 }
 ```

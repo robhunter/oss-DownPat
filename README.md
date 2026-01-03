@@ -173,7 +173,7 @@ User Input
 Exercises define tasks that execute at different points:
 - **Continuation Tasks**: After each user message
 - **Completion Tasks**: When max messages reached
-- **Simulation Tasks**: For role-reversal scenarios
+- **Simulation Tasks**: AI generates simulated user messages (to help/guide users)
 
 Each task specifies:
 - Response type (conversation, commentary, summary, etc.)

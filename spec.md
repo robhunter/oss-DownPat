@@ -342,20 +342,18 @@ DownPat was a platform that hosted educational prompts based on books and other 
 - **Still to decide**:
   - Keep MODERATION? (content moderation feature)
   - Keep SIMPLE? (simple AI responses without structure)
-  - Keep SIMULATE? (role-reversal simulation)
+  - Keep SIMULATE? (AI-generated simulated user messages)
   - Simplify to fewer core types?
 
-#### Q3.3: Exercise Versioning
-- **Question**: Is exercise versioning necessary for the open source version?
-- **Context**: Current code supports multiple versions per exercise with LATEST constant
-- **Considerations**:
-  - Adds complexity
-  - Useful for iterating on exercises
-  - Do conversations need to lock to a specific version?
-- **Options**:
-  - A) Keep full versioning system
-  - B) Simple version number without version management
-  - C) No versioning (breaking changes require new exercise)
+#### Q3.3: Exercise Versioning ✅ DECIDED
+- **Decision**: Simplified draft/published versioning (two versions max)
+- **Selected**: Custom option - Draft/Published only (simpler than current system)
+- **Implementation**:
+  - Two exercise documents: draft (always editable) + published (read-only)
+  - No version history, no arbitrary version names
+  - Operations: Create (draft only), Edit (draft only), Publish (copy draft→published), Restore (copy published→draft with warning)
+- **Rationale**: Solves the core problem (edit without affecting live exercise) without the complexity of unlimited versions
+- **Impact**: Significant code simplification, clearer mental model for users
 
 #### Q3.4: Exercise Examples
 - **Question**: Should we include the exercise examples feature?
