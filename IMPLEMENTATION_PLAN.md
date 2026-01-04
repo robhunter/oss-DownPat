@@ -30,23 +30,14 @@ This implementation plan builds the DownPat open source packages based on all ar
 
 ### Single Organization Model
 
-This open source release uses a **single-organization model** (not multi-tenant). The `orgId` parameter in storage interfaces refers to the configured organization ID for the application instance.
+This open source release uses a **single-organization model** (not multi-tenant). Each deployment serves one organization.
 
 **Key implications:**
 - One Firebase project per deployment
-- Organization ID is configured at application startup (environment variable)
 - No subdomain-based routing
-- No organization switching within a session
-- Storage interfaces still accept `orgId` for interface consistency, but it will be the same value throughout
-
-**Example configuration:**
-```typescript
-// Environment or config file
-const ORG_ID = process.env.DOWNPAT_ORG_ID || 'default';
-
-// When calling storage methods
-await storage.getExercises(ORG_ID);
-```
+- No organization switching
+- Storage interfaces don't require orgId parameter (simplified from original multi-tenant design)
+- All data lives in a single namespace within the Firebase project
 
 ### Build Tooling
 
@@ -845,7 +836,7 @@ export interface ExerciseStorage {
   /**
    * Create new exercise (draft only)
    */
-  createExercise(exercise: Exercise, orgId: string): Promise<void>;
+  createExercise(exercise: Exercise): Promise<void>;
 
   /**
    * Update draft exercise
@@ -855,28 +846,28 @@ export interface ExerciseStorage {
   /**
    * Publish draft to published version
    */
-  publishExercise(orgId: string, slug: string): Promise<void>;
+  publishExercise(slug: string): Promise<void>;
 
   /**
    * Unpublish exercise (remove published version, keep draft)
    */
-  unpublishExercise(orgId: string, slug: string): Promise<void>;
+  unpublishExercise(slug: string): Promise<void>;
 
   /**
    * Restore draft from published version
    * @throws if no published version exists
    */
-  restoreFromPublished(orgId: string, slug: string): Promise<void>;
+  restoreFromPublished(slug: string): Promise<void>;
 
   /**
    * Get exercise metadata by slug
    */
-  getExerciseMetadata(orgId: string, slug: string): Promise<ExerciseMetadata | null>;
+  getExerciseMetadata(slug: string): Promise<ExerciseMetadata | null>;
 
   /**
-   * Get all exercises for organization
+   * Get all exercises
    */
-  getExercises(orgId: string): Promise<Exercise[]>;
+  getExercises(): Promise<Exercise[]>;
 }
 ```
 
@@ -990,7 +981,7 @@ export class ExerciseController {
       throw new Error('Unauthorized: Only admins can create exercises');
     }
 
-    await this.storage.createExercise(exercise, user.userId);
+    await this.storage.createExercise(exercise);
     return exercise;
   }
 
@@ -1016,41 +1007,29 @@ export class ExerciseController {
     await this.storage.updateExercise(exercise);
   }
 
-  async publishExercise(
-    orgId: string,
-    slug: string,
-    user: User
-  ): Promise<void> {
+  async publishExercise(slug: string, user: User): Promise<void> {
     if (!user.isAdmin) {
       throw new Error('Unauthorized: Only admins can publish exercises');
     }
 
-    await this.storage.publishExercise(orgId, slug);
+    await this.storage.publishExercise(slug);
   }
 
-  async unpublishExercise(
-    orgId: string,
-    slug: string,
-    user: User
-  ): Promise<void> {
+  async unpublishExercise(slug: string, user: User): Promise<void> {
     if (!user.isAdmin) {
       throw new Error('Unauthorized: Only admins can unpublish exercises');
     }
 
-    await this.storage.unpublishExercise(orgId, slug);
+    await this.storage.unpublishExercise(slug);
   }
 
-  async restoreFromPublished(
-    orgId: string,
-    slug: string,
-    user: User
-  ): Promise<void> {
+  async restoreFromPublished(slug: string, user: User): Promise<void> {
     if (!user.isAdmin) {
       throw new Error('Unauthorized: Only admins can restore exercises');
     }
 
     // Note: Should warn user if draft has unsaved changes (UI responsibility)
-    await this.storage.restoreFromPublished(orgId, slug);
+    await this.storage.restoreFromPublished(slug);
   }
 }
 ```
@@ -1202,47 +1181,82 @@ packages/firebase-storage/
 import { ExerciseStorage, Exercise, ExerciseMetadata } from '@downpat/core';
 import { Firestore } from 'firebase-admin/firestore';
 
+/**
+ * Firebase implementation of ExerciseStorage.
+ *
+ * Data structure (single-org, no orgId needed):
+ * - exercises/{exerciseId} - Exercise documents
+ * - exerciseMetadata/{slug} - Maps slug to draft/published exercise IDs
+ */
 export class FirebaseExerciseStorage implements ExerciseStorage {
   constructor(private db: Firestore) {}
 
-  async createExercise(exercise: Exercise, orgId: string): Promise<void> {
+  async createExercise(exercise: Exercise): Promise<void> {
     const exerciseRef = this.db.collection('exercises').doc(exercise.exerciseId);
-    const orgRef = this.db.collection('organizations').doc(orgId);
+    const metadataRef = this.db.collection('exerciseMetadata').doc(exercise.slug);
 
     await this.db.runTransaction(async (txn) => {
+      // Check if slug already exists
+      const existingMetadata = await txn.get(metadataRef);
+      if (existingMetadata.exists) {
+        throw new Error(`Exercise with slug "${exercise.slug}" already exists`);
+      }
+
       // Create exercise document
       txn.create(exerciseRef, {
         ...exercise,
-        orgId,
         createdAt: new Date().toISOString()
       });
 
-      // Update organization's exercise metadata (draft only, no published)
-      const orgDoc = await txn.get(orgRef);
-      const exercises = orgDoc.data()?.exercises || {};
-
-      exercises[exercise.slug] = {
+      // Create metadata document
+      txn.create(metadataRef, {
         draft: exercise.exerciseId,
         // published: undefined (not published yet)
-      } as ExerciseMetadata;
-
-      txn.update(orgRef, { exercises });
+      } as ExerciseMetadata);
     });
   }
 
-  async publishExercise(orgId: string, slug: string): Promise<void> {
-    const orgRef = this.db.collection('organizations').doc(orgId);
+  async getExercise(exerciseId: string): Promise<Exercise | null> {
+    const doc = await this.db.collection('exercises').doc(exerciseId).get();
+    return doc.exists ? (doc.data() as Exercise) : null;
+  }
+
+  async getExerciseMetadata(slug: string): Promise<ExerciseMetadata | null> {
+    const doc = await this.db.collection('exerciseMetadata').doc(slug).get();
+    return doc.exists ? (doc.data() as ExerciseMetadata) : null;
+  }
+
+  async getExercises(): Promise<Exercise[]> {
+    // Get all draft exercises
+    const metadataSnapshot = await this.db.collection('exerciseMetadata').get();
+    const draftIds = metadataSnapshot.docs.map(doc => doc.data().draft);
+
+    if (draftIds.length === 0) return [];
+
+    const exerciseRefs = draftIds.map(id => this.db.collection('exercises').doc(id));
+    const exerciseDocs = await this.db.getAll(...exerciseRefs);
+
+    return exerciseDocs
+      .filter(doc => doc.exists)
+      .map(doc => doc.data() as Exercise);
+  }
+
+  async updateExercise(exercise: Exercise): Promise<void> {
+    await this.db.collection('exercises').doc(exercise.exerciseId).set(exercise, { merge: true });
+  }
+
+  async publishExercise(slug: string): Promise<void> {
+    const metadataRef = this.db.collection('exerciseMetadata').doc(slug);
 
     await this.db.runTransaction(async (txn) => {
-      const orgDoc = await txn.get(orgRef);
-      const exercises = orgDoc.data()?.exercises || {};
-      const metadata = exercises[slug] as ExerciseMetadata;
+      const metadataDoc = await txn.get(metadataRef);
+      const metadata = metadataDoc.data() as ExerciseMetadata;
 
       if (!metadata) {
         throw new Error('Exercise not found');
       }
 
-      // Copy draft to new published document
+      // Copy draft to published document
       const draftRef = this.db.collection('exercises').doc(metadata.draft);
       const draftDoc = await txn.get(draftRef);
 
@@ -1257,22 +1271,19 @@ export class FirebaseExerciseStorage implements ExerciseStorage {
       txn.set(publishedRef, draftDoc.data()!);
 
       // Update metadata
-      exercises[slug] = {
+      txn.update(metadataRef, {
         draft: metadata.draft,
         published: publishedId
-      };
-
-      txn.update(orgRef, { exercises });
+      });
     });
   }
 
-  async unpublishExercise(orgId: string, slug: string): Promise<void> {
-    const orgRef = this.db.collection('organizations').doc(orgId);
+  async unpublishExercise(slug: string): Promise<void> {
+    const metadataRef = this.db.collection('exerciseMetadata').doc(slug);
 
     await this.db.runTransaction(async (txn) => {
-      const orgDoc = await txn.get(orgRef);
-      const exercises = orgDoc.data()?.exercises || {};
-      const metadata = exercises[slug] as ExerciseMetadata;
+      const metadataDoc = await txn.get(metadataRef);
+      const metadata = metadataDoc.data() as ExerciseMetadata;
 
       if (!metadata) {
         throw new Error('Exercise not found');
@@ -1287,25 +1298,22 @@ export class FirebaseExerciseStorage implements ExerciseStorage {
       txn.delete(publishedRef);
 
       // Update metadata (remove published reference, keep draft)
-      exercises[slug] = {
+      txn.update(metadataRef, {
         draft: metadata.draft,
-        published: undefined
-      };
-
-      txn.update(orgRef, { exercises });
+        published: null
+      });
     });
   }
 
-  async restoreFromPublished(orgId: string, slug: string): Promise<void> {
+  async restoreFromPublished(slug: string): Promise<void> {
     // Copy published → draft
     // Should warn if draft has unsaved changes (UI responsibility, not here)
 
-    const orgRef = this.db.collection('organizations').doc(orgId);
+    const metadataRef = this.db.collection('exerciseMetadata').doc(slug);
 
     await this.db.runTransaction(async (txn) => {
-      const orgDoc = await txn.get(orgRef);
-      const exercises = orgDoc.data()?.exercises || {};
-      const metadata = exercises[slug] as ExerciseMetadata;
+      const metadataDoc = await txn.get(metadataRef);
+      const metadata = metadataDoc.data() as ExerciseMetadata;
 
       if (!metadata?.published) {
         throw new Error('No published version to restore from');
@@ -1323,8 +1331,6 @@ export class FirebaseExerciseStorage implements ExerciseStorage {
       txn.set(draftRef, publishedDoc.data()!);
     });
   }
-
-  // Other methods...
 }
 ```
 
