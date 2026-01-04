@@ -415,18 +415,17 @@ const customTheme = generateTheme({
 
 ---
 
-### 10. Demo Link Generation ✅ DECIDED
+### 10. Demo Link Generation ✅ DECIDED - DEFERRED
 
-**Decision**: Backend only (server generates demo links)
+**Decision**: Deferred from initial release
 
-- [x] **Backend only**: Server generates links via admin-only endpoint
-  - More secure (only admins can create demo links)
-  - Prevents abuse
-  - Simpler implementation
+- [x] **Deferred**: Demo link functionality is not critical for initial milestone
+  - Can be added in a future release
+  - Focus on core exercise and conversation functionality first
 
-**Rationale**: Security and access control - only authenticated admins should create demo links
+**Rationale**: Simplify initial release scope. Demo links can be added later if needed.
 
-**Implementation**: Admin UI calls POST `/api/downpat/demo-links` endpoint
+**Previous decision (for future reference)**: Backend only approach was planned - server generates links via admin-only endpoint
 
 ---
 
@@ -820,7 +819,7 @@ Confirm testing approach:
 7. Exercise Manager Architecture (resolved by controller pattern)
 8. UI Component Approach (styled components with Tailwind + CSS variables)
 9. Theming System (default theme + generator utility)
-10. Demo Link Generation (backend only)
+10. Demo Link Generation (deferred from initial release)
 11. Message Types (keep core + SIMPLE + toggleable MODERATION, drop SIMULATE)
 12. Exercise Versioning (simplified draft/published only)
 13. Exercise Examples (drop for v1)

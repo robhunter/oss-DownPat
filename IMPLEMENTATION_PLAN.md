@@ -26,6 +26,34 @@ This implementation plan builds the DownPat open source packages based on all ar
 
 ---
 
+## 🏢 Architecture Notes
+
+### Single Organization Model
+
+This open source release uses a **single-organization model** (not multi-tenant). The `orgId` parameter in storage interfaces refers to the configured organization ID for the application instance.
+
+**Key implications:**
+- One Firebase project per deployment
+- Organization ID is configured at application startup (environment variable)
+- No subdomain-based routing
+- No organization switching within a session
+- Storage interfaces still accept `orgId` for interface consistency, but it will be the same value throughout
+
+**Example configuration:**
+```typescript
+// Environment or config file
+const ORG_ID = process.env.DOWNPAT_ORG_ID || 'default';
+
+// When calling storage methods
+await storage.getExercises(ORG_ID);
+```
+
+### Build Tooling
+
+**Vite** is used for the React client application (example-app and UI component development). This is acceptable as Vite was already used in the original codebase. The example-app runs on port 5173 (Vite default), while the API server runs on port 3001.
+
+---
+
 ## 🚀 MILESTONE 0: Verification Infrastructure Setup
 
 **Goal:** Establish verification tools that work for both agent (Docker) and human (Mac) to confidently validate work throughout implementation.
@@ -120,7 +148,7 @@ export default defineConfig({
 - [ ] Create example-app/server (Express backend)
 - [ ] Create example-app/client (React frontend)
 - [ ] Set up build scripts
-- [ ] Configure to run on port 3002 (Docker port forward)
+- [ ] Configure to run on port 5173 (Vite default, Docker port forward)
 - [ ] Add "Hello World" API endpoint
 - [ ] Add basic React UI with button interaction
 
@@ -129,7 +157,7 @@ export default defineConfig({
 example-app/
 ├── server/
 │   ├── src/
-│   │   └── index.ts          # Express server on port 3002
+│   │   └── index.ts          # Express server (API on port 3001)
 │   ├── package.json
 │   └── tsconfig.json
 └── client/
@@ -149,7 +177,7 @@ import express from 'express';
 import cors from 'cors';
 
 const app = express();
-const PORT = 3002;
+const PORT = 3001;  // API server port (client runs on 5173)
 
 app.use(cors());
 app.use(express.json());
@@ -172,7 +200,7 @@ function App() {
   const [health, setHealth] = useState<string>('');
 
   const checkHealth = async () => {
-    const res = await fetch('http://localhost:3002/api/health');
+    const res = await fetch('http://localhost:3001/api/health');
     const data = await res.json();
     setHealth(data.message);
   };
@@ -216,10 +244,10 @@ export default App;
 ```
 
 **Verification:**
-- Agent (Docker): `npm run dev:server` starts on port 3002
-- Agent (Docker): `npm run dev:client` starts and builds
+- Agent (Docker): `npm run dev:server` starts on port 3001 (API)
+- Agent (Docker): `npm run dev:client` starts on port 5173 (UI)
 - Human (Mac): Same commands work
-- Both can access http://localhost:3002
+- Both can access http://localhost:5173 (UI) and http://localhost:3001 (API)
 
 ---
 
@@ -254,14 +282,20 @@ set -e
 
 echo "🌐 Verifying browser experience..."
 
-# Ensure server is running
-curl -f http://localhost:3002/api/health || {
-  echo "❌ Server not running on port 3002"
+# Ensure API server is running
+curl -f http://localhost:3001/api/health || {
+  echo "❌ API server not running on port 3001"
   exit 1
 }
 
-# Take screenshot
-shot-scraper http://localhost:3002 \
+# Ensure client is running (check if Vite dev server responds)
+curl -f http://localhost:5173 || {
+  echo "❌ Client not running on port 5173"
+  exit 1
+}
+
+# Take screenshot of the client UI (port 5173)
+shot-scraper http://localhost:5173 \
   --output verification-screenshots/app.png \
   --width 1280 \
   --height 800 \
@@ -296,7 +330,10 @@ echo "👀 Review screenshot: open verification-screenshots/app.png"
 
 ### 0.5: Create VERIFICATION.md
 
+**Note:** VERIFICATION.md is a **separate file** in the repository root, not part of this implementation plan. It serves as standalone documentation for both human developers and AI coding agents.
+
 **Tasks:**
+- [ ] Create VERIFICATION.md file in repository root
 - [ ] Document how agent runs tests in Docker
 - [ ] Document how human runs tests on Mac
 - [ ] Document browser verification process
@@ -367,8 +404,8 @@ cd example-app/client
 npm run dev
 ```
 
-**Server runs on**: http://localhost:3002
-**Client runs on**: http://localhost:5173 (Vite default)
+**Server runs on**: http://localhost:3001 (API)
+**Client runs on**: http://localhost:5173 (UI - Vite default, Docker forwarded port)
 
 ### Human (on Mac)
 
@@ -376,8 +413,8 @@ Same commands work. App is accessible at same URLs.
 
 ### Troubleshooting App
 
-**Issue**: Port 3002 not accessible from Docker
-- **Solution**: Verify port 3002 is forwarded in Docker config
+**Issue**: Port 5173 not accessible from Docker
+- **Solution**: Verify port 5173 is forwarded in Docker config
 
 **Issue**: CORS errors
 - **Solution**: Ensure server has `cors()` middleware enabled
@@ -460,7 +497,7 @@ Before considering work complete, verify:
 - [ ] `npm test` passes on Mac
 - [ ] `npm run dev:server` starts without errors
 - [ ] `npm run dev:client` starts without errors
-- [ ] curl http://localhost:3002/api/health returns 200 OK
+- [ ] curl http://localhost:3001/api/health returns 200 OK
 - [ ] shot-scraper screenshot shows styled page
 - [ ] Screenshot shows blue button (CSS loaded)
 - [ ] Screenshot file is > 10KB (not blank/error)
@@ -500,9 +537,9 @@ brew install shot-scraper
 ```
 
 **Issue**: Port already in use
-**Solution**: Kill process on port 3002:
+**Solution**: Kill process on port 5173:
 ```bash
-lsof -ti:3002 | xargs kill -9
+lsof -ti:5173 | xargs kill -9
 ```
 
 ---
@@ -613,7 +650,7 @@ describe('App Component', () => {
 - [ ] Sample tests pass in both environments
 
 **Example App:**
-- [ ] Server runs on port 3002
+- [ ] Server runs on port 3001 (API)
 - [ ] Client builds and runs
 - [ ] Health endpoint returns 200 OK
 - [ ] React UI renders with Tailwind styles
@@ -688,7 +725,7 @@ packages/core/
 - [ ] Define Exercise model
 - [ ] Define Conversation model
 - [ ] Define Message model
-- [ ] Define Task interfaces (ConversationTask, CommentaryTask, SummaryTask, SimulateTask)
+- [ ] Define Task interfaces (ConversationTask, CommentaryTask, SummaryTask)
 - [ ] Define MessageType enum (drop EXTRACT, keep SIMPLE, MODERATION)
 - [ ] Define storage interfaces
 
@@ -752,10 +789,9 @@ export interface Exercise {
   model: string;          // AI model to use
   talkToCoachEnabled: boolean;
 
-  // Tasks (drop ExtractTask per NEXT_STEPS.md Q3)
+  // Tasks (drop ExtractTask and SimulateTask per NEXT_STEPS.md Q3, Q11)
   continuationTasks: Task[];
   completionTasks: Task[];
-  simulationTasks: Task[];
 
   // Content
   welcomeMessage: string;
@@ -820,6 +856,11 @@ export interface ExerciseStorage {
    * Publish draft to published version
    */
   publishExercise(orgId: string, slug: string): Promise<void>;
+
+  /**
+   * Unpublish exercise (remove published version, keep draft)
+   */
+  unpublishExercise(orgId: string, slug: string): Promise<void>;
 
   /**
    * Restore draft from published version
@@ -985,6 +1026,18 @@ export class ExerciseController {
     }
 
     await this.storage.publishExercise(orgId, slug);
+  }
+
+  async unpublishExercise(
+    orgId: string,
+    slug: string,
+    user: User
+  ): Promise<void> {
+    if (!user.isAdmin) {
+      throw new Error('Unauthorized: Only admins can unpublish exercises');
+    }
+
+    await this.storage.unpublishExercise(orgId, slug);
   }
 
   async restoreFromPublished(
@@ -1213,6 +1266,36 @@ export class FirebaseExerciseStorage implements ExerciseStorage {
     });
   }
 
+  async unpublishExercise(orgId: string, slug: string): Promise<void> {
+    const orgRef = this.db.collection('organizations').doc(orgId);
+
+    await this.db.runTransaction(async (txn) => {
+      const orgDoc = await txn.get(orgRef);
+      const exercises = orgDoc.data()?.exercises || {};
+      const metadata = exercises[slug] as ExerciseMetadata;
+
+      if (!metadata) {
+        throw new Error('Exercise not found');
+      }
+
+      if (!metadata.published) {
+        throw new Error('Exercise is not published');
+      }
+
+      // Remove published document
+      const publishedRef = this.db.collection('exercises').doc(metadata.published);
+      txn.delete(publishedRef);
+
+      // Update metadata (remove published reference, keep draft)
+      exercises[slug] = {
+        draft: metadata.draft,
+        published: undefined
+      };
+
+      txn.update(orgRef, { exercises });
+    });
+  }
+
   async restoreFromPublished(orgId: string, slug: string): Promise<void> {
     // Copy published → draft
     // Should warn if draft has unsaved changes (UI responsibility, not here)
@@ -1363,6 +1446,11 @@ describe('FirebaseExerciseStorage', () => {
   },
   "peerDependencies": {
     "@downpat/firebase-storage": "workspace:*"
+  },
+  "devDependencies": {
+    "supertest": "^6.3.0",
+    "@types/supertest": "^2.0.0",
+    "vitest": "^1.0.0"
   }
 }
 ```
@@ -1485,7 +1573,7 @@ const downpat = createDownpatRouter({
 // Mount router
 app.use('/api/downpat', downpat.router);
 
-app.listen(3002);
+app.listen(3001);  // API server
 ```
 
 **Verification:**
@@ -1572,7 +1660,7 @@ export function attachSocketIO(httpServer: HTTPServer, config: DownpatConfig) {
 
 **Usage (example-app):**
 ```typescript
-const server = app.listen(3002);
+const server = app.listen(3001);  // API server
 
 // Attach Socket.io to same server (same origin)
 const io = attachSocketIO(server, downpatConfig);
@@ -1636,8 +1724,8 @@ app.use(cors());
 app.use('/api/downpat', downpat.router);
 
 // Start server
-const server = app.listen(3002, () => {
-  console.log('Server running on http://localhost:3002');
+const server = app.listen(3001, () => {
+  console.log('Server running on http://localhost:3001');
 });
 
 // Attach Socket.io
@@ -1916,7 +2004,116 @@ export function Message({ message }: MessageProps) {
 
 ---
 
-### 4.4: Default Theme (CSS Variables)
+### 4.4: Talk to Coach Sidebar
+
+**Reference:** README.md mentions "Text-based 'Talk to Coach' sidebar (talkToCoachEnabled)" is kept.
+
+**Tasks:**
+- [ ] Create TalkToCoachSidebar component
+- [ ] Create TalkToCoachInput component
+- [ ] Style sidebar with collapsible behavior
+- [ ] Integrate with conversation context
+
+**TalkToCoachSidebar Component:**
+```typescript
+import React, { useState } from 'react';
+import { MessageType } from '@downpat/core';
+import { Message } from './Message';
+
+interface TalkToCoachProps {
+  messages: Array<{
+    id: string;
+    type: MessageType;
+    role: string;
+    text: string;
+    timestamp: string;
+  }>;
+  onSendMessage: (text: string) => void;
+  isOpen: boolean;
+  onToggle: () => void;
+}
+
+export function TalkToCoachSidebar({
+  messages,
+  onSendMessage,
+  isOpen,
+  onToggle
+}: TalkToCoachProps) {
+  const [input, setInput] = useState('');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (input.trim()) {
+      onSendMessage(input.trim());
+      setInput('');
+    }
+  };
+
+  if (!isOpen) {
+    return (
+      <button
+        onClick={onToggle}
+        className="fixed right-4 bottom-4 bg-primary-500 text-white p-3 rounded-full shadow-lg"
+        aria-label="Open Talk to Coach"
+      >
+        💬
+      </button>
+    );
+  }
+
+  return (
+    <aside className="fixed right-0 top-0 h-full w-80 bg-white shadow-lg border-l flex flex-col">
+      <div className="flex items-center justify-between p-4 border-b">
+        <h2 className="font-semibold">Talk to Coach</h2>
+        <button
+          onClick={onToggle}
+          className="text-gray-500 hover:text-gray-700"
+          aria-label="Close sidebar"
+        >
+          ✕
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages
+          .filter(m => m.type === MessageType.SIMPLE || m.type === MessageType.USER)
+          .map(msg => (
+            <Message key={msg.id} message={msg} />
+          ))}
+      </div>
+
+      <form onSubmit={handleSubmit} className="p-4 border-t">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Ask the coach..."
+            className="flex-1 border rounded-lg px-3 py-2"
+          />
+          <button
+            type="submit"
+            className="bg-primary-500 text-white px-4 py-2 rounded-lg"
+          >
+            Send
+          </button>
+        </div>
+      </form>
+    </aside>
+  );
+}
+```
+
+**Verification:**
+- [ ] Sidebar opens/closes correctly
+- [ ] Messages display in sidebar
+- [ ] Input sends messages
+- [ ] Uses SIMPLE message type for coach responses
+- [ ] Tests pass
+
+---
+
+### 4.5: Default Theme (CSS Variables)
 
 **Reference:** NEXT_STEPS.md Q9 - Default theme + generator utility
 
@@ -1983,7 +2180,7 @@ export function Message({ message }: MessageProps) {
 
 ---
 
-### 4.5: Integration with Example App
+### 4.6: Integration with Example App
 
 **Tasks:**
 - [ ] Update example-app client to use `@downpat/ui-components`
@@ -2049,6 +2246,7 @@ function App() {
 - [ ] `@downpat/ui-components` builds successfully
 - [ ] Avatar component works (initials only, no Radix)
 - [ ] All message types render correctly
+- [ ] Talk to Coach sidebar component works
 - [ ] Default theme CSS included
 - [ ] Dark mode supported
 - [ ] Tests pass

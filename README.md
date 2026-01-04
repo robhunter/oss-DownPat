@@ -62,14 +62,14 @@ We're creating a set of open-source npm packages that enable developers to build
 ```
 @downpat/
 ├── core                 # Types, constants, controllers (framework-agnostic)
-├── exercise-manager     # Exercise creation and management
-├── conversation-engine  # Conversation logic and AI adapters
-├── firebase-storage     # Firebase implementation (recommended storage)
 ├── express              # Express integration (HTTP routes + Socket.io)
+├── firebase-storage     # Firebase implementation (recommended storage)
 ├── ui-components        # React conversation UI components
 ├── admin-ui            # React admin UI components
 └── example-app         # Reference implementation
 ```
+
+**Note:** This is a single-organization model (not multi-tenant). See [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) for architecture details.
 
 ## 🚀 Quick Start (For Implementation)
 
