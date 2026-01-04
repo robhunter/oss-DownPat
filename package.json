@@ -1,0 +1,45 @@
+{
+  "name": "downpat-oss",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Open source conversational AI training platform",
+  "license": "MIT",
+  "workspaces": [
+    "packages/*",
+    "example-app/server",
+    "example-app/client"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint . --ext .ts,.tsx",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "dev:server": "npm run dev --workspace=example-app-server",
+    "dev:client": "npm run dev --workspace=example-app-client",
+    "build:server": "npm run build --workspace=example-app-server",
+    "build:client": "npm run build --workspace=example-app-client",
+    "verify:browser": "./scripts/verify-browser.sh"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.1.0",
+    "@types/node": "^20.10.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "@vitejs/plugin-react": "^4.2.0",
+    "eslint": "^8.55.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-react": "^7.33.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "jsdom": "^23.0.0",
+    "prettier": "^3.1.0",
+    "typescript": "^5.3.0",
+    "vitest": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
