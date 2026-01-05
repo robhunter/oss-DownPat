@@ -30,7 +30,7 @@
 |----|-------|--------|-------|
 | US-12 | Browse Published Exercises - only published visible | ✅ Verified | shot-scraper verified |
 | US-13 | Start Conversation - click exercise to start | ✅ Verified | Fixed socket start-conversation handler |
-| US-14 | Chat with AI - send/receive messages with streaming | ✅ Verified | Welcome message displays correctly |
+| US-14 | Chat with AI - send/receive messages with streaming | ⏳ Code Complete | AI integration added, needs manual verification |
 | US-15 | Talk to Coach - sidebar works if enabled | ⏳ Pending | UI exists, backend needs testing |
 
 ### Data Integrity
@@ -71,7 +71,24 @@
   - `packages/express/src/routes/conversations.ts`
 - **Status:** ✅ RESOLVED
 
-### Issue #3: Status Badge Shows Wrong State (FIXED)
+### Issue #3: AI Not Responding (FIXED)
+- **Reported:** Sending message showed blank AI response
+- **Root Cause:**
+  1. AI adapter was never wired into the socket handler
+  2. `send-message` only saved user message, didn't call AI
+  3. Client sent `{ text }` but server expected `{ conversationId, content }`
+- **Fix:**
+  1. Added AI call in socket `send-message` handler (`packages/express/src/socket.ts`)
+  2. Added `aiAdapter` and `defaultModel` to `SocketConfig` interface
+  3. Fixed client to send `{ conversationId, content }`
+  4. Updated server `index.ts` to pass AI adapter to socket config
+- **Files Modified:**
+  - `packages/express/src/socket.ts` - Added AI streaming integration
+  - `example-app/server/src/index.ts` - Pass AI adapter to socket
+  - `example-app/client/src/hooks/useSocket.ts` - Fixed message format
+- **Status:** ✅ Code complete, needs manual verification
+
+### Issue #4: Status Badge Shows Wrong State (FIXED)
 - **Reported:** Published exercises show "Draft" status
 - **Root Cause:** ExerciseList wasn't using metadata to determine status
 - **Fix:**

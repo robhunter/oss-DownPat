@@ -125,9 +125,9 @@ export function useConversation({ slug }: UseConversationOptions): UseConversati
     });
 
     // Handle incoming message chunks (streaming)
-    socket.on('message-chunk', (chunk: string) => {
+    socket.on('message-chunk', (data: { chunk: string }) => {
       setIsStreaming(true);
-      streamingMessageRef.current += chunk;
+      streamingMessageRef.current += data.chunk;
 
       // Update the last AI message with the streamed content
       setMessages((prev) => {

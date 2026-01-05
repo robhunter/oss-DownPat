@@ -1,7 +1,7 @@
 import { Server as SocketServer } from 'socket.io';
 import type { Server as HTTPServer } from 'http';
-import type { ConversationStorage, ExerciseStorage, ServerAuthProvider, User } from '@downpat/core';
-import { ConversationController } from '@downpat/core';
+import type { ConversationStorage, ExerciseStorage, ServerAuthProvider, User, AIAdapter, AIMessage } from '@downpat/core';
+import { ConversationController, MessageType } from '@downpat/core';
 
 /**
  * Socket.io configuration options.
@@ -13,6 +13,10 @@ export interface SocketConfig {
   conversationStorage: ConversationStorage;
   /** Exercise storage implementation */
   exerciseStorage: ExerciseStorage;
+  /** AI adapter for generating responses */
+  aiAdapter?: AIAdapter;
+  /** Default AI model to use */
+  defaultModel?: string;
   /** CORS origins to allow (default: '*') */
   corsOrigin?: string | string[];
 }
@@ -142,7 +146,7 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
       socket.leave(`conversation:${conversationId}`);
     });
 
-    // Handle sending a message (will be used for streaming AI responses)
+    // Handle sending a message and getting AI response
     socket.on('send-message', async (data: { conversationId: string; content: string }) => {
       if (!socket.data.user) {
         socket.emit('error', { message: 'Not authenticated' });
@@ -150,18 +154,85 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
       }
 
       try {
+        // 1. Add user message
         const result = await controller.addUserMessage(
           data.conversationId,
           data.content,
           socket.data.user
         );
 
-        // Broadcast to all users in the conversation room
-        io.to(`conversation:${data.conversationId}`).emit('message-added', {
-          conversationId: data.conversationId,
-          conversation: result.conversation,
-          isComplete: result.isComplete,
-        });
+        // 2. Get conversation and exercise for AI context
+        const conversation = result.conversation;
+        const exercise = await config.exerciseStorage.getExercise(conversation.exerciseId);
+
+        if (!exercise) {
+          socket.emit('error', { message: 'Exercise not found' });
+          return;
+        }
+
+        // 3. If we have an AI adapter, generate response
+        if (config.aiAdapter) {
+          const model = exercise.model || config.defaultModel || 'gpt-4';
+
+          // Build messages for AI
+          const aiMessages: AIMessage[] = [
+            {
+              role: 'system',
+              content: exercise.guidelines || `You are an AI assistant for the exercise: ${exercise.exerciseName}`,
+            },
+          ];
+
+          // Add conversation history
+          for (const msg of conversation.messages) {
+            if (msg.type === MessageType.USER) {
+              aiMessages.push({ role: 'user', content: msg.content });
+            } else if (msg.type === MessageType.CONVERSATION) {
+              aiMessages.push({ role: 'assistant', content: msg.content });
+            }
+          }
+
+          // 4. Stream AI response
+          let fullContent = '';
+
+          try {
+            await config.aiAdapter.complete({
+              model,
+              messages: aiMessages,
+              maxTokens: 1024,
+              temperature: 0.7,
+              onChunk: (chunk: string) => {
+                fullContent += chunk;
+                socket.emit('message-chunk', { chunk });
+              },
+            });
+
+            // 5. Save AI message
+            await controller.addAIMessage(
+              data.conversationId,
+              {
+                type: MessageType.CONVERSATION,
+                role: 'AI',
+                content: fullContent,
+              },
+              socket.data.user!
+            );
+
+            // 6. Emit message complete
+            socket.emit('message-complete');
+          } catch (aiError) {
+            console.error('AI error:', aiError);
+            socket.emit('error', {
+              message: 'Failed to generate AI response',
+            });
+          }
+        } else {
+          // No AI adapter - just acknowledge the message
+          socket.emit('message-added', {
+            conversationId: data.conversationId,
+            conversation: result.conversation,
+            isComplete: result.isComplete,
+          });
+        }
       } catch (error) {
         socket.emit('error', {
           message: error instanceof Error ? error.message : 'Failed to send message',

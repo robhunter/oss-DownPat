@@ -300,19 +300,31 @@ const isMainModule =
   process.argv[1]?.includes('tsx/');
 
 if (isMainModule) {
-  initializeDownpat().then(() => {
+  initializeDownpat().then(({ aiRegistry }) => {
     const httpServer = createServer(app);
+
+    // Get AI adapter (prefer OpenAI, fall back to any available)
+    const aiAdapter = aiRegistry.getAdapterForModel('gpt-4') ||
+                      aiRegistry.getAdapterForModel('gpt-4o') ||
+                      aiRegistry.getAdapterForModel('gpt-3.5-turbo');
 
     // Attach Socket.io for real-time conversation
     attachSocketIO(httpServer, {
       serverAuth: mockAuthProvider,
       exerciseStorage: mockExerciseStorage,
       conversationStorage: mockConversationStorage,
+      aiAdapter,
+      defaultModel: 'gpt-4',
     });
 
     httpServer.listen(PORT, () => {
       console.log(`Server running on http://localhost:${PORT}`);
       console.log(`API endpoints available at http://localhost:${PORT}/api/downpat`);
+      if (aiAdapter) {
+        console.log('AI adapter configured for conversations');
+      } else {
+        console.log('Warning: No AI adapter - conversations will not have AI responses');
+      }
     });
 
     server = httpServer;
