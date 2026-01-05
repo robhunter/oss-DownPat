@@ -6,7 +6,6 @@ This implementation plan builds the DownPat open source packages based on all ar
 
 **Reference Documentation:**
 - [NEXT_STEPS.md](NEXT_STEPS.md) - All architectural decisions
-- [README.md](README.md) - Project overview and package structure
 - [AUTH_INTEGRATION.md](AUTH_INTEGRATION.md) - Authentication implementation guide
 - [CONVERSATION_PATTERNS.md](CONVERSATION_PATTERNS.md) - Task system details
 
