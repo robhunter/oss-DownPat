@@ -101,6 +101,23 @@
   - `example-app/client/src/hooks/useSocket.ts` - Fixed message-complete handler
 - **Status:** ✅ RESOLVED
 
+### Issue #6: Talk to Coach Button Shows When Disabled (FIXED)
+- **Reported:** Coach button (💬) visible even when `talkToCoachEnabled: false`
+- **Root Cause:**
+  1. Server wasn't sending `talkToCoachEnabled` in `conversation-started` socket event
+  2. Client had no way to know if coach was enabled for the exercise
+- **Fix:**
+  1. Added `talkToCoachEnabled` to server socket emit in `packages/express/src/socket.ts`
+  2. Updated `ServerToClientEvents` type to include `talkToCoachEnabled`
+  3. Added `talkToCoachEnabled` state to `useConversation` hook
+  4. Conditionally render coach button in `Conversation.tsx` based on `talkToCoachEnabled`
+- **Files Modified:**
+  - `packages/express/src/socket.ts` - Added talkToCoachEnabled to conversation-started event
+  - `packages/express/src/socket.test.ts` - Added tests for talkToCoachEnabled
+  - `example-app/client/src/hooks/useSocket.ts` - Track talkToCoachEnabled state
+  - `example-app/client/src/pages/Conversation.tsx` - Conditionally show coach button
+- **Status:** ✅ RESOLVED
+
 ### Issue #4: Status Badge Shows Wrong State (FIXED)
 - **Reported:** Published exercises show "Draft" status
 - **Root Cause:** ExerciseList wasn't using metadata to determine status

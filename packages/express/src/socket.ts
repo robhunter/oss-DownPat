@@ -110,10 +110,11 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
         // Join the conversation room
         socket.join(`conversation:${conversation.conversationId}`);
 
-        // Emit conversation started with messages
+        // Emit conversation started with messages and exercise settings
         socket.emit('conversation-started', {
           conversationId: conversation.conversationId,
           messages: conversation.messages || [],
+          talkToCoachEnabled: exercise.talkToCoachEnabled ?? false,
         });
       } catch (error) {
         socket.emit('error', {
@@ -264,7 +265,7 @@ interface ClientToServerEvents {
  */
 interface ServerToClientEvents {
   authenticated: (result: { success: boolean; user?: User; error?: string }) => void;
-  'conversation-started': (data: { conversationId: string; messages: import('@downpat/core').Message[] }) => void;
+  'conversation-started': (data: { conversationId: string; messages: import('@downpat/core').Message[]; talkToCoachEnabled: boolean }) => void;
   'joined-conversation': (data: { conversationId: string }) => void;
   'message-added': (data: {
     conversationId: string;

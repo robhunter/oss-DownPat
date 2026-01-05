@@ -97,6 +97,7 @@ interface UseConversationReturn {
   isLoading: boolean;
   isStreaming: boolean;
   error: string | null;
+  talkToCoachEnabled: boolean;
   sendMessage: (text: string) => void;
   sendCoachMessage: (text: string) => void;
 }
@@ -108,6 +109,7 @@ export function useConversation({ slug }: UseConversationOptions): UseConversati
   const [isLoading, setIsLoading] = useState(true);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [talkToCoachEnabled, setTalkToCoachEnabled] = useState(false);
   const streamingMessageRef = useRef<string>('');
 
   // Start conversation when socket connects
@@ -118,9 +120,10 @@ export function useConversation({ slug }: UseConversationOptions): UseConversati
     socket.emit('start-conversation', { slug });
 
     // Handle conversation started
-    socket.on('conversation-started', (data: { conversationId: string; messages: MessageData[] }) => {
+    socket.on('conversation-started', (data: { conversationId: string; messages: MessageData[]; talkToCoachEnabled: boolean }) => {
       setConversation({ conversationId: data.conversationId, messages: data.messages } as Conversation);
       setMessages(data.messages);
+      setTalkToCoachEnabled(data.talkToCoachEnabled ?? false);
       setIsLoading(false);
     });
 
@@ -226,6 +229,7 @@ export function useConversation({ slug }: UseConversationOptions): UseConversati
     isLoading,
     isStreaming,
     error,
+    talkToCoachEnabled,
     sendMessage,
     sendCoachMessage,
   };

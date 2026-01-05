@@ -174,6 +174,36 @@ describe('Socket.io attachSocketIO', () => {
       expect(mockExerciseStorage.getExerciseBySlug).toHaveBeenCalledWith('test-exercise', true);
     });
 
+    it('includes talkToCoachEnabled in conversation-started response', async () => {
+      // Set up exercise with talkToCoachEnabled = true
+      const exerciseWithCoach = { ...mockExercise, talkToCoachEnabled: true };
+      vi.mocked(mockExerciseStorage.getExerciseBySlug).mockResolvedValue(exerciseWithCoach);
+
+      const { socket } = await connectAndWaitForAuth();
+
+      const result = await new Promise<{ conversationId: string; talkToCoachEnabled: boolean }>((resolve) => {
+        socket.on('conversation-started', resolve);
+        socket.emit('start-conversation', { slug: 'test-exercise' });
+      });
+
+      expect(result.talkToCoachEnabled).toBe(true);
+    });
+
+    it('includes talkToCoachEnabled=false when disabled', async () => {
+      // Set up exercise with talkToCoachEnabled = false
+      const exerciseWithoutCoach = { ...mockExercise, talkToCoachEnabled: false };
+      vi.mocked(mockExerciseStorage.getExerciseBySlug).mockResolvedValue(exerciseWithoutCoach);
+
+      const { socket } = await connectAndWaitForAuth();
+
+      const result = await new Promise<{ conversationId: string; talkToCoachEnabled: boolean }>((resolve) => {
+        socket.on('conversation-started', resolve);
+        socket.emit('start-conversation', { slug: 'test-exercise' });
+      });
+
+      expect(result.talkToCoachEnabled).toBe(false);
+    });
+
     it('emits error when not authenticated', async () => {
       vi.mocked(mockAuthProvider.validateToken).mockRejectedValue(new Error('Invalid'));
 

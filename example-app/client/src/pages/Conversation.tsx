@@ -21,6 +21,7 @@ export function Conversation({ isAdminTest = false }: ConversationProps) {
     isLoading,
     isStreaming,
     error,
+    talkToCoachEnabled,
     sendMessage,
     sendCoachMessage,
   } = useConversation({ slug: slug || '' });
@@ -135,8 +136,8 @@ export function Conversation({ isAdminTest = false }: ConversationProps) {
         </form>
       </div>
 
-      {/* Coach Toggle Button */}
-      {!showCoach && (
+      {/* Coach Toggle Button - only show if Talk to Coach is enabled */}
+      {talkToCoachEnabled && !showCoach && (
         <button
           onClick={() => setShowCoach(true)}
           style={styles.coachToggle}
@@ -146,13 +147,15 @@ export function Conversation({ isAdminTest = false }: ConversationProps) {
         </button>
       )}
 
-      {/* Talk to Coach Sidebar */}
-      <TalkToCoachSidebar
-        messages={coachMessages}
-        onSendMessage={handleCoachMessage}
-        isOpen={showCoach}
-        onToggle={() => setShowCoach(!showCoach)}
-      />
+      {/* Talk to Coach Sidebar - only render if enabled */}
+      {talkToCoachEnabled && (
+        <TalkToCoachSidebar
+          messages={coachMessages}
+          onSendMessage={handleCoachMessage}
+          isOpen={showCoach}
+          onToggle={() => setShowCoach(!showCoach)}
+        />
+      )}
     </div>
   );
 }
