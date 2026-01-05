@@ -22,21 +22,23 @@ export function ExerciseListPage() {
 
       // Transform exercises to ExerciseWithMetadata format
       // Note: In a real app, you'd fetch metadata separately or have it included
-      const withMetadata: ExerciseWithMetadata[] = data.map((exercise: Exercise) => {
-        // Determine if published based on exerciseId pattern
-        const isPublished = exercise.exerciseId.includes('-published');
-        const metadata: ExerciseMetadata = {
-          draft: isPublished ? exercise.exerciseId.replace('-published', '') : exercise.exerciseId,
-          published: isPublished ? exercise.exerciseId : undefined,
-        };
-        return {
-          exercise: isPublished ? { ...exercise, exerciseId: metadata.draft } : exercise,
-          metadata,
-        };
-      });
+      const withMetadata: ExerciseWithMetadata[] = data
+        .filter((exercise: Exercise) => exercise && exercise.exerciseId) // Filter out invalid entries
+        .map((exercise: Exercise) => {
+          // Determine if published based on exerciseId pattern
+          const isPublished = exercise.exerciseId?.includes('-published') ?? false;
+          const metadata: ExerciseMetadata = {
+            draft: isPublished ? exercise.exerciseId.replace('-published', '') : exercise.exerciseId,
+            published: isPublished ? exercise.exerciseId : undefined,
+          };
+          return {
+            exercise: isPublished ? { ...exercise, exerciseId: metadata.draft } : exercise,
+            metadata,
+          };
+        });
 
       // Filter to only show draft versions (avoid duplicates)
-      const draftsOnly = withMetadata.filter(item => !item.exercise.exerciseId.includes('-published'));
+      const draftsOnly = withMetadata.filter(item => !item.exercise.exerciseId?.includes('-published'));
       setExercisesWithMetadata(draftsOnly);
       setError(null);
     } catch (err) {

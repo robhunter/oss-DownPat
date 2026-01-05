@@ -43,40 +43,16 @@ export function ExerciseEditor() {
       const api = getAPI();
 
       if (isNew) {
-        await api.createExercise({
-          name: data.exerciseName,
-          slug: data.slug,
-          description: data.welcomeMessage,
-          model: data.model,
-          systemPrompt: data.guidelines,
-          task: {
-            taskDescription: '',
-            talkToCoachEnabled: data.talkToCoachEnabled,
-          },
-          guidelines: [data.guidelines],
-          starters: data.starters,
-        });
+        // Create new exercise - pass the Exercise directly
+        await api.createExercise(data);
       } else {
-        await api.updateExercise(slug!, {
-          exerciseId: data.exerciseId,
-          name: data.exerciseName,
-          slug: data.slug,
-          description: data.welcomeMessage,
-          model: data.model,
-          systemPrompt: data.guidelines,
-          task: {
-            taskDescription: '',
-            talkToCoachEnabled: data.talkToCoachEnabled,
-          },
-          guidelines: [data.guidelines],
-          starters: data.starters,
-        });
+        // Update existing exercise
+        await api.updateExercise(data.exerciseId, data);
       }
 
       navigate('/admin/exercises');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save exercise');
-    } finally {
       setIsSubmitting(false);
     }
   };

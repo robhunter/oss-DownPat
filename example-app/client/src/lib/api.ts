@@ -5,24 +5,6 @@ export interface LoginResponse {
   user: User;
 }
 
-export interface CreateExerciseInput {
-  name: string;
-  slug: string;
-  description: string;
-  model: string;
-  systemPrompt: string;
-  task: {
-    taskDescription: string;
-    talkToCoachEnabled: boolean;
-  };
-  guidelines: string[];
-  starters: string[];
-}
-
-export interface UpdateExerciseInput extends Partial<CreateExerciseInput> {
-  exerciseId: string;
-}
-
 class DownpatAPI {
   private getToken: () => string | null;
 
@@ -63,18 +45,18 @@ class DownpatAPI {
   }
 
   async getExercise(slug: string): Promise<Exercise> {
-    return this.fetch<Exercise>(`/exercises/${slug}`);
+    return this.fetch<Exercise>(`/exercises/by-slug/${slug}`);
   }
 
-  async createExercise(exercise: CreateExerciseInput): Promise<Exercise> {
+  async createExercise(exercise: Exercise): Promise<Exercise> {
     return this.fetch<Exercise>('/exercises', {
       method: 'POST',
       body: JSON.stringify(exercise),
     });
   }
 
-  async updateExercise(slug: string, exercise: UpdateExerciseInput): Promise<Exercise> {
-    return this.fetch<Exercise>(`/exercises/${slug}`, {
+  async updateExercise(exerciseId: string, exercise: Exercise): Promise<void> {
+    await this.fetch(`/exercises/${exerciseId}`, {
       method: 'PUT',
       body: JSON.stringify(exercise),
     });
