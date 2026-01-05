@@ -1,0 +1,60 @@
+{
+  "name": "@downpat/ai-adapters",
+  "version": "0.0.1",
+  "description": "AI provider adapters for DownPat (OpenAI, Anthropic, Gemini)",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@downpat/core": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0",
+    "vitest": "^1.6.0",
+    "openai": "^4.0.0",
+    "@anthropic-ai/sdk": "^0.20.0",
+    "@google/generative-ai": "^0.2.0"
+  },
+  "peerDependencies": {
+    "openai": "^4.0.0",
+    "@anthropic-ai/sdk": "^0.20.0",
+    "@google/generative-ai": "^0.2.0"
+  },
+  "peerDependenciesMeta": {
+    "openai": {
+      "optional": true
+    },
+    "@anthropic-ai/sdk": {
+      "optional": true
+    },
+    "@google/generative-ai": {
+      "optional": true
+    }
+  },
+  "keywords": [
+    "downpat",
+    "ai",
+    "openai",
+    "anthropic",
+    "gemini",
+    "llm",
+    "chatbot"
+  ],
+  "license": "MIT"
+}

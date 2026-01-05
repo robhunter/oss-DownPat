@@ -3,7 +3,7 @@
 ## Milestone Workflow
 
 1. Complete one milestone at a time
-2. Fully verify before proceeding to the next milestone
+2. Fully verify before proceeding to the next milestone via unit tests, integration tests, AND inspecting browser screenshots with shot_scraper.
 3. Proceed through each step in the plan unless you've hit a wall and require human intervention to proceed
 
 ## Verification Requirements

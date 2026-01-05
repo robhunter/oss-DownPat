@@ -1,0 +1,126 @@
+/**
+ * DownPat Default Theme
+ * Based on Tailwind blue palette
+ *
+ * Usage:
+ * import '@downpat/ui-components/styles';
+ *
+ * Or customize by defining these CSS variables in your own stylesheet.
+ */
+
+:root {
+  /* Primary colors (blue) */
+  --downpat-primary-50: #eff6ff;
+  --downpat-primary-100: #dbeafe;
+  --downpat-primary-200: #bfdbfe;
+  --downpat-primary-300: #93c5fd;
+  --downpat-primary-400: #60a5fa;
+  --downpat-primary-500: #3b82f6;
+  --downpat-primary-600: #2563eb;
+  --downpat-primary-700: #1d4ed8;
+  --downpat-primary-800: #1e40af;
+  --downpat-primary-900: #1e3a8a;
+
+  /* Semantic colors */
+  --downpat-background: #ffffff;
+  --downpat-text: #1f2937;
+  --downpat-text-secondary: #6b7280;
+  --downpat-border: #e5e7eb;
+
+  /* Message type colors */
+  --downpat-user-bg: #eff6ff;
+  --downpat-conversation-bg: #f9fafb;
+  --downpat-commentary-bg: #fef3c7;
+  --downpat-summary-bg: #d1fae5;
+  --downpat-moderation-bg: #fee2e2;
+  --downpat-starter-bg: #f3f4f6;
+  --downpat-context-bg: #e0e7ff;
+
+  /* Spacing */
+  --downpat-spacing-xs: 4px;
+  --downpat-spacing-sm: 8px;
+  --downpat-spacing-md: 16px;
+  --downpat-spacing-lg: 24px;
+  --downpat-spacing-xl: 32px;
+
+  /* Border radius */
+  --downpat-radius-sm: 4px;
+  --downpat-radius-md: 8px;
+  --downpat-radius-lg: 16px;
+  --downpat-radius-full: 9999px;
+
+  /* Shadows */
+  --downpat-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --downpat-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --downpat-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* Dark mode */
+[data-theme="dark"],
+.dark {
+  --downpat-background: #1f2937;
+  --downpat-text: #f9fafb;
+  --downpat-text-secondary: #d1d5db;
+  --downpat-border: #374151;
+
+  --downpat-user-bg: #1e3a8a;
+  --downpat-conversation-bg: #374151;
+  --downpat-commentary-bg: #78350f;
+  --downpat-summary-bg: #065f46;
+  --downpat-moderation-bg: #7f1d1d;
+  --downpat-starter-bg: #4b5563;
+  --downpat-context-bg: #312e81;
+}
+
+/* Base styles for DownPat components */
+.downpat-message-list,
+.downpat-coach-sidebar {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar styling */
+.downpat-message-list::-webkit-scrollbar,
+.downpat-coach-sidebar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.downpat-message-list::-webkit-scrollbar-track,
+.downpat-coach-sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.downpat-message-list::-webkit-scrollbar-thumb,
+.downpat-coach-sidebar::-webkit-scrollbar-thumb {
+  background-color: var(--downpat-border);
+  border-radius: 4px;
+}
+
+/* Hover effects */
+.downpat-coach-toggle:hover {
+  transform: scale(1.05);
+  background-color: var(--downpat-primary-600) !important;
+}
+
+/* Focus styles */
+.downpat-coach-sidebar textarea:focus,
+.downpat-coach-sidebar button:focus {
+  outline: 2px solid var(--downpat-primary-500);
+  outline-offset: 2px;
+}
+
+/* Animation for sidebar */
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.downpat-coach-sidebar {
+  animation: slideIn 0.2s ease-out;
+}

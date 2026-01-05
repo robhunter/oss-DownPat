@@ -11,7 +11,12 @@
   },
   "dependencies": {
     "cors": "^2.8.5",
-    "express": "^4.18.2"
+    "express": "^4.18.2",
+    "socket.io": "^4.6.0",
+    "@downpat/core": "*",
+    "@downpat/express": "*",
+    "@downpat/firebase-storage": "*",
+    "@downpat/ai-adapters": "*"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
