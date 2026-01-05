@@ -2779,6 +2779,784 @@ The DownPat open source project is ready for v1.0.0 when:
 
 ---
 
+## 🚀 MILESTONE 10: Functional Example App
+
+**Goal:** Transform the example app from a component showcase into a fully functional demo that exercises all package features with real user flows.
+
+**Dependencies:** Milestones 1-9 complete (all packages built)
+
+### 10.1: Client-Side Routing & App Structure
+
+**Tasks:**
+- [ ] Install React Router
+- [ ] Create page structure with routes
+- [ ] Add navigation header component
+- [ ] Set up protected routes (admin-only, subscriber-only)
+
+**Routes:**
+```
+/                    → Home (landing page)
+/login               → Login page
+/exercises           → Exercise browser (subscribers)
+/exercises/:slug     → Conversation page
+/admin               → Admin dashboard
+/admin/exercises     → Exercise list (admin)
+/admin/exercises/new → Create exercise
+/admin/exercises/:slug/edit → Edit exercise
+```
+
+**App Structure:**
+```
+example-app/client/src/
+├── pages/
+│   ├── Home.tsx
+│   ├── Login.tsx
+│   ├── ExerciseBrowser.tsx
+│   ├── Conversation.tsx
+│   └── admin/
+│       ├── Dashboard.tsx
+│       ├── ExerciseList.tsx
+│       └── ExerciseEditor.tsx
+├── components/
+│   ├── Layout.tsx
+│   ├── Navbar.tsx
+│   ├── ProtectedRoute.tsx
+│   └── AuthProvider.tsx
+├── hooks/
+│   ├── useAuth.ts
+│   └── useSocket.ts
+├── lib/
+│   ├── api.ts
+│   └── socket.ts
+└── App.tsx
+```
+
+**Verification:**
+- [ ] All routes accessible
+- [ ] Navigation works
+- [ ] Protected routes redirect to login
+
+---
+
+### 10.2: Authentication System
+
+**Tasks:**
+- [ ] Create AuthContext and AuthProvider
+- [ ] Build Login page with email/token input
+- [ ] Implement useAuth hook
+- [ ] Add logout functionality
+- [ ] Store auth state in localStorage
+- [ ] Update server to support simple auth (or use existing mock tokens)
+
+**Auth Flow (Simple Demo Auth):**
+```typescript
+// For demo purposes, simple token-based auth
+// Users enter email, server returns a token based on email domain
+
+// demo@admin.com → admin token (isAdmin: true)
+// demo@user.com → subscriber token (isAdmin: false, isSubscriber: true)
+// demo@guest.com → demo user token (isAdmin: false, isSubscriber: false)
+```
+
+**AuthProvider:**
+```typescript
+interface AuthContextType {
+  user: User | null;
+  token: string | null;
+  isLoading: boolean;
+  login: (email: string) => Promise<void>;
+  logout: () => void;
+}
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+
+  // Restore from localStorage on mount
+  useEffect(() => {
+    const savedToken = localStorage.getItem('downpat_token');
+    if (savedToken) {
+      validateAndSetToken(savedToken);
+    }
+  }, []);
+
+  const login = async (email: string) => {
+    const response = await fetch('/api/downpat/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    const { token, user } = await response.json();
+    localStorage.setItem('downpat_token', token);
+    setToken(token);
+    setUser(user);
+  };
+
+  // ... rest of implementation
+}
+```
+
+**Server Auth Endpoint:**
+```typescript
+// Add to server
+router.post('/auth/login', (req, res) => {
+  const { email } = req.body;
+
+  // Simple demo auth based on email
+  if (email.includes('@admin')) {
+    return res.json({
+      token: 'admin-token',
+      user: { userId: 'admin-1', displayName: 'Admin User', isAdmin: true, isSubscriber: true }
+    });
+  }
+
+  if (email.includes('@user') || email.includes('@')) {
+    return res.json({
+      token: 'demo-token',
+      user: { userId: 'user-1', displayName: 'Demo User', isAdmin: false, isSubscriber: true }
+    });
+  }
+
+  res.status(401).json({ error: 'Invalid email' });
+});
+```
+
+**Verification:**
+- [ ] Can log in with admin email
+- [ ] Can log in with user email
+- [ ] Auth persists across page refresh
+- [ ] Logout clears auth state
+- [ ] Protected routes work correctly
+
+---
+
+### 10.3: Admin Pages
+
+**Tasks:**
+- [ ] Create Admin Dashboard page
+- [ ] Integrate ExerciseList component from @downpat/admin-ui
+- [ ] Integrate ExerciseForm component from @downpat/admin-ui
+- [ ] Wire up to API endpoints
+- [ ] Implement publish/unpublish actions
+- [ ] Implement restore from published
+
+**Admin Dashboard:**
+```typescript
+function AdminDashboard() {
+  return (
+    <div className="p-8">
+      <h1 className="text-2xl font-bold mb-6">Admin Dashboard</h1>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <DashboardCard
+          title="Exercises"
+          count={exerciseCount}
+          link="/admin/exercises"
+        />
+        <DashboardCard
+          title="Conversations"
+          count={conversationCount}
+          link="/admin/conversations"
+        />
+        <DashboardCard
+          title="Users"
+          count={userCount}
+          link="/admin/users"
+        />
+      </div>
+    </div>
+  );
+}
+```
+
+**Exercise List Page:**
+```typescript
+import { ExerciseList } from '@downpat/admin-ui';
+
+function AdminExerciseList() {
+  const [exercises, setExercises] = useState([]);
+  const { token } = useAuth();
+
+  useEffect(() => {
+    fetchExercises();
+  }, []);
+
+  const fetchExercises = async () => {
+    const res = await fetch('/api/downpat/exercises', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    setExercises(await res.json());
+  };
+
+  const handlePublish = async (slug: string) => {
+    await fetch(`/api/downpat/exercises/${slug}/publish`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    fetchExercises();
+  };
+
+  return (
+    <ExerciseList
+      exercises={exercises}
+      onPublish={handlePublish}
+      onUnpublish={handleUnpublish}
+      onEdit={(slug) => navigate(`/admin/exercises/${slug}/edit`)}
+      onDelete={handleDelete}
+    />
+  );
+}
+```
+
+**Verification:**
+- [ ] Admin can view exercise list
+- [ ] Admin can create new exercise
+- [ ] Admin can edit existing exercise
+- [ ] Admin can publish/unpublish
+- [ ] Admin can restore from published
+- [ ] Non-admin cannot access admin pages
+
+---
+
+### 10.4: Exercise Browser (Subscriber View)
+
+**Tasks:**
+- [ ] Create ExerciseBrowser page
+- [ ] Fetch only published exercises
+- [ ] Display exercise cards with name, description
+- [ ] Link to conversation page
+- [ ] Add search/filter (optional)
+
+**Exercise Browser:**
+```typescript
+function ExerciseBrowser() {
+  const [exercises, setExercises] = useState<Exercise[]>([]);
+  const { token } = useAuth();
+
+  useEffect(() => {
+    // Fetch published exercises only
+    fetch('/api/downpat/exercises/published', {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(res => res.json())
+      .then(setExercises);
+  }, []);
+
+  return (
+    <div className="p-8">
+      <h1 className="text-2xl font-bold mb-6">Practice Exercises</h1>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {exercises.map(exercise => (
+          <ExerciseCard
+            key={exercise.slug}
+            exercise={exercise}
+            onStart={() => navigate(`/exercises/${exercise.slug}`)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+```
+
+**Verification:**
+- [ ] Subscribers can browse exercises
+- [ ] Only published exercises shown
+- [ ] Can navigate to conversation
+
+---
+
+### 10.5: Conversation Page with Real-Time AI
+
+**Tasks:**
+- [ ] Create Conversation page
+- [ ] Initialize Socket.io connection
+- [ ] Start conversation on page load
+- [ ] Send user messages via Socket.io
+- [ ] Receive and display AI responses (streaming)
+- [ ] Display all message types correctly
+- [ ] Integrate Talk to Coach sidebar
+- [ ] Handle conversation completion
+
+**Socket.io Hook:**
+```typescript
+function useSocket(token: string) {
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
+
+  useEffect(() => {
+    const newSocket = io('http://localhost:3001', {
+      auth: { token }
+    });
+
+    newSocket.on('connect', () => setIsConnected(true));
+    newSocket.on('disconnect', () => setIsConnected(false));
+
+    setSocket(newSocket);
+
+    return () => { newSocket.close(); };
+  }, [token]);
+
+  return { socket, isConnected };
+}
+```
+
+**Conversation Page:**
+```typescript
+function ConversationPage() {
+  const { slug } = useParams();
+  const { token, user } = useAuth();
+  const { socket, isConnected } = useSocket(token);
+  const [messages, setMessages] = useState<MessageData[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showCoach, setShowCoach] = useState(false);
+
+  // Start conversation on mount
+  useEffect(() => {
+    if (socket && isConnected) {
+      socket.emit('start-conversation', { slug });
+
+      socket.on('conversation-started', (data) => {
+        setMessages(data.messages);
+      });
+
+      socket.on('message-chunk', (chunk) => {
+        // Append chunk to current AI message
+        setMessages(prev => {
+          const updated = [...prev];
+          const lastMsg = updated[updated.length - 1];
+          if (lastMsg?.type === MessageType.CONVERSATION) {
+            lastMsg.content += chunk;
+          }
+          return updated;
+        });
+      });
+
+      socket.on('message-complete', (message) => {
+        setIsLoading(false);
+      });
+    }
+  }, [socket, isConnected, slug]);
+
+  const sendMessage = (text: string) => {
+    // Add user message immediately
+    const userMessage: MessageData = {
+      messageId: generateId(),
+      type: MessageType.USER,
+      role: user.displayName,
+      content: text,
+      timestamp: new Date().toISOString()
+    };
+    setMessages(prev => [...prev, userMessage]);
+    setIsLoading(true);
+
+    // Send via socket
+    socket.emit('send-message', { text });
+  };
+
+  return (
+    <div className="flex h-screen">
+      <main className="flex-1 flex flex-col">
+        <MessageList messages={messages} />
+
+        <div className="p-4 border-t">
+          <MessageInput onSend={sendMessage} disabled={isLoading} />
+        </div>
+      </main>
+
+      <TalkToCoachSidebar
+        messages={coachMessages}
+        onSendMessage={sendCoachMessage}
+        isOpen={showCoach}
+        onToggle={() => setShowCoach(!showCoach)}
+      />
+    </div>
+  );
+}
+```
+
+**Server Socket.io Updates:**
+```typescript
+// Update attachSocketIO to handle conversation flow
+socket.on('start-conversation', async ({ slug }) => {
+  const exercise = await exerciseStorage.getExerciseBySlug(slug, true);
+  const conversation = await conversationController.startConversation(
+    exercise.exerciseId,
+    socket.data.user
+  );
+
+  socket.data.conversationId = conversation.conversationId;
+  socket.emit('conversation-started', {
+    conversationId: conversation.conversationId,
+    messages: conversation.messages
+  });
+});
+
+socket.on('send-message', async ({ text }) => {
+  const { conversationId, user } = socket.data;
+
+  // Get AI adapter
+  const adapter = aiRegistry.getAdapterForModel(exercise.model);
+
+  // Generate AI response with streaming
+  await adapter.complete({
+    model: exercise.model,
+    messages: buildPrompt(conversation, text),
+    onChunk: (chunk) => {
+      socket.emit('message-chunk', chunk);
+    }
+  });
+
+  socket.emit('message-complete');
+});
+```
+
+**Verification:**
+- [ ] Conversation starts when page loads
+- [ ] User messages appear immediately
+- [ ] AI responses stream in real-time
+- [ ] All message types render correctly
+- [ ] Talk to Coach sidebar works
+- [ ] Can complete a full conversation flow
+
+---
+
+### 10.6: API Client Library
+
+**Tasks:**
+- [ ] Create typed API client
+- [ ] Handle auth headers automatically
+- [ ] Add error handling
+- [ ] Use throughout client app
+
+**API Client:**
+```typescript
+// lib/api.ts
+class DownpatAPI {
+  constructor(private getToken: () => string | null) {}
+
+  private async fetch<T>(path: string, options?: RequestInit): Promise<T> {
+    const token = this.getToken();
+    const res = await fetch(`/api/downpat${path}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { Authorization: `Bearer ${token}` }),
+        ...options?.headers,
+      },
+    });
+
+    if (!res.ok) {
+      throw new Error(await res.text());
+    }
+
+    return res.json();
+  }
+
+  // Exercises
+  getExercises() {
+    return this.fetch<Exercise[]>('/exercises');
+  }
+
+  getPublishedExercises() {
+    return this.fetch<Exercise[]>('/exercises/published');
+  }
+
+  createExercise(exercise: CreateExerciseInput) {
+    return this.fetch<Exercise>('/exercises', {
+      method: 'POST',
+      body: JSON.stringify(exercise),
+    });
+  }
+
+  updateExercise(slug: string, exercise: UpdateExerciseInput) {
+    return this.fetch<Exercise>(`/exercises/${slug}`, {
+      method: 'PUT',
+      body: JSON.stringify(exercise),
+    });
+  }
+
+  publishExercise(slug: string) {
+    return this.fetch(`/exercises/${slug}/publish`, { method: 'POST' });
+  }
+
+  // ... more methods
+}
+```
+
+**Verification:**
+- [ ] API client works for all endpoints
+- [ ] Auth headers included automatically
+- [ ] Errors handled gracefully
+
+---
+
+### Milestone 10 Completion Criteria
+
+- [ ] Complete auth flow (login/logout)
+- [ ] Admin can create, edit, publish exercises
+- [ ] Subscribers can browse published exercises
+- [ ] Full conversation flow with real-time AI responses
+- [ ] Talk to Coach sidebar functional
+- [ ] All @downpat packages integrated and working
+- [ ] Browser verification shows all features working
+- [ ] Can complete end-to-end demo: Login → Create Exercise → Publish → Start Conversation → Chat with AI
+
+---
+
+## 🔧 MILESTONE 11: Firebase Storage & Dark Mode
+
+**Goal:** Add optional Firebase backend and dark mode toggle for complete feature demonstration.
+
+**Dependencies:** Milestone 10 complete
+
+### 11.1: Firebase Configuration
+
+**Tasks:**
+- [ ] Add Firebase config to example app
+- [ ] Create Firebase initialization module
+- [ ] Add environment variable support
+- [ ] Make Firebase optional (fallback to mock)
+
+**Firebase Setup:**
+```typescript
+// lib/firebase.ts
+import { initializeApp, getApps } from 'firebase/app';
+import { getFirestore } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
+
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  // ...
+};
+
+// Only initialize if config is provided
+export const app = firebaseConfig.apiKey
+  ? (getApps().length ? getApps()[0] : initializeApp(firebaseConfig))
+  : null;
+
+export const db = app ? getFirestore(app) : null;
+export const auth = app ? getAuth(app) : null;
+```
+
+**Server Firebase Integration:**
+```typescript
+// Conditional Firebase usage
+const useFirebase = !!process.env.FIREBASE_PROJECT_ID;
+
+const exerciseStorage = useFirebase
+  ? new FirebaseExerciseStorage(getFirestore())
+  : mockExerciseStorage;
+
+const conversationStorage = useFirebase
+  ? new FirebaseConversationStorage(getFirestore())
+  : mockConversationStorage;
+
+console.log(`Storage backend: ${useFirebase ? 'Firebase' : 'In-Memory Mock'}`);
+```
+
+**Verification:**
+- [ ] App works without Firebase config (uses mock)
+- [ ] App works with Firebase config (uses Firestore)
+- [ ] Data persists in Firebase
+- [ ] Clear documentation for Firebase setup
+
+---
+
+### 11.2: Firebase Auth Integration (Optional)
+
+**Tasks:**
+- [ ] Add Firebase Auth as optional auth provider
+- [ ] Create FirebaseAuthProvider implementing ServerAuthProvider
+- [ ] Update client to use Firebase Auth when available
+- [ ] Maintain mock auth fallback
+
+**Firebase Server Auth:**
+```typescript
+import { getAuth } from 'firebase-admin/auth';
+
+export class FirebaseServerAuthProvider implements ServerAuthProvider {
+  async validateToken(token: string): Promise<User> {
+    const decoded = await getAuth().verifyIdToken(token);
+
+    // Get custom claims for admin/subscriber status
+    const isAdmin = decoded.admin === true;
+    const isSubscriber = decoded.subscriber === true || isAdmin;
+
+    return {
+      userId: decoded.uid,
+      displayName: decoded.name || decoded.email || 'User',
+      isAdmin,
+      isSubscriber,
+    };
+  }
+
+  getDemoUser(): User {
+    return {
+      userId: 'demo-user',
+      displayName: 'Demo User',
+      isAdmin: false,
+      isSubscriber: true,
+    };
+  }
+}
+```
+
+**Verification:**
+- [ ] Firebase Auth works when configured
+- [ ] Mock auth works when Firebase not configured
+- [ ] Admin claims respected
+- [ ] Subscriber claims respected
+
+---
+
+### 11.3: Dark Mode Toggle
+
+**Tasks:**
+- [ ] Add dark mode state to app
+- [ ] Create theme toggle component
+- [ ] Persist preference in localStorage
+- [ ] Apply data-theme attribute to document
+
+**Theme Provider:**
+```typescript
+interface ThemeContextType {
+  theme: 'light' | 'dark';
+  toggleTheme: () => void;
+}
+
+export function ThemeProvider({ children }: { children: React.ReactNode }) {
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    const saved = localStorage.getItem('downpat_theme');
+    return (saved as 'light' | 'dark') || 'light';
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('downpat_theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+  };
+
+  return (
+    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+      {children}
+    </ThemeContext.Provider>
+  );
+}
+```
+
+**Theme Toggle Component:**
+```typescript
+function ThemeToggle() {
+  const { theme, toggleTheme } = useTheme();
+
+  return (
+    <button
+      onClick={toggleTheme}
+      className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+      aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+    >
+      {theme === 'light' ? '🌙' : '☀️'}
+    </button>
+  );
+}
+```
+
+**Add to Navbar:**
+```typescript
+function Navbar() {
+  return (
+    <nav className="...">
+      {/* ... other nav items */}
+      <ThemeToggle />
+    </nav>
+  );
+}
+```
+
+**Verification:**
+- [ ] Toggle switches between light/dark
+- [ ] Theme persists across refresh
+- [ ] All components respect dark mode
+- [ ] UI is readable in both modes
+
+---
+
+### 11.4: Environment Configuration Documentation
+
+**Tasks:**
+- [ ] Create .env.example file
+- [ ] Document all environment variables
+- [ ] Add setup instructions to README
+- [ ] Document Firebase setup process
+
+**.env.example:**
+```bash
+# AI Providers (at least one required for conversations)
+OPENAI_API_KEY=sk-...
+ANTHROPIC_API_KEY=sk-ant-...
+GEMINI_API_KEY=...
+
+# Firebase (optional - uses in-memory mock if not provided)
+FIREBASE_PROJECT_ID=your-project-id
+GOOGLE_APPLICATION_CREDENTIALS=./service-account.json
+
+# Client-side Firebase (optional)
+VITE_FIREBASE_API_KEY=...
+VITE_FIREBASE_AUTH_DOMAIN=...
+VITE_FIREBASE_PROJECT_ID=...
+```
+
+**Verification:**
+- [ ] .env.example is complete
+- [ ] README has setup instructions
+- [ ] App works with minimal config
+- [ ] App works with full Firebase config
+
+---
+
+### Milestone 11 Completion Criteria
+
+- [ ] Firebase storage works when configured
+- [ ] Firebase auth works when configured
+- [ ] Mock storage/auth work as fallback
+- [ ] Dark mode toggle works
+- [ ] Theme persists across sessions
+- [ ] Environment documentation complete
+- [ ] README updated with setup options
+- [ ] End-to-end demo works with both storage backends
+
+---
+
+## 📋 Updated Milestone Dependencies
+
+```
+M0-M9: Package Development (COMPLETE)
+  ↓
+M10: Functional Example App
+  - Auth system
+  - Admin pages (using @downpat/admin-ui)
+  - Exercise browser
+  - Real-time conversations
+  - Socket.io integration
+  ↓
+M11: Firebase & Dark Mode
+  - Optional Firebase backend
+  - Optional Firebase auth
+  - Dark mode toggle
+  - Complete documentation
+  ↓
+Ready for v1.0.0 Release! 🎉
+```
+
+---
+
 ## 🎯 Next Steps
 
 1. **Review this plan** - Ensure all decisions from NEXT_STEPS.md are reflected

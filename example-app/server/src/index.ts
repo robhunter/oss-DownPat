@@ -18,6 +18,72 @@ app.get('/api/health', (_req, res) => {
 });
 
 /**
+ * Simple demo auth endpoint.
+ * Emails containing "@admin" get admin privileges.
+ * Any other email gets subscriber access.
+ */
+app.post('/api/downpat/auth/login', (req, res) => {
+  const { email } = req.body;
+
+  if (!email || typeof email !== 'string') {
+    return res.status(400).json({ error: 'Email is required' });
+  }
+
+  // Simple demo auth based on email domain
+  const isAdmin = email.toLowerCase().includes('@admin');
+  const displayName = email.split('@')[0].replace(/[._-]/g, ' ');
+
+  const user: User = {
+    userId: isAdmin ? 'admin-user' : 'demo-user',
+    displayName: displayName.charAt(0).toUpperCase() + displayName.slice(1),
+    isAdmin,
+    isSubscriber: true,
+  };
+
+  const token = isAdmin ? 'admin-token' : 'demo-token';
+
+  res.json({ token, user });
+});
+
+/**
+ * Get published exercises only (for subscribers).
+ * This endpoint returns exercises that have been published.
+ */
+app.get('/api/downpat/exercises/published', async (_req, res) => {
+  const publishedExercises = [];
+
+  for (const [_slug, metadata] of exerciseMetadata.entries()) {
+    if (metadata.published) {
+      const exercise = exercises.get(metadata.published);
+      if (exercise) {
+        publishedExercises.push(exercise);
+      }
+    }
+  }
+
+  res.json(publishedExercises);
+});
+
+/**
+ * Get a single published exercise by slug (for subscribers).
+ */
+app.get('/api/downpat/exercises/published/:slug', async (req, res) => {
+  const { slug } = req.params;
+  const metadata = exerciseMetadata.get(slug);
+
+  if (!metadata?.published) {
+    return res.status(404).json({ error: 'Exercise not found or not published' });
+  }
+
+  const exercise = exercises.get(metadata.published);
+  if (!exercise) {
+    return res.status(404).json({ error: 'Exercise not found' });
+  }
+
+  res.json(exercise);
+});
+
+/**
  * Mock Auth Provider for development.
  * In production, replace with Firebase Auth or your own implementation.
  */

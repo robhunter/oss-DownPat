@@ -144,7 +144,7 @@ export function ExerciseForm({
             placeholder="exercise-slug"
             required
             style={inputStyle}
-            pattern="[a-z0-9-]+"
+            pattern="[a-z0-9\-]+"
             title="Lowercase letters, numbers, and hyphens only"
           />
           <small style={helpTextStyle}>URL-friendly identifier (auto-generated from name)</small>
