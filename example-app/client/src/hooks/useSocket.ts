@@ -144,13 +144,17 @@ export function useConversation({ slug }: UseConversationOptions): UseConversati
     });
 
     // Handle message complete
-    socket.on('message-complete', (message: MessageData) => {
+    socket.on('message-complete', () => {
       setIsStreaming(false);
       streamingMessageRef.current = '';
+      // The streaming message already has content from chunks
+      // Just update messageId to make it permanent
       setMessages((prev) => {
-        // Replace the streaming placeholder with the final message
-        const updated = prev.filter((m) => m.messageId !== 'streaming');
-        return [...updated, message];
+        return prev.map((m) =>
+          m.messageId === 'streaming'
+            ? { ...m, messageId: `ai-${Date.now()}` }
+            : m
+        );
       });
     });
 

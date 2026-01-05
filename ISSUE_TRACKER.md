@@ -30,7 +30,7 @@
 |----|-------|--------|-------|
 | US-12 | Browse Published Exercises - only published visible | ✅ Verified | shot-scraper verified |
 | US-13 | Start Conversation - click exercise to start | ✅ Verified | Fixed socket start-conversation handler |
-| US-14 | Chat with AI - send/receive messages with streaming | ⏳ Code Complete | AI integration added, needs manual verification |
+| US-14 | Chat with AI - send/receive messages with streaming | ✅ Verified | Fixed message-complete handler, AI chat working |
 | US-15 | Talk to Coach - sidebar works if enabled | ⏳ Pending | UI exists, backend needs testing |
 
 ### Data Integrity
@@ -86,7 +86,20 @@
   - `packages/express/src/socket.ts` - Added AI streaming integration
   - `example-app/server/src/index.ts` - Pass AI adapter to socket
   - `example-app/client/src/hooks/useSocket.ts` - Fixed message format
-- **Status:** ✅ Code complete, needs manual verification
+- **Status:** ✅ RESOLVED (AI adapter working, see Issue #5 for final fix)
+
+### Issue #5: Page Crashes After Sending Message (FIXED)
+- **Reported:** Page goes blank after sending a message, AI response doesn't complete
+- **Root Cause:**
+  1. Server emits `message-complete` with no data
+  2. Client handler expected `(message: MessageData)` parameter
+  3. Client tried to add `undefined` to messages array, causing crash
+- **Fix:**
+  1. Changed client handler to `socket.on('message-complete', () => { ... })`
+  2. Instead of replacing with server message, keep the streamed content and update messageId
+- **Files Modified:**
+  - `example-app/client/src/hooks/useSocket.ts` - Fixed message-complete handler
+- **Status:** ✅ RESOLVED
 
 ### Issue #4: Status Badge Shows Wrong State (FIXED)
 - **Reported:** Published exercises show "Draft" status
