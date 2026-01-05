@@ -191,7 +191,7 @@ describe('createDownpatRouter', () => {
         .send({});
 
       expect(res.status).toBe(400);
-      expect(res.body.error).toBe('exerciseId is required');
+      expect(res.body.error).toBe('exerciseId or exerciseSlug is required');
     });
 
     it('returns 403 for non-subscriber', async () => {
