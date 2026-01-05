@@ -1,4 +1,9 @@
-import type { Exercise, Conversation, User } from '@downpat/core';
+import type { Exercise, Conversation, User, ExerciseMetadata } from '@downpat/core';
+
+export interface ExerciseWithMetadata {
+  exercise: Exercise;
+  metadata: ExerciseMetadata;
+}
 
 export interface LoginResponse {
   token: string;
@@ -42,6 +47,10 @@ class DownpatAPI {
   // Exercises - Admin
   async getExercises(): Promise<Exercise[]> {
     return this.fetch<Exercise[]>('/exercises');
+  }
+
+  async getExercisesWithMetadata(): Promise<ExerciseWithMetadata[]> {
+    return this.fetch<ExerciseWithMetadata[]>('/exercises/with-metadata');
   }
 
   async getExercise(slug: string): Promise<Exercise> {

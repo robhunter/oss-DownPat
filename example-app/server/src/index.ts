@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { createServer } from 'http';
 import { fileURLToPath } from 'url';
-import type { User, ServerAuthProvider, ExerciseStorage, ConversationStorage } from '@downpat/core';
+import type { User, ServerAuthProvider, ExerciseStorage, ConversationStorage, Exercise, ExerciseMetadata } from '@downpat/core';
 import { createDownpatRouter, attachSocketIO } from '@downpat/express';
 import { createAdapterRegistry, type AIProviderConfig } from '@downpat/ai-adapters';
 
@@ -43,6 +43,21 @@ app.post('/api/downpat/auth/login', (req, res) => {
   const token = isAdmin ? 'admin-token' : 'demo-token';
 
   res.json({ token, user });
+});
+
+/**
+ * Get exercises with metadata (for admin UI).
+ * Returns exercises with their draft/published status.
+ */
+app.get('/api/downpat/exercises/with-metadata', async (_req, res) => {
+  const result: Array<{ exercise: Exercise; metadata: ExerciseMetadata }> = [];
+  for (const [_slug, metadata] of exerciseMetadata.entries()) {
+    const exercise = exercises.get(metadata.draft);
+    if (exercise) {
+      result.push({ exercise, metadata });
+    }
+  }
+  res.json(result);
 });
 
 /**
@@ -143,7 +158,23 @@ const mockExerciseStorage: ExerciseStorage = {
     return exerciseMetadata.get(slug) || null;
   },
   async getExercises() {
-    return Array.from(exercises.values());
+    // Only return draft exercises, not published copies
+    // Published copies have IDs ending with "-published"
+    const allExercises = Array.from(exercises.values());
+    return allExercises.filter((e: Exercise) =>
+      e.exerciseId && !e.exerciseId.endsWith('-published')
+    );
+  },
+  async getExercisesWithMetadata() {
+    // Return exercises with their metadata for admin UI
+    const result: Array<{ exercise: Exercise; metadata: ExerciseMetadata }> = [];
+    for (const [slug, metadata] of exerciseMetadata.entries()) {
+      const exercise = exercises.get(metadata.draft);
+      if (exercise) {
+        result.push({ exercise, metadata });
+      }
+    }
+    return result;
   },
   async createExercise(exercise) {
     exercises.set(exercise.exerciseId, exercise);
@@ -159,7 +190,8 @@ const mockExerciseStorage: ExerciseStorage = {
     if (!metadata) throw new Error('Exercise not found');
     const draft = exercises.get(metadata.draft);
     const publishedId = `${metadata.draft}-published`;
-    exercises.set(publishedId, { ...draft });
+    // Set exerciseId to publishedId so filtering works correctly
+    exercises.set(publishedId, { ...draft, exerciseId: publishedId });
     exerciseMetadata.set(slug, { ...metadata, published: publishedId });
   },
   async unpublishExercise(slug: string) {

@@ -49,11 +49,27 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
     config.exerciseStorage
   );
 
-  io.on('connection', (socket) => {
+  io.on('connection', async (socket) => {
     console.log('Socket connected:', socket.id);
     socket.data.user = null;
 
-    // Handle authentication
+    // Try to authenticate from handshake auth token
+    const handshakeToken = socket.handshake.auth?.token;
+    if (handshakeToken) {
+      try {
+        const user = await config.serverAuth.validateToken(handshakeToken);
+        socket.data.user = user;
+        socket.emit('authenticated', { success: true, user });
+        console.log('Socket authenticated:', socket.id, user.userId);
+      } catch (error) {
+        socket.emit('authenticated', {
+          success: false,
+          error: error instanceof Error ? error.message : 'Authentication failed',
+        });
+      }
+    }
+
+    // Also handle explicit authentication event (for backwards compatibility)
     socket.on('authenticate', async (token: string) => {
       try {
         const user = await config.serverAuth.validateToken(token);
@@ -64,6 +80,40 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
         socket.emit('authenticated', {
           success: false,
           error: error instanceof Error ? error.message : 'Authentication failed',
+        });
+      }
+    });
+
+    // Start a new conversation by exercise slug
+    socket.on('start-conversation', async (data: { slug: string }) => {
+      if (!socket.data.user) {
+        socket.emit('error', { message: 'Not authenticated' });
+        return;
+      }
+
+      try {
+        // Look up exercise by slug (published only for non-admins)
+        const publishedOnly = !socket.data.user.isAdmin;
+        const exercise = await config.exerciseStorage.getExerciseBySlug(data.slug, publishedOnly);
+        if (!exercise) {
+          socket.emit('error', { message: 'Exercise not found' });
+          return;
+        }
+
+        // Create the conversation
+        const conversation = await controller.startConversation(exercise.exerciseId, socket.data.user);
+
+        // Join the conversation room
+        socket.join(`conversation:${conversation.conversationId}`);
+
+        // Emit conversation started with messages
+        socket.emit('conversation-started', {
+          conversationId: conversation.conversationId,
+          messages: conversation.messages || [],
+        });
+      } catch (error) {
+        socket.emit('error', {
+          message: error instanceof Error ? error.message : 'Failed to start conversation',
         });
       }
     });
@@ -132,6 +182,7 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
  */
 interface ClientToServerEvents {
   authenticate: (token: string) => void;
+  'start-conversation': (data: { slug: string }) => void;
   'join-conversation': (conversationId: string) => void;
   'leave-conversation': (conversationId: string) => void;
   'send-message': (data: { conversationId: string; content: string }) => void;
@@ -142,6 +193,7 @@ interface ClientToServerEvents {
  */
 interface ServerToClientEvents {
   authenticated: (result: { success: boolean; user?: User; error?: string }) => void;
+  'conversation-started': (data: { conversationId: string; messages: import('@downpat/core').Message[] }) => void;
   'joined-conversation': (data: { conversationId: string }) => void;
   'message-added': (data: {
     conversationId: string;

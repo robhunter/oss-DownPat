@@ -176,7 +176,7 @@ export function useConversation({ slug }: UseConversationOptions): UseConversati
 
   const sendMessage = useCallback(
     (text: string) => {
-      if (!socket || !isConnected) return;
+      if (!socket || !isConnected || !conversation) return;
 
       // Add user message immediately
       const userMessage: MessageData = {
@@ -199,10 +199,13 @@ export function useConversation({ slug }: UseConversationOptions): UseConversati
       setMessages((prev) => [...prev, userMessage, aiPlaceholder]);
       streamingMessageRef.current = '';
 
-      // Send via socket
-      socket.emit('send-message', { text });
+      // Send via socket with conversationId and content
+      socket.emit('send-message', {
+        conversationId: conversation.conversationId,
+        content: text
+      });
     },
-    [socket, isConnected]
+    [socket, isConnected, conversation]
   );
 
   const sendCoachMessage = useCallback(

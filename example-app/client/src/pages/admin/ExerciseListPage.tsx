@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ExerciseList, type ExerciseWithMetadata } from '@downpat/admin-ui';
-import { getAPI } from '../../lib/api';
-import type { Exercise, ExerciseMetadata } from '@downpat/core';
+import { ExerciseList } from '@downpat/admin-ui';
+import { getAPI, type ExerciseWithMetadata } from '../../lib/api';
+import type { Exercise } from '@downpat/core';
 
 export function ExerciseListPage() {
   const [exercisesWithMetadata, setExercisesWithMetadata] = useState<ExerciseWithMetadata[]>([]);
@@ -18,28 +18,8 @@ export function ExerciseListPage() {
     try {
       setIsLoading(true);
       const api = getAPI();
-      const data = await api.getExercises();
-
-      // Transform exercises to ExerciseWithMetadata format
-      // Note: In a real app, you'd fetch metadata separately or have it included
-      const withMetadata: ExerciseWithMetadata[] = data
-        .filter((exercise: Exercise) => exercise && exercise.exerciseId) // Filter out invalid entries
-        .map((exercise: Exercise) => {
-          // Determine if published based on exerciseId pattern
-          const isPublished = exercise.exerciseId?.includes('-published') ?? false;
-          const metadata: ExerciseMetadata = {
-            draft: isPublished ? exercise.exerciseId.replace('-published', '') : exercise.exerciseId,
-            published: isPublished ? exercise.exerciseId : undefined,
-          };
-          return {
-            exercise: isPublished ? { ...exercise, exerciseId: metadata.draft } : exercise,
-            metadata,
-          };
-        });
-
-      // Filter to only show draft versions (avoid duplicates)
-      const draftsOnly = withMetadata.filter(item => !item.exercise.exerciseId?.includes('-published'));
-      setExercisesWithMetadata(draftsOnly);
+      const data = await api.getExercisesWithMetadata();
+      setExercisesWithMetadata(data);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load exercises');

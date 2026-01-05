@@ -64,14 +64,26 @@ export function createConversationRouter(
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const authReq = req as AuthenticatedRequest;
-        const { exerciseId } = req.body;
+        const { exerciseId, exerciseSlug } = req.body;
 
-        if (!exerciseId) {
-          res.status(400).json({ error: 'exerciseId is required' });
+        // Support both exerciseId and exerciseSlug for flexibility
+        let resolvedExerciseId = exerciseId;
+        if (!resolvedExerciseId && exerciseSlug) {
+          // Look up exercise by slug (published only for subscribers)
+          const exercise = await exerciseStorage.getExerciseBySlug(exerciseSlug, true);
+          if (!exercise) {
+            res.status(404).json({ error: 'Exercise not found' });
+            return;
+          }
+          resolvedExerciseId = exercise.exerciseId;
+        }
+
+        if (!resolvedExerciseId) {
+          res.status(400).json({ error: 'exerciseId or exerciseSlug is required' });
           return;
         }
 
-        const conversation = await controller.startConversation(exerciseId, authReq.user);
+        const conversation = await controller.startConversation(resolvedExerciseId, authReq.user);
         res.status(201).json(conversation);
       } catch (error) {
         if (error instanceof Error) {
