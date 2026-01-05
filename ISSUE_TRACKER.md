@@ -22,8 +22,8 @@
 ### Admin: Testing Exercises
 | ID | Story | Status | Notes |
 |----|-------|--------|-------|
-| US-10 | Test Draft Exercise - admin can chat with draft | ⏳ Pending | Feature to be implemented |
-| US-11 | Test Published Exercise - admin can chat with published | ⏳ Pending | Feature to be implemented |
+| US-10 | Test Draft Exercise - admin can chat with draft | ✅ Verified | Test button added, ADMIN TEST badge shown |
+| US-11 | Test Published Exercise - admin can chat with published | ✅ Verified | Test button works for published too |
 
 ### Subscriber: Browsing & Conversations
 | ID | Story | Status | Notes |
@@ -31,7 +31,7 @@
 | US-12 | Browse Published Exercises - only published visible | ✅ Verified | shot-scraper verified |
 | US-13 | Start Conversation - click exercise to start | ✅ Verified | Fixed socket start-conversation handler |
 | US-14 | Chat with AI - send/receive messages with streaming | ✅ Verified | Fixed message-complete handler, AI chat working |
-| US-15 | Talk to Coach - sidebar works if enabled | ⏳ Pending | UI exists, backend needs testing |
+| US-15 | Talk to Coach - sidebar works if enabled | ✅ Verified | Sidebar opens, sends/receives messages |
 
 ### Data Integrity
 | ID | Story | Status | Notes |
@@ -122,4 +122,6 @@
 | 2026-01-05 | US-2 | shot-scraper subscriber login | Subscriber badge, no Admin nav |
 | 2026-01-05 | US-4-9 | API + shot-scraper CRUD | All CRUD operations work, no duplicates |
 | 2026-01-05 | US-12-14 | shot-scraper subscriber flow | Exercise browser shows published, conversation starts |
+| 2026-01-05 | US-10-11 | shot-scraper admin test | Test button added, ADMIN TEST badge, chat working |
+| 2026-01-05 | US-15 | shot-scraper coach sidebar | Talk to Coach opens, messages sent/received |
 

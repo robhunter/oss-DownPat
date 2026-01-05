@@ -75,6 +75,14 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/admin/test/:slug"
+              element={
+                <ProtectedRoute requireAdmin>
+                  <Conversation isAdminTest />
+                </ProtectedRoute>
+              }
+            />
           </Route>
         </Routes>
       </AuthProvider>

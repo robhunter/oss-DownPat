@@ -11,6 +11,8 @@ export interface ExerciseListProps {
   exercises: ExerciseWithMetadata[];
   /** Callback when edit button is clicked */
   onEdit: (exercise: Exercise) => void;
+  /** Callback when test button is clicked */
+  onTest?: (exercise: Exercise) => void;
   /** Callback when publish button is clicked */
   onPublish: (slug: string) => void;
   /** Callback when unpublish button is clicked */
@@ -31,6 +33,7 @@ export interface ExerciseListProps {
 export function ExerciseList({
   exercises,
   onEdit,
+  onTest,
   onPublish,
   onUnpublish,
   onRestore,
@@ -126,6 +129,17 @@ export function ExerciseList({
                     >
                       Edit
                     </button>
+
+                    {onTest && (
+                      <button
+                        onClick={() => onTest(exercise)}
+                        disabled={isLoading}
+                        style={{ ...actionButtonStyle, color: '#2563eb' }}
+                        title="Test this exercise in a conversation"
+                      >
+                        Test
+                      </button>
+                    )}
 
                     {isPublished ? (
                       <>

@@ -69,8 +69,8 @@ Only when there's a **known bug** that prevents automation from working. Current
 
 | ID | Story | Steps | Expected Result | Status |
 |----|-------|-------|-----------------|--------|
-| US-10 | Test Draft Exercise | 1. API: Create draft exercise 2. Login as admin 3. Navigate to conversation with draft 4. Screenshot chat | Admin can access and chat with unpublished exercise | ⏳ Feature pending - needs "Test" button |
-| US-11 | Test Published Exercise | 1. API: Create + publish 2. Login as admin 3. Start conversation 4. Screenshot chat | Admin can chat with published exercise | ⏳ Depends on US-14 |
+| US-10 | Test Draft Exercise | 1. Create draft exercise 2. Click "Test" button 3. Chat with AI | Admin can access and chat with unpublished exercise, "ADMIN TEST" badge shown | ✅ Verified |
+| US-11 | Test Published Exercise | 1. Publish exercise 2. Click "Test" button 3. Chat with AI | Admin can chat with published exercise, "ADMIN TEST" badge shown | ✅ Verified |
 
 ### Subscriber: Browsing & Conversations (US-12 to US-15)
 
@@ -79,7 +79,7 @@ Only when there's a **known bug** that prevents automation from working. Current
 | US-12 | Browse Published Exercises | 1. API: Create + publish exercise 2. Login as subscriber 3. Screenshot /exercises | Only published exercises visible, draft exercises hidden | ✅ Verified |
 | US-13 | Start Conversation | 1. API: Create + publish 2. Login as subscriber 3. Click "Start Practice" 4. Screenshot conversation page | Welcome message displayed, input ready | ✅ Verified |
 | US-14 | Chat with AI | 1. Start conversation 2. Type message 3. Click Send 4. Screenshot response | AI responds with streamed content | ✅ Verified |
-| US-15 | Talk to Coach | 1. In conversation 2. Click coach button 3. Send coach message 4. Screenshot | Coach sidebar opens, response shown | ⏳ Pending |
+| US-15 | Talk to Coach | 1. In conversation 2. Click coach button 3. Send coach message 4. Screenshot | Coach sidebar opens, response shown | ✅ Verified |
 
 ### Data Integrity (US-16 to US-17)
 
@@ -163,3 +163,6 @@ const subscriberLogin = `
 | 2026-01-05 | US-14 | PASS | AI responds with streamed content, chat working |
 | 2026-01-05 | US-14 | BUG FIX | Fixed message-complete handler expecting undefined message data |
 | 2026-01-05 | US-14 | VERIFIED | Complete AI response displayed, page stable after send |
+| 2026-01-05 | US-10 | VERIFIED | Test button added, admin can chat with draft exercises |
+| 2026-01-05 | US-11 | VERIFIED | Test button works for published exercises too |
+| 2026-01-05 | US-15 | VERIFIED | Talk to Coach sidebar opens, sends/receives messages |

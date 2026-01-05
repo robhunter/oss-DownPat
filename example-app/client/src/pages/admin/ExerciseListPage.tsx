@@ -62,6 +62,11 @@ export function ExerciseListPage() {
     navigate(`/admin/exercises/${exercise.slug}/edit`);
   };
 
+  const handleTest = (exercise: Exercise) => {
+    // Navigate to conversation page - admin can test any exercise (draft or published)
+    navigate(`/admin/test/${exercise.slug}`);
+  };
+
   const handleRestore = async (slug: string) => {
     try {
       const api = getAPI();
@@ -117,6 +122,7 @@ export function ExerciseListPage() {
           <ExerciseList
             exercises={exercisesWithMetadata}
             onEdit={handleEdit}
+            onTest={handleTest}
             onPublish={handlePublish}
             onUnpublish={handleUnpublish}
             onDelete={handleDelete}

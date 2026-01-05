@@ -3,8 +3,14 @@ import { useParams, Link } from 'react-router-dom';
 import { MessageList, TalkToCoachSidebar, type MessageData, MessageType } from '@downpat/ui-components';
 import { useConversation } from '../hooks/useSocket';
 
-export function Conversation() {
+interface ConversationProps {
+  isAdminTest?: boolean;
+}
+
+export function Conversation({ isAdminTest = false }: ConversationProps) {
   const { slug } = useParams<{ slug: string }>();
+  const backLink = isAdminTest ? '/admin/exercises' : '/exercises';
+  const backText = isAdminTest ? '← Back to Admin' : '← Back to Exercises';
   const [input, setInput] = useState('');
   const [showCoach, setShowCoach] = useState(false);
   const [coachMessages, setCoachMessages] = useState<MessageData[]>([]);
@@ -76,8 +82,8 @@ export function Conversation() {
         <div style={styles.error}>
           <h2>Error</h2>
           <p>{error}</p>
-          <Link to="/exercises" style={styles.backBtn}>
-            Back to Exercises
+          <Link to={backLink} style={styles.backBtn}>
+            {isAdminTest ? 'Back to Admin' : 'Back to Exercises'}
           </Link>
         </div>
       </div>
@@ -89,10 +95,15 @@ export function Conversation() {
       <div style={styles.mainContent}>
         {/* Header */}
         <div style={styles.header}>
-          <Link to="/exercises" style={styles.backLink}>
-            ← Back to Exercises
+          <Link to={backLink} style={styles.backLink}>
+            {backText}
           </Link>
-          <h1 style={styles.title}>{slug?.replace(/-/g, ' ')}</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <h1 style={styles.title}>{slug?.replace(/-/g, ' ')}</h1>
+            {isAdminTest && (
+              <span style={styles.testBadge}>Admin Test</span>
+            )}
+          </div>
         </div>
 
         {/* Messages */}
@@ -265,5 +276,14 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'white',
     textDecoration: 'none',
     borderRadius: '6px',
+  },
+  testBadge: {
+    padding: '4px 12px',
+    backgroundColor: '#fef3c7',
+    color: '#92400e',
+    fontSize: '0.75rem',
+    fontWeight: '600',
+    borderRadius: '4px',
+    textTransform: 'uppercase',
   },
 };
