@@ -111,6 +111,7 @@ export function useConversation({ slug }: UseConversationOptions): UseConversati
   const [error, setError] = useState<string | null>(null);
   const [talkToCoachEnabled, setTalkToCoachEnabled] = useState(false);
   const streamingMessageRef = useRef<string>('');
+  const streamingCommentaryRef = useRef<string>('');
 
   // Start conversation when socket connects
   useEffect(() => {
@@ -172,12 +173,55 @@ export function useConversation({ slug }: UseConversationOptions): UseConversati
       setIsStreaming(false);
     });
 
+    // Handle commentary chunks (coaching feedback)
+    socket.on('commentary-chunk', (data: { chunk: string; role: string }) => {
+      streamingCommentaryRef.current += data.chunk;
+
+      // Add or update streaming commentary message
+      setMessages((prev) => {
+        const existingCommentary = prev.find((m) => m.messageId === 'streaming-commentary');
+        if (existingCommentary) {
+          return prev.map((m) =>
+            m.messageId === 'streaming-commentary'
+              ? { ...m, content: streamingCommentaryRef.current }
+              : m
+          );
+        }
+        // Add new commentary message
+        return [
+          ...prev,
+          {
+            messageId: 'streaming-commentary',
+            type: 'COMMENTARY' as MessageData['type'],
+            role: data.role,
+            content: streamingCommentaryRef.current,
+            timestamp: new Date().toISOString(),
+          },
+        ];
+      });
+    });
+
+    // Handle commentary complete
+    socket.on('commentary-complete', (data: { role: string }) => {
+      streamingCommentaryRef.current = '';
+      // Finalize the commentary message ID
+      setMessages((prev) => {
+        return prev.map((m) =>
+          m.messageId === 'streaming-commentary'
+            ? { ...m, messageId: `commentary-${Date.now()}` }
+            : m
+        );
+      });
+    });
+
     return () => {
       socket.off('conversation-started');
       socket.off('message-chunk');
       socket.off('message-complete');
       socket.off('message-added');
       socket.off('error');
+      socket.off('commentary-chunk');
+      socket.off('commentary-complete');
     };
   }, [socket, isConnected, slug]);
 

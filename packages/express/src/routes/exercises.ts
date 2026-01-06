@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import type { Request, Response, NextFunction } from 'express';
+import { randomUUID } from 'crypto';
 import { ExerciseController } from '@downpat/core';
 import type { ExerciseStorage, ServerAuthProvider } from '@downpat/core';
 import { createAuthMiddleware, requireAdmin, type AuthenticatedRequest } from '../middleware/auth.js';
@@ -81,7 +82,12 @@ export function createExerciseRouter(
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const authReq = req as AuthenticatedRequest;
-        const exercise = await controller.createExercise(req.body, authReq.user);
+        // Generate exerciseId if not provided
+        const exerciseData = {
+          ...req.body,
+          exerciseId: req.body.exerciseId || randomUUID(),
+        };
+        const exercise = await controller.createExercise(exerciseData, authReq.user);
         res.status(201).json(exercise);
       } catch (error) {
         if (error instanceof Error && error.message.includes('Unauthorized')) {

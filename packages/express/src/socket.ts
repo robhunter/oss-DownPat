@@ -1,7 +1,7 @@
 import { Server as SocketServer } from 'socket.io';
 import type { Server as HTTPServer } from 'http';
-import type { ConversationStorage, ExerciseStorage, ServerAuthProvider, User, AIAdapter, AIMessage } from '@downpat/core';
-import { ConversationController, MessageType } from '@downpat/core';
+import type { ConversationStorage, ExerciseStorage, ServerAuthProvider, User, AIAdapter, AIMessage, Task } from '@downpat/core';
+import { ConversationController, MessageType, isCommentaryTask } from '@downpat/core';
 
 /**
  * Socket.io configuration options.
@@ -220,6 +220,71 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
 
             // 6. Emit message complete
             socket.emit('message-complete');
+
+            // 7. Process commentary tasks from continuationTasks
+            const commentaryTasks = (exercise.continuationTasks || []).filter(
+              (task: Task) => task.enabled && isCommentaryTask(task)
+            );
+
+            if (commentaryTasks.length > 0) {
+              // Fetch updated conversation for commentary context
+              const updatedConversation = await controller.getConversation(data.conversationId, socket.data.user!);
+
+              for (const commentaryTask of commentaryTasks) {
+                try {
+                  // Build messages for commentary AI
+                  const commentaryMessages: AIMessage[] = [
+                    {
+                      role: 'system',
+                      content: commentaryTask.prompt,
+                    },
+                  ];
+
+                  // Add conversation history for commentary context
+                  for (const msg of updatedConversation.messages) {
+                    if (msg.type === MessageType.USER) {
+                      commentaryMessages.push({ role: 'user', content: msg.content });
+                    } else if (msg.type === MessageType.CONVERSATION) {
+                      commentaryMessages.push({ role: 'assistant', content: msg.content });
+                    }
+                    // Optionally include previous commentary
+                    if (msg.type === MessageType.COMMENTARY) {
+                      commentaryMessages.push({ role: 'assistant', content: `[Previous Commentary]: ${msg.content}` });
+                    }
+                  }
+
+                // Stream commentary response
+                let commentaryContent = '';
+                await config.aiAdapter.complete({
+                  model,
+                  messages: commentaryMessages,
+                  maxTokens: 512,
+                  temperature: 0.7,
+                  onChunk: (chunk: string) => {
+                    commentaryContent += chunk;
+                    socket.emit('commentary-chunk', { chunk, role: commentaryTask.role });
+                  },
+                });
+
+                // Save commentary message
+                await controller.addAIMessage(
+                  data.conversationId,
+                  {
+                    type: MessageType.COMMENTARY,
+                    role: commentaryTask.role,
+                    content: commentaryContent,
+                  },
+                  socket.data.user!
+                );
+
+                // Emit commentary complete
+                socket.emit('commentary-complete', { role: commentaryTask.role });
+              } catch (commentaryError) {
+                console.error('[Socket] Commentary error:', commentaryError);
+                // Don't fail the whole message if commentary fails
+              }
+              }
+            }
           } catch (aiError) {
             console.error('AI error:', aiError);
             socket.emit('error', {
@@ -274,5 +339,7 @@ interface ServerToClientEvents {
   }) => void;
   'message-chunk': (data: { chunk: string }) => void;
   'message-complete': () => void;
+  'commentary-chunk': (data: { chunk: string; role: string }) => void;
+  'commentary-complete': (data: { role: string }) => void;
   error: (data: { message: string }) => void;
 }

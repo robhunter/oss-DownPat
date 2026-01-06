@@ -34,6 +34,7 @@ export const VISIBLE_MESSAGE_TYPES = [
   MessageType.USER,
   MessageType.CONVERSATION,
   MessageType.MODERATION,
+  MessageType.COMMENTARY,
 ] as const;
 
 /**
