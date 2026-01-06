@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import type { User } from '@downpat/core';
+import { provideDownPatToken, clearDownPatToken } from '@downpat/ui-components';
 import { initializeAPI, getAPI } from '../lib/api';
 
 interface AuthContextType {
@@ -35,10 +36,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         setToken(savedToken);
         setUser(JSON.parse(savedUser));
+        // Provide token to DownPat hooks
+        provideDownPatToken(savedToken);
       } catch {
         // Invalid stored data, clear it
         localStorage.removeItem(TOKEN_KEY);
         localStorage.removeItem(USER_KEY);
+        clearDownPatToken();
       }
     }
 
@@ -54,6 +58,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(TOKEN_KEY, response.token);
     localStorage.setItem(USER_KEY, JSON.stringify(response.user));
 
+    // Provide token to DownPat hooks
+    provideDownPatToken(response.token);
+
     setToken(response.token);
     setUser(response.user);
   }, []);
@@ -61,6 +68,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
+    // Clear token from DownPat hooks
+    clearDownPatToken();
     setToken(null);
     setUser(null);
   }, []);

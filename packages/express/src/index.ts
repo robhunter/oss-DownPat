@@ -15,6 +15,10 @@ export {
 } from './middleware/auth.js';
 export type { AuthenticatedRequest } from './middleware/auth.js';
 
+// Auth providers
+export { createMockAuthProvider } from './auth/mock-provider.js';
+export type { MockAuthProviderOptions } from './auth/mock-provider.js';
+
 // Sub-routers (for advanced usage)
 export { createExerciseRouter } from './routes/exercises.js';
 export { createConversationRouter } from './routes/conversations.js';

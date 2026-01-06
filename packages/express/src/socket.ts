@@ -359,6 +359,87 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
       }
     });
 
+    // Handle coach messages (Talk to Coach feature)
+    socket.on('send-coach-message', async (data: { conversationId: string; content: string }) => {
+      if (!socket.data.user) {
+        socket.emit('error', { message: 'Not authenticated' });
+        return;
+      }
+
+      try {
+        // Get conversation and exercise for context
+        const conversation = await controller.getConversation(data.conversationId, socket.data.user);
+        const exercise = await config.exerciseStorage.getExercise(conversation.exerciseId);
+
+        if (!exercise) {
+          socket.emit('error', { message: 'Exercise not found' });
+          return;
+        }
+
+        // If we have an AI adapter, generate coach response
+        if (config.aiAdapter) {
+          const model = exercise.model || config.defaultModel || 'gpt-4';
+
+          // Build messages for coach AI
+          const coachMessages: AIMessage[] = [
+            {
+              role: 'system',
+              content: `You are a helpful coach assisting a learner who is practicing: "${exercise.exerciseName}".
+Your role is to:
+- Answer questions about the exercise and how to approach it
+- Provide tips and guidance without doing the work for them
+- Encourage and support their learning
+- Help them understand concepts they're struggling with
+
+Be concise, supportive, and focused on helping them learn.`,
+            },
+          ];
+
+          // Add conversation context (so coach knows what's been discussed)
+          coachMessages.push({
+            role: 'system',
+            content: `Here is the conversation so far for context:\n${conversation.messages.map(m => `${m.role}: ${m.content}`).join('\n')}`,
+          });
+
+          // Add the user's coach question
+          coachMessages.push({ role: 'user', content: data.content });
+
+          // Stream coach response
+          let fullCoachContent = '';
+
+          try {
+            await config.aiAdapter.complete({
+              model,
+              messages: coachMessages,
+              maxTokens: 512,
+              temperature: 0.7,
+              onChunk: (chunk: string) => {
+                fullCoachContent += chunk;
+                socket.emit('coach-message-chunk', { chunk });
+              },
+            });
+
+            // Emit coach message complete with full content
+            socket.emit('coach-message-complete', { content: fullCoachContent });
+          } catch (aiError) {
+            console.error('Coach AI error:', aiError);
+            socket.emit('error', {
+              message: 'Failed to generate coach response',
+            });
+          }
+        } else {
+          // No AI adapter - send a default response
+          socket.emit('coach-message-complete', {
+            content: 'Coach responses require an AI adapter to be configured.',
+          });
+        }
+      } catch (error) {
+        socket.emit('error', {
+          message: error instanceof Error ? error.message : 'Failed to send coach message',
+        });
+      }
+    });
+
     socket.on('disconnect', () => {
       console.log('Socket disconnected:', socket.id);
     });
@@ -376,6 +457,7 @@ interface ClientToServerEvents {
   'join-conversation': (conversationId: string) => void;
   'leave-conversation': (conversationId: string) => void;
   'send-message': (data: { conversationId: string; content: string }) => void;
+  'send-coach-message': (data: { conversationId: string; content: string }) => void;
 }
 
 /**
@@ -394,6 +476,8 @@ interface ServerToClientEvents {
   'message-complete': () => void;
   'commentary-chunk': (data: { chunk: string; role: string }) => void;
   'commentary-complete': (data: { role: string }) => void;
+  'coach-message-chunk': (data: { chunk: string }) => void;
+  'coach-message-complete': (data: { content: string }) => void;
   'message-moderated': (data: { flagged: boolean; categories: string[]; message: string; isComplete: boolean }) => void;
   error: (data: { message: string }) => void;
 }

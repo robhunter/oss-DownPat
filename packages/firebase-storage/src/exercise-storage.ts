@@ -189,6 +189,56 @@ export class FirebaseExerciseStorage implements ExerciseStorage {
     return exerciseDocs.filter((doc) => doc.exists).map((doc) => doc.data() as Exercise);
   }
 
+  async getExercisesWithMetadata(): Promise<Array<{ exercise: Exercise; metadata: ExerciseMetadata }>> {
+    // Get all metadata
+    const metadataSnapshot = await this.db.collection(this.metadataCollection).get();
+
+    if (metadataSnapshot.empty) {
+      return [];
+    }
+
+    const result: Array<{ exercise: Exercise; metadata: ExerciseMetadata }> = [];
+
+    // Fetch draft exercises for each metadata entry
+    const draftIds = metadataSnapshot.docs.map((doc) => doc.data().draft as string);
+    const exerciseRefs = draftIds.map((id) =>
+      this.db.collection(this.exercisesCollection).doc(id)
+    );
+    const exerciseDocs = await this.db.getAll(...exerciseRefs);
+
+    metadataSnapshot.docs.forEach((metaDoc, index) => {
+      const exerciseDoc = exerciseDocs[index];
+      if (exerciseDoc.exists) {
+        result.push({
+          exercise: exerciseDoc.data() as Exercise,
+          metadata: metaDoc.data() as ExerciseMetadata,
+        });
+      }
+    });
+
+    return result;
+  }
+
+  async getPublishedExercises(): Promise<Exercise[]> {
+    // Get all metadata to find published IDs
+    const metadataSnapshot = await this.db.collection(this.metadataCollection).get();
+    const publishedIds = metadataSnapshot.docs
+      .map((doc) => doc.data().published as string | undefined)
+      .filter((id): id is string => !!id);
+
+    if (publishedIds.length === 0) {
+      return [];
+    }
+
+    // Fetch all published exercises
+    const exerciseRefs = publishedIds.map((id) =>
+      this.db.collection(this.exercisesCollection).doc(id)
+    );
+    const exerciseDocs = await this.db.getAll(...exerciseRefs);
+
+    return exerciseDocs.filter((doc) => doc.exists).map((doc) => doc.data() as Exercise);
+  }
+
   async deleteExercise(slug: string): Promise<void> {
     const metadataRef = this.db.collection(this.metadataCollection).doc(slug);
 

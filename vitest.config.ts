@@ -8,8 +8,12 @@ export default defineConfig({
     include: ['**/*.test.ts', '**/*.test.tsx'],
     exclude: ['node_modules', 'dist', '.DownPatNode'],
     environmentMatchGlobs: [
-      // Client tests need jsdom environment
+      // React component tests need jsdom environment
       ['**/client/**/*.test.tsx', 'jsdom'],
+      ['packages/ui-components/**/*.test.tsx', 'jsdom'],
+      ['packages/admin-ui/**/*.test.tsx', 'jsdom'],
+      // Token tests need jsdom for localStorage
+      ['packages/ui-components/src/auth/*.test.ts', 'jsdom'],
       // Server and other tests use node environment
       ['**/*.test.ts', 'node'],
     ],

@@ -31,6 +31,53 @@ export function createExerciseRouter(
     }
   );
 
+  // GET /exercises/published - List published exercises (for subscribers)
+  router.get(
+    '/published',
+    authMiddleware,
+    async (_req: Request, res: Response, next: NextFunction) => {
+      try {
+        const exercises = await storage.getPublishedExercises();
+        res.json(exercises);
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
+  // GET /exercises/published/:slug - Get single published exercise by slug
+  router.get(
+    '/published/:slug',
+    authMiddleware,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const exercise = await storage.getExerciseBySlug(req.params.slug, true);
+        if (!exercise) {
+          res.status(404).json({ error: 'Exercise not found or not published' });
+          return;
+        }
+        res.json(exercise);
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
+  // GET /exercises/with-metadata - List exercises with draft/published status (admin only)
+  router.get(
+    '/with-metadata',
+    authMiddleware,
+    requireAdmin,
+    async (_req: Request, res: Response, next: NextFunction) => {
+      try {
+        const exercisesWithMetadata = await storage.getExercisesWithMetadata();
+        res.json(exercisesWithMetadata);
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
   // GET /exercises/:id - Get exercise by ID
   router.get(
     '/:id',

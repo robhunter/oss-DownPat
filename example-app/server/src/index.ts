@@ -2,8 +2,9 @@ import express from 'express';
 import cors from 'cors';
 import { createServer } from 'http';
 import { fileURLToPath } from 'url';
-import type { User, ServerAuthProvider, ExerciseStorage, ConversationStorage, Exercise, ExerciseMetadata } from '@downpat/core';
-import { createDownpatRouter, attachSocketIO } from '@downpat/express';
+import type { User } from '@downpat/core';
+import { createInMemoryStorage } from '@downpat/core';
+import { createDownpatRouter, attachSocketIO, createMockAuthProvider } from '@downpat/express';
 import { createAdapterRegistry, type AIProviderConfig } from '@downpat/ai-adapters';
 
 const app = express();
@@ -22,11 +23,12 @@ app.get('/api/health', (_req, res) => {
  * Emails containing "@admin" get admin privileges.
  * Any other email gets subscriber access.
  */
-app.post('/api/downpat/auth/login', (req, res) => {
+app.post('/api/downpat/auth/login', (req, res): void => {
   const { email } = req.body;
 
   if (!email || typeof email !== 'string') {
-    return res.status(400).json({ error: 'Email is required' });
+    res.status(400).json({ error: 'Email is required' });
+    return;
   }
 
   // Simple demo auth based on email domain
@@ -46,205 +48,16 @@ app.post('/api/downpat/auth/login', (req, res) => {
 });
 
 /**
- * Get exercises with metadata (for admin UI).
- * Returns exercises with their draft/published status.
- */
-app.get('/api/downpat/exercises/with-metadata', async (_req, res) => {
-  const result: Array<{ exercise: Exercise; metadata: ExerciseMetadata }> = [];
-  for (const [_slug, metadata] of exerciseMetadata.entries()) {
-    const exercise = exercises.get(metadata.draft);
-    if (exercise) {
-      result.push({ exercise, metadata });
-    }
-  }
-  res.json(result);
-});
-
-/**
- * Get published exercises only (for subscribers).
- * This endpoint returns exercises that have been published.
- */
-app.get('/api/downpat/exercises/published', async (_req, res) => {
-  const publishedExercises = [];
-
-  for (const [_slug, metadata] of exerciseMetadata.entries()) {
-    if (metadata.published) {
-      const exercise = exercises.get(metadata.published);
-      if (exercise) {
-        publishedExercises.push(exercise);
-      }
-    }
-  }
-
-  res.json(publishedExercises);
-});
-
-/**
- * Get a single published exercise by slug (for subscribers).
- */
-app.get('/api/downpat/exercises/published/:slug', async (req, res) => {
-  const { slug } = req.params;
-  const metadata = exerciseMetadata.get(slug);
-
-  if (!metadata?.published) {
-    return res.status(404).json({ error: 'Exercise not found or not published' });
-  }
-
-  const exercise = exercises.get(metadata.published);
-  if (!exercise) {
-    return res.status(404).json({ error: 'Exercise not found' });
-  }
-
-  res.json(exercise);
-});
-
-/**
  * Mock Auth Provider for development.
  * In production, replace with Firebase Auth or your own implementation.
  */
-const mockAuthProvider: ServerAuthProvider = {
-  validateToken: async (token: string): Promise<User> => {
-    // For demo purposes, accept any token
-    // In production, validate against Firebase Auth or your auth system
-    if (token === 'demo-token') {
-      return {
-        userId: 'demo-user',
-        displayName: 'Demo User',
-        isAdmin: false,
-        isSubscriber: true,
-      };
-    }
-
-    if (token === 'admin-token') {
-      return {
-        userId: 'admin-user',
-        displayName: 'Admin User',
-        isAdmin: true,
-        isSubscriber: true,
-      };
-    }
-
-    throw new Error('Invalid token');
-  },
-  getDemoUser: () => ({
-    userId: 'demo-user',
-    displayName: 'Demo User',
-    isAdmin: false,
-    isSubscriber: true,
-  }),
-};
+const mockAuthProvider = createMockAuthProvider();
 
 /**
  * In-memory storage for development.
  * In production, use FirebaseExerciseStorage and FirebaseConversationStorage.
  */
-const exercises = new Map();
-const exerciseMetadata = new Map();
-const conversations = new Map();
-
-const mockExerciseStorage: ExerciseStorage = {
-  async getExercise(exerciseId: string) {
-    return exercises.get(exerciseId) || null;
-  },
-  async getExerciseBySlug(slug: string, publishedOnly?: boolean) {
-    const metadata = exerciseMetadata.get(slug);
-    if (!metadata) return null;
-    if (publishedOnly) {
-      return metadata.published ? exercises.get(metadata.published) || null : null;
-    }
-    return exercises.get(metadata.draft) || null;
-  },
-  async getExerciseMetadata(slug: string) {
-    return exerciseMetadata.get(slug) || null;
-  },
-  async getExercises() {
-    // Only return draft exercises, not published copies
-    // Published copies have IDs ending with "-published"
-    const allExercises = Array.from(exercises.values());
-    return allExercises.filter((e: Exercise) =>
-      e.exerciseId && !e.exerciseId.endsWith('-published')
-    );
-  },
-  async getExercisesWithMetadata() {
-    // Return exercises with their metadata for admin UI
-    const result: Array<{ exercise: Exercise; metadata: ExerciseMetadata }> = [];
-    for (const [slug, metadata] of exerciseMetadata.entries()) {
-      const exercise = exercises.get(metadata.draft);
-      if (exercise) {
-        result.push({ exercise, metadata });
-      }
-    }
-    return result;
-  },
-  async createExercise(exercise) {
-    exercises.set(exercise.exerciseId, exercise);
-    exerciseMetadata.set(exercise.slug, {
-      draft: exercise.exerciseId,
-    });
-  },
-  async updateExercise(exercise) {
-    exercises.set(exercise.exerciseId, exercise);
-  },
-  async publishExercise(slug: string) {
-    const metadata = exerciseMetadata.get(slug);
-    if (!metadata) throw new Error('Exercise not found');
-    const draft = exercises.get(metadata.draft);
-    const publishedId = `${metadata.draft}-published`;
-    // Set exerciseId to publishedId so filtering works correctly
-    exercises.set(publishedId, { ...draft, exerciseId: publishedId });
-    exerciseMetadata.set(slug, { ...metadata, published: publishedId });
-  },
-  async unpublishExercise(slug: string) {
-    const metadata = exerciseMetadata.get(slug);
-    if (!metadata?.published) throw new Error('Exercise not published');
-    exercises.delete(metadata.published);
-    exerciseMetadata.set(slug, { draft: metadata.draft });
-  },
-  async restoreFromPublished(slug: string) {
-    const metadata = exerciseMetadata.get(slug);
-    if (!metadata?.published) throw new Error('No published version');
-    const published = exercises.get(metadata.published);
-    exercises.set(metadata.draft, { ...published });
-  },
-  async deleteExercise(slug: string) {
-    const metadata = exerciseMetadata.get(slug);
-    if (metadata) {
-      exercises.delete(metadata.draft);
-      if (metadata.published) exercises.delete(metadata.published);
-      exerciseMetadata.delete(slug);
-    }
-  },
-};
-
-const mockConversationStorage: ConversationStorage = {
-  async getConversation(conversationId: string) {
-    return conversations.get(conversationId) || null;
-  },
-  async getConversationsByUser(userId: string) {
-    return Array.from(conversations.values()).filter((c: { userId: string }) => c.userId === userId);
-  },
-  async getConversationsByExercise(exerciseId: string) {
-    return Array.from(conversations.values()).filter((c: { exerciseId: string }) => c.exerciseId === exerciseId);
-  },
-  async createConversation(conversation) {
-    conversations.set(conversation.conversationId, conversation);
-  },
-  async updateConversation(conversationId: string, updates) {
-    const conversation = conversations.get(conversationId);
-    if (conversation) {
-      Object.assign(conversation, updates);
-    }
-  },
-  async addMessage(conversationId: string, message) {
-    const conversation = conversations.get(conversationId);
-    if (conversation) {
-      conversation.messages.push(message);
-    }
-  },
-  async deleteConversation(conversationId: string) {
-    conversations.delete(conversationId);
-  },
-};
+const { exerciseStorage, conversationStorage } = createInMemoryStorage();
 
 /**
  * AI Provider Configuration.
@@ -272,8 +85,8 @@ async function initializeDownpat() {
   // Create DownPat router
   const downpat = createDownpatRouter({
     serverAuth: mockAuthProvider,
-    exerciseStorage: mockExerciseStorage,
-    conversationStorage: mockConversationStorage,
+    exerciseStorage: exerciseStorage,
+    conversationStorage: conversationStorage,
   });
 
   // Mount DownPat API routes
@@ -314,8 +127,8 @@ if (isMainModule) {
     // Attach Socket.io for real-time conversation
     attachSocketIO(httpServer, {
       serverAuth: mockAuthProvider,
-      exerciseStorage: mockExerciseStorage,
-      conversationStorage: mockConversationStorage,
+      exerciseStorage: exerciseStorage,
+      conversationStorage: conversationStorage,
       aiAdapter,
       moderationAdapter: moderationAdapter || undefined,
       defaultModel: 'gpt-4',
@@ -356,4 +169,4 @@ function stopServer() {
   }
 }
 
-export { app, server, startServer, stopServer, mockAuthProvider, mockExerciseStorage };
+export { app, server, startServer, stopServer, mockAuthProvider, exerciseStorage };

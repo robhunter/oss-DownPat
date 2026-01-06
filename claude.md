@@ -1,5 +1,53 @@
 # Claude Code Guidance
 
+## Environment Setup (Docker Container)
+
+If chainlink is not available, install it:
+
+```bash
+# Install Rust (if not present)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+source "$HOME/.cargo/env"
+
+# Install chainlink
+cargo install --git https://github.com/dollspace-gay/chainlink.git chainlink
+
+# Verify installation
+$HOME/.cargo/bin/chainlink --help
+```
+
+The chainlink binary will be at `$HOME/.cargo/bin/chainlink`. Use the full path if not in PATH.
+
+## Chainlink Task Management
+
+Use chainlink to track all work across sessions. Key commands:
+
+```bash
+# Create issues
+$HOME/.cargo/bin/chainlink create "Task description" -p high
+
+# Create subissues for complex tasks
+$HOME/.cargo/bin/chainlink subissue 1 "Subtask description"
+
+# Track what you're working on
+$HOME/.cargo/bin/chainlink session work 1
+
+# Add context/notes
+$HOME/.cargo/bin/chainlink comment 1 "Found X in Y file"
+
+# Close when done
+$HOME/.cargo/bin/chainlink close 1
+
+# List issues
+$HOME/.cargo/bin/chainlink list
+
+# Session management
+$HOME/.cargo/bin/chainlink session start
+$HOME/.cargo/bin/chainlink session end --notes "Summary of work"
+```
+
+See `.chainlink/rules/global.md` for full task management guidelines.
+
 ## Milestone Workflow
 
 1. Complete one milestone at a time

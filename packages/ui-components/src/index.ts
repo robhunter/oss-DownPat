@@ -20,5 +20,33 @@ export {
   type GeneratedTheme,
 } from './theme/index.js';
 
+// Auth utilities
+export {
+  provideDownPatToken,
+  getDownPatToken,
+  clearDownPatToken,
+  onTokenChange,
+} from './auth/index.js';
+
+// Hooks
+export { useSocket, useConversation } from './hooks/index.js';
+export type { UseConversationReturn } from './hooks/index.js';
+
+// Pages
+export { ConversationPage } from './pages/index.js';
+export type { ConversationPageProps } from './pages/index.js';
+
+// Routes
+export {
+  DOWNPAT_PATHS,
+  downpatRoutes,
+  generatePath,
+  getRoutesByRequirement,
+} from './routes/index.js';
+export type {
+  RouteRequirement,
+  DownPatRouteConfig,
+} from './routes/index.js';
+
 // Re-export useful types from core
 export { MessageType, VISIBLE_MESSAGE_TYPES } from '@downpat/core';

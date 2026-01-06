@@ -24,7 +24,8 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@downpat/core": "*"
+    "@downpat/core": "*",
+    "socket.io-client": "^4.7.0"
   },
   "peerDependencies": {
     "react": "^18.0.0",

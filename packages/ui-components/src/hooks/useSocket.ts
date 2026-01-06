@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { useAuth } from '../components/AuthProvider';
-import type { MessageData } from '@downpat/ui-components';
+import { getDownPatToken, onTokenChange } from '../auth/token.js';
+import type { MessageData } from '../components/Message.js';
 import type { Conversation } from '@downpat/core';
 
 interface UseSocketOptions {
   autoConnect?: boolean;
+  url?: string;
 }
 
 interface UseSocketReturn {
@@ -17,18 +18,29 @@ interface UseSocketReturn {
   disconnect: () => void;
 }
 
+/**
+ * Hook for managing Socket.io connection to DownPat server.
+ * Uses the token provided via provideDownPatToken().
+ */
 export function useSocket(options: UseSocketOptions = {}): UseSocketReturn {
-  const { autoConnect = true } = options;
-  const { token, isAuthenticated: hasAuth } = useAuth();
+  const { autoConnect = true, url } = options;
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const tokenRef = useRef<string | null>(null);
 
   const connect = useCallback(() => {
-    if (!token) return;
+    const token = getDownPatToken();
+    if (!token) {
+      setError('No auth token provided. Call provideDownPatToken() first.');
+      return;
+    }
 
-    const newSocket = io(window.location.origin, {
+    tokenRef.current = token;
+    const socketUrl = url || (typeof window !== 'undefined' ? window.location.origin : '');
+
+    const newSocket = io(socketUrl, {
       path: '/socket.io',
       auth: { token },
     });
@@ -60,7 +72,7 @@ export function useSocket(options: UseSocketOptions = {}): UseSocketReturn {
     return () => {
       newSocket.close();
     };
-  }, [token]);
+  }, [url]);
 
   const disconnect = useCallback(() => {
     socket?.close();
@@ -70,11 +82,30 @@ export function useSocket(options: UseSocketOptions = {}): UseSocketReturn {
   }, [socket]);
 
   useEffect(() => {
-    if (autoConnect && hasAuth && token) {
-      const cleanup = connect();
-      return cleanup;
+    if (autoConnect) {
+      const token = getDownPatToken();
+      if (token) {
+        const cleanup = connect();
+        return cleanup;
+      }
     }
-  }, [autoConnect, hasAuth, token, connect]);
+    return undefined;
+  }, [autoConnect, connect]);
+
+  // Subscribe to token changes and reconnect when token changes
+  useEffect(() => {
+    const unsubscribe = onTokenChange((newToken) => {
+      // Token changed - need to reconnect with new token
+      if (socket) {
+        disconnect();
+      }
+      if (newToken) {
+        connect();
+      }
+    });
+
+    return unsubscribe;
+  }, [socket, connect, disconnect]);
 
   return {
     socket,
@@ -89,13 +120,16 @@ export function useSocket(options: UseSocketOptions = {}): UseSocketReturn {
 // Hook for managing a conversation session
 interface UseConversationOptions {
   slug: string;
+  socketUrl?: string;
 }
 
-interface UseConversationReturn {
+export interface UseConversationReturn {
   conversation: Conversation | null;
   messages: MessageData[];
+  coachMessages: MessageData[];
   isLoading: boolean;
   isStreaming: boolean;
+  isCoachStreaming: boolean;
   isComplete: boolean;
   error: string | null;
   talkToCoachEnabled: boolean;
@@ -103,17 +137,24 @@ interface UseConversationReturn {
   sendCoachMessage: (text: string) => void;
 }
 
-export function useConversation({ slug }: UseConversationOptions): UseConversationReturn {
-  const { socket, isConnected } = useSocket();
+/**
+ * Hook for managing a full conversation session.
+ * Handles starting conversations, streaming messages, commentary, and moderation.
+ */
+export function useConversation({ slug, socketUrl }: UseConversationOptions): UseConversationReturn {
+  const { socket, isConnected } = useSocket({ url: socketUrl });
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<MessageData[]>([]);
+  const [coachMessages, setCoachMessages] = useState<MessageData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isCoachStreaming, setIsCoachStreaming] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [talkToCoachEnabled, setTalkToCoachEnabled] = useState(false);
   const streamingMessageRef = useRef<string>('');
   const streamingCommentaryRef = useRef<string>('');
+  const streamingCoachRef = useRef<string>('');
 
   // Start conversation when socket connects
   useEffect(() => {
@@ -135,17 +176,14 @@ export function useConversation({ slug }: UseConversationOptions): UseConversati
       setIsStreaming(true);
       streamingMessageRef.current += data.chunk;
 
-      // Update the last AI message with the streamed content
+      // Update the streaming placeholder message specifically by messageId
+      // This prevents race conditions with commentary chunks
       setMessages((prev) => {
-        const updated = [...prev];
-        const lastMsg = updated[updated.length - 1];
-        if (lastMsg && lastMsg.type !== 'USER') {
-          return [
-            ...prev.slice(0, -1),
-            { ...lastMsg, content: streamingMessageRef.current },
-          ];
-        }
-        return prev;
+        return prev.map((m) =>
+          m.messageId === 'streaming'
+            ? { ...m, content: streamingMessageRef.current }
+            : m
+        );
       });
     });
 
@@ -204,7 +242,7 @@ export function useConversation({ slug }: UseConversationOptions): UseConversati
     });
 
     // Handle commentary complete
-    socket.on('commentary-complete', (data: { role: string }) => {
+    socket.on('commentary-complete', () => {
       streamingCommentaryRef.current = '';
       // Finalize the commentary message ID
       setMessages((prev) => {
@@ -242,6 +280,36 @@ export function useConversation({ slug }: UseConversationOptions): UseConversati
       }
     });
 
+    // Handle coach message chunks (streaming)
+    socket.on('coach-message-chunk', (data: { chunk: string }) => {
+      setIsCoachStreaming(true);
+      streamingCoachRef.current += data.chunk;
+
+      // Update the streaming coach message
+      setCoachMessages((prev) => {
+        return prev.map((m) =>
+          m.messageId === 'streaming-coach'
+            ? { ...m, content: streamingCoachRef.current }
+            : m
+        );
+      });
+    });
+
+    // Handle coach message complete
+    socket.on('coach-message-complete', (data: { content: string }) => {
+      setIsCoachStreaming(false);
+      streamingCoachRef.current = '';
+
+      // Finalize the coach message
+      setCoachMessages((prev) => {
+        return prev.map((m) =>
+          m.messageId === 'streaming-coach'
+            ? { ...m, messageId: `coach-${Date.now()}`, content: data.content }
+            : m
+        );
+      });
+    });
+
     return () => {
       socket.off('conversation-started');
       socket.off('message-chunk');
@@ -251,6 +319,8 @@ export function useConversation({ slug }: UseConversationOptions): UseConversati
       socket.off('commentary-chunk');
       socket.off('commentary-complete');
       socket.off('message-moderated');
+      socket.off('coach-message-chunk');
+      socket.off('coach-message-complete');
     };
   }, [socket, isConnected, slug]);
 
@@ -290,17 +360,45 @@ export function useConversation({ slug }: UseConversationOptions): UseConversati
 
   const sendCoachMessage = useCallback(
     (text: string) => {
-      if (!socket || !isConnected) return;
-      socket.emit('send-coach-message', { text });
+      if (!socket || !isConnected || !conversation) return;
+
+      // Add user's coach message immediately
+      const userMessage: MessageData = {
+        messageId: `coach-user-${Date.now()}`,
+        type: 'USER' as MessageData['type'],
+        role: 'You',
+        content: text,
+        timestamp: new Date().toISOString(),
+      };
+
+      // Add placeholder for coach response
+      const coachPlaceholder: MessageData = {
+        messageId: 'streaming-coach',
+        type: 'SIMPLE' as MessageData['type'],
+        role: 'Coach',
+        content: '',
+        timestamp: new Date().toISOString(),
+      };
+
+      setCoachMessages((prev) => [...prev, userMessage, coachPlaceholder]);
+      streamingCoachRef.current = '';
+
+      // Send to server with conversationId
+      socket.emit('send-coach-message', {
+        conversationId: conversation.conversationId,
+        content: text,
+      });
     },
-    [socket, isConnected]
+    [socket, isConnected, conversation]
   );
 
   return {
     conversation,
     messages,
+    coachMessages,
     isLoading,
     isStreaming,
+    isCoachStreaming,
     isComplete,
     error,
     talkToCoachEnabled,

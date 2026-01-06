@@ -55,3 +55,6 @@ export { ConversationController } from './controllers/index.js';
 
 // Utilities
 export { generateId, generateSlug } from './utils/index.js';
+
+// Storage
+export { createInMemoryStorage } from './storage/index.js';

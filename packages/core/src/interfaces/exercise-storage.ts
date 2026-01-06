@@ -68,6 +68,20 @@ export interface ExerciseStorage {
   getExercises(): Promise<Exercise[]>;
 
   /**
+   * Get all exercises with their metadata.
+   * Used for admin UI to show draft/published status.
+   * @returns Array of exercises with their metadata
+   */
+  getExercisesWithMetadata(): Promise<Array<{ exercise: Exercise; metadata: ExerciseMetadata }>>;
+
+  /**
+   * Get all published exercises.
+   * Used for subscriber browsing.
+   * @returns Array of published exercises
+   */
+  getPublishedExercises(): Promise<Exercise[]>;
+
+  /**
    * Delete an exercise and its metadata.
    * @param slug - The exercise slug
    */

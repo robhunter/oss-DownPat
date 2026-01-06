@@ -28,6 +28,9 @@ export interface DownpatRouterResult {
  *
  * Routes included:
  * - GET /exercises - List all exercises
+ * - GET /exercises/published - List published exercises (for subscribers)
+ * - GET /exercises/published/:slug - Get single published exercise
+ * - GET /exercises/with-metadata - List exercises with draft/published status (admin only)
  * - GET /exercises/:id - Get exercise by ID
  * - GET /exercises/by-slug/:slug - Get exercise by slug
  * - POST /exercises - Create exercise (admin only)
