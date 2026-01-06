@@ -129,6 +129,52 @@
   - `example-app/client/src/pages/admin/ExerciseListPage.tsx`
 - **Status:** ✅ RESOLVED
 
+### Issue #7: Commentary Messages Not Displaying (FIXED)
+- **Reported:** Commentary tasks in exercises didn't show commentary in UI
+- **Root Cause:**
+  1. `MessageType.COMMENTARY` wasn't in `VISIBLE_MESSAGE_TYPES` array
+  2. Socket handler wasn't processing `continuationTasks` after AI response
+- **Fix:**
+  1. Added `MessageType.COMMENTARY` to `VISIBLE_MESSAGE_TYPES` in `packages/core/src/constants/message-types.ts`
+  2. Added `commentary-chunk` and `commentary-complete` socket events in `packages/express/src/socket.ts`
+  3. Added commentary event handlers in `example-app/client/src/hooks/useSocket.ts`
+- **Files Modified:**
+  - `packages/core/src/constants/message-types.ts`
+  - `packages/express/src/socket.ts`
+  - `example-app/client/src/hooks/useSocket.ts`
+- **Status:** ✅ RESOLVED
+
+### Issue #8: Moderation Not Wired Up (FIXED)
+- **Reported:** Moderation infrastructure existed but wasn't integrated into conversation flow
+- **Root Cause:**
+  1. `ModerationAdapter` not passed to socket config
+  2. Socket handler didn't check moderation before processing messages
+- **Fix:**
+  1. Added `moderationAdapter` to `SocketConfig` interface
+  2. Added moderation check in socket `send-message` handler before AI processing
+  3. Added `message-moderated` socket event with `isComplete: true` flag
+  4. Updated client to handle `message-moderated` event and show conversation ended UI
+- **Files Modified:**
+  - `packages/express/src/socket.ts` - Added moderation check and event
+  - `example-app/server/src/index.ts` - Pass moderation adapter to socket
+  - `example-app/client/src/hooks/useSocket.ts` - Handle message-moderated event
+  - `example-app/client/src/pages/Conversation.tsx` - Show conversation ended UI
+- **Status:** ✅ RESOLVED
+
+### Issue #9: Moderation Didn't End Conversation (FIXED)
+- **Reported:** After moderation triggered, user could still send messages
+- **Root Cause:** Moderation handler didn't mark conversation as complete
+- **Fix:**
+  1. Added `conversationStorage.updateConversation()` call to set `isComplete: true`
+  2. Added `isComplete` flag to `message-moderated` event
+  3. Added `isComplete` state to `useConversation` hook
+  4. UI shows "This conversation has ended." when `isComplete` is true
+- **Files Modified:**
+  - `packages/express/src/socket.ts` - Mark conversation complete on moderation
+  - `example-app/client/src/hooks/useSocket.ts` - Track isComplete state
+  - `example-app/client/src/pages/Conversation.tsx` - Render ended UI
+- **Status:** ✅ RESOLVED
+
 ---
 
 ## Verification Log
@@ -141,4 +187,7 @@
 | 2026-01-05 | US-12-14 | shot-scraper subscriber flow | Exercise browser shows published, conversation starts |
 | 2026-01-05 | US-10-11 | shot-scraper admin test | Test button added, ADMIN TEST badge, chat working |
 | 2026-01-05 | US-15 | shot-scraper coach sidebar | Talk to Coach opens, messages sent/received |
+| 2026-01-06 | Commentary | Playwright test | Commentary messages display with yellow styling |
+| 2026-01-06 | Moderation | Playwright test | Moderation messages display with red styling |
+| 2026-01-06 | Moderation | Playwright test | Conversation ends after moderation, input disabled |
 
