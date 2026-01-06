@@ -96,6 +96,7 @@ interface UseConversationReturn {
   messages: MessageData[];
   isLoading: boolean;
   isStreaming: boolean;
+  isComplete: boolean;
   error: string | null;
   talkToCoachEnabled: boolean;
   sendMessage: (text: string) => void;
@@ -108,6 +109,7 @@ export function useConversation({ slug }: UseConversationOptions): UseConversati
   const [messages, setMessages] = useState<MessageData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isComplete, setIsComplete] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [talkToCoachEnabled, setTalkToCoachEnabled] = useState(false);
   const streamingMessageRef = useRef<string>('');
@@ -214,6 +216,32 @@ export function useConversation({ slug }: UseConversationOptions): UseConversati
       });
     });
 
+    // Handle moderation warnings
+    socket.on('message-moderated', (data: { flagged: boolean; categories: string[]; message: string; isComplete: boolean }) => {
+      // Remove the AI placeholder since we won't be getting a response
+      // and add a moderation message instead
+      setMessages((prev) => {
+        // Filter out the streaming placeholder
+        const filtered = prev.filter((m) => m.messageId !== 'streaming');
+        // Add moderation message
+        return [
+          ...filtered,
+          {
+            messageId: `moderation-${Date.now()}`,
+            type: 'MODERATION' as MessageData['type'],
+            role: 'System',
+            content: data.message,
+            timestamp: new Date().toISOString(),
+          },
+        ];
+      });
+      setIsStreaming(false);
+      // Moderation ends the conversation
+      if (data.isComplete) {
+        setIsComplete(true);
+      }
+    });
+
     return () => {
       socket.off('conversation-started');
       socket.off('message-chunk');
@@ -222,6 +250,7 @@ export function useConversation({ slug }: UseConversationOptions): UseConversati
       socket.off('error');
       socket.off('commentary-chunk');
       socket.off('commentary-complete');
+      socket.off('message-moderated');
     };
   }, [socket, isConnected, slug]);
 
@@ -272,6 +301,7 @@ export function useConversation({ slug }: UseConversationOptions): UseConversati
     messages,
     isLoading,
     isStreaming,
+    isComplete,
     error,
     talkToCoachEnabled,
     sendMessage,

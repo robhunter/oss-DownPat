@@ -1,6 +1,6 @@
 import { Server as SocketServer } from 'socket.io';
 import type { Server as HTTPServer } from 'http';
-import type { ConversationStorage, ExerciseStorage, ServerAuthProvider, User, AIAdapter, AIMessage, Task } from '@downpat/core';
+import type { ConversationStorage, ExerciseStorage, ServerAuthProvider, User, AIAdapter, AIMessage, Task, ModerationAdapter } from '@downpat/core';
 import { ConversationController, MessageType, isCommentaryTask } from '@downpat/core';
 
 /**
@@ -15,6 +15,8 @@ export interface SocketConfig {
   exerciseStorage: ExerciseStorage;
   /** AI adapter for generating responses */
   aiAdapter?: AIAdapter;
+  /** Moderation adapter for content filtering */
+  moderationAdapter?: ModerationAdapter;
   /** Default AI model to use */
   defaultModel?: string;
   /** CORS origins to allow (default: '*') */
@@ -155,6 +157,57 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
       }
 
       try {
+        // 0. Check moderation if adapter is available
+        if (config.moderationAdapter) {
+          try {
+            const moderationResult = await config.moderationAdapter.checkContent(data.content);
+            if (moderationResult.flagged) {
+              // Get flagged categories for the message
+              const flaggedCategories = Object.entries(moderationResult.categories)
+                .filter(([, flagged]) => flagged)
+                .map(([category]) => category);
+
+              // Add user message first (so they can see what they sent)
+              await controller.addUserMessage(
+                data.conversationId,
+                data.content,
+                socket.data.user
+              );
+
+              // Add moderation message
+              const moderationMessage = `Your message was flagged for: ${flaggedCategories.join(', ')}. Please keep the conversation appropriate.`;
+              await controller.addAIMessage(
+                data.conversationId,
+                {
+                  type: MessageType.MODERATION,
+                  role: 'System',
+                  content: moderationMessage,
+                },
+                socket.data.user
+              );
+
+              // Mark conversation as complete - moderation ends the conversation
+              await config.conversationStorage.updateConversation(data.conversationId, {
+                isComplete: true,
+                updatedAt: new Date().toISOString(),
+              });
+
+              // Emit moderation event to client with isComplete flag
+              socket.emit('message-moderated', {
+                flagged: true,
+                categories: flaggedCategories,
+                message: moderationMessage,
+                isComplete: true,
+              });
+
+              return; // Don't proceed with AI response
+            }
+          } catch (moderationError) {
+            console.error('Moderation check failed:', moderationError);
+            // Continue with message processing if moderation fails
+          }
+        }
+
         // 1. Add user message
         const result = await controller.addUserMessage(
           data.conversationId,
@@ -341,5 +394,6 @@ interface ServerToClientEvents {
   'message-complete': () => void;
   'commentary-chunk': (data: { chunk: string; role: string }) => void;
   'commentary-complete': (data: { role: string }) => void;
+  'message-moderated': (data: { flagged: boolean; categories: string[]; message: string; isComplete: boolean }) => void;
   error: (data: { message: string }) => void;
 }

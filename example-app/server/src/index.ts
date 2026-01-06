@@ -308,12 +308,16 @@ if (isMainModule) {
                       aiRegistry.getAdapterForModel('gpt-4o') ||
                       aiRegistry.getAdapterForModel('gpt-3.5-turbo');
 
+    // Get moderation adapter (OpenAI provides one)
+    const moderationAdapter = aiRegistry.getModerationAdapter();
+
     // Attach Socket.io for real-time conversation
     attachSocketIO(httpServer, {
       serverAuth: mockAuthProvider,
       exerciseStorage: mockExerciseStorage,
       conversationStorage: mockConversationStorage,
       aiAdapter,
+      moderationAdapter: moderationAdapter || undefined,
       defaultModel: 'gpt-4',
     });
 
@@ -322,8 +326,11 @@ if (isMainModule) {
       console.log(`API endpoints available at http://localhost:${PORT}/api/downpat`);
       if (aiAdapter) {
         console.log('AI adapter configured for conversations');
+      }
+      if (moderationAdapter) {
+        console.log('Moderation adapter configured for content filtering');
       } else {
-        console.log('Warning: No AI adapter - conversations will not have AI responses');
+        console.log('Warning: No moderation adapter - content will not be filtered');
       }
     });
 

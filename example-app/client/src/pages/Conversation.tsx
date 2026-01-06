@@ -20,6 +20,7 @@ export function Conversation({ isAdminTest = false }: ConversationProps) {
     messages,
     isLoading,
     isStreaming,
+    isComplete,
     error,
     talkToCoachEnabled,
     sendMessage,
@@ -114,26 +115,35 @@ export function Conversation({ isAdminTest = false }: ConversationProps) {
         </div>
 
         {/* Input */}
-        <form onSubmit={handleSubmit} style={styles.inputContainer}>
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Type your message..."
-            disabled={isStreaming}
-            style={styles.input}
-          />
-          <button
-            type="submit"
-            disabled={!input.trim() || isStreaming}
-            style={{
-              ...styles.sendBtn,
-              ...((!input.trim() || isStreaming) ? styles.sendBtnDisabled : {}),
-            }}
-          >
-            {isStreaming ? 'Sending...' : 'Send'}
-          </button>
-        </form>
+        {isComplete ? (
+          <div style={styles.conversationComplete}>
+            <p>This conversation has ended.</p>
+            <Link to={backLink} style={styles.backBtn}>
+              {isAdminTest ? 'Back to Admin' : 'Back to Exercises'}
+            </Link>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} style={styles.inputContainer}>
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Type your message..."
+              disabled={isStreaming}
+              style={styles.input}
+            />
+            <button
+              type="submit"
+              disabled={!input.trim() || isStreaming}
+              style={{
+                ...styles.sendBtn,
+                ...((!input.trim() || isStreaming) ? styles.sendBtnDisabled : {}),
+              }}
+            >
+              {isStreaming ? 'Sending...' : 'Send'}
+            </button>
+          </form>
+        )}
       </div>
 
       {/* Coach Toggle Button - only show if Talk to Coach is enabled */}
@@ -279,6 +289,13 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'white',
     textDecoration: 'none',
     borderRadius: '6px',
+  },
+  conversationComplete: {
+    padding: '24px',
+    textAlign: 'center',
+    borderTop: '1px solid var(--downpat-neutral-200, #e5e7eb)',
+    backgroundColor: 'var(--downpat-neutral-100, #f3f4f6)',
+    color: 'var(--downpat-neutral-600, #4b5563)',
   },
   testBadge: {
     padding: '4px 12px',
