@@ -23,8 +23,8 @@ export type {
   AdminAPIClient,
   ExerciseWithMetadata,
   APIErrorResponse,
-  PaginationParams,
-  PaginatedResponse,
+  SliceParams,
+  SlicedResponse,
 } from './api-client.js';
 
 // Page components (for advanced customization)

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { ControlledAdminApp } from './AdminApp.js';
 import type { AdminUIConfig } from './config.js';
@@ -78,15 +78,20 @@ export function mountAdminUI(options: MountAdminUIOptions): MountedAdminUI {
   // Create a wrapper component that manages path state and exposes navigation
   const AdminAppWithRef = () => {
     const [currentPath, setCurrentPath] = useState('/');
+    const basePath = config.basePath || '/admin';
 
-    const handleNavigate = useCallback((path: string) => {
-      setCurrentPath(path);
-      // Notify host app of navigation
+    const handleNavigate = useCallback((fullPath: string) => {
+      // AdminContext.navigate passes the full path (basePath + relativePath)
+      // We need to extract the relative path for internal routing
+      const relativePath = fullPath.startsWith(basePath)
+        ? fullPath.slice(basePath.length) || '/'
+        : fullPath;
+      setCurrentPath(relativePath);
+      // Notify host app of navigation (with full path)
       if (config.onNavigate) {
-        const fullPath = `${config.basePath || '/admin'}${path}`;
         config.onNavigate(fullPath);
       }
-    }, []);
+    }, [basePath]);
 
     useEffect(() => {
       navigateCallback = (path: string) => {

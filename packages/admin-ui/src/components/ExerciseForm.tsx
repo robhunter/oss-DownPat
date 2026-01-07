@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import type { Exercise, Task, BaseTask } from '@downpat/core';
+import type { Exercise, Task, BaseTask, ConversationTask } from '@downpat/core';
 import { MessageType } from '@downpat/core';
 import { generateId, generateSlug } from '@downpat/core';
 
@@ -158,7 +158,7 @@ export function ExerciseForm({
       exerciseName: formData.exerciseName!,
       slug: formData.slug!,
       maxUserMessages: formData.maxUserMessages!,
-      model: formData.model,
+      model: formData.model!,
       talkToCoachEnabled: formData.talkToCoachEnabled!,
       continuationTasks: formData.continuationTasks!,
       completionTasks: formData.completionTasks!,

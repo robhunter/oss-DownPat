@@ -112,11 +112,11 @@ export interface AdminAPIClient {
   getExercises(): Promise<ExerciseWithMetadata[]>;
 
   /**
-   * Get exercises with pagination support.
-   * Note: Currently implements client-side pagination. Server-side pagination
-   * requires backend updates to the storage interface.
+   * Get exercises with client-side slicing from a cached dataset.
+   * Note: This fetches ALL exercises from the server (with caching),
+   * then returns a slice. Use for UI pagination, not for reducing server load.
    */
-  getExercisesPaginated(params?: PaginationParams): Promise<PaginatedResponse<ExerciseWithMetadata>>;
+  getExercisesSliced(params?: SliceParams): Promise<SlicedResponse<ExerciseWithMetadata>>;
 
   /** Get a single exercise by slug */
   getExercise(slug: string): Promise<Exercise>;
