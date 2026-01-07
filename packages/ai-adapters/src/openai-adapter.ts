@@ -28,6 +28,11 @@ interface OpenAIChatCompletionChunk {
     delta?: { content?: string };
     finish_reason?: string;
   }>;
+  usage?: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
 }
 
 interface OpenAIChatCompletion {
@@ -82,34 +87,42 @@ export class OpenAIAdapter implements AIAdapter {
       content: msg.content,
     }));
 
-    if (onChunk) {
-      // Streaming mode
-      return this.completeStreaming(openaiMessages, model, maxTokens, temperature, onChunk, signal);
+    try {
+      if (onChunk) {
+        // Streaming mode
+        return await this.completeStreaming(openaiMessages, model, maxTokens, temperature, onChunk, signal);
+      }
+
+      // Non-streaming mode
+      const response = (await this.client.chat.completions.create({
+        model,
+        messages: openaiMessages,
+        max_tokens: maxTokens,
+        temperature: temperature ?? 0.7,
+      })) as OpenAIChatCompletion;
+
+      const choice = response.choices[0];
+      const content = choice?.message?.content || '';
+      const finishReason = this.mapFinishReason(choice?.finish_reason);
+
+      return {
+        content,
+        finishReason,
+        usage: response.usage
+          ? {
+              promptTokens: response.usage.prompt_tokens,
+              completionTokens: response.usage.completion_tokens,
+              totalTokens: response.usage.total_tokens,
+            }
+          : undefined,
+      };
+    } catch (error) {
+      // Return error result for API failures
+      return {
+        content: '',
+        finishReason: 'error',
+      };
     }
-
-    // Non-streaming mode
-    const response = (await this.client.chat.completions.create({
-      model,
-      messages: openaiMessages,
-      max_tokens: maxTokens,
-      temperature: temperature ?? 0.7,
-    })) as OpenAIChatCompletion;
-
-    const choice = response.choices[0];
-    const content = choice?.message?.content || '';
-    const finishReason = this.mapFinishReason(choice?.finish_reason);
-
-    return {
-      content,
-      finishReason,
-      usage: response.usage
-        ? {
-            promptTokens: response.usage.prompt_tokens,
-            completionTokens: response.usage.completion_tokens,
-            totalTokens: response.usage.total_tokens,
-          }
-        : undefined,
-    };
   }
 
   private async completeStreaming(
@@ -126,10 +139,12 @@ export class OpenAIAdapter implements AIAdapter {
       max_tokens: maxTokens,
       temperature: temperature ?? 0.7,
       stream: true,
+      stream_options: { include_usage: true },
     })) as AsyncIterable<OpenAIChatCompletionChunk>;
 
     let content = '';
     let finishReason: AICompletionResult['finishReason'] = 'stop';
+    let usage: AICompletionResult['usage'] | undefined;
 
     for await (const chunk of stream) {
       if (signal?.aborted) {
@@ -146,11 +161,21 @@ export class OpenAIAdapter implements AIAdapter {
       if (chunk.choices[0]?.finish_reason) {
         finishReason = this.mapFinishReason(chunk.choices[0].finish_reason);
       }
+
+      // Usage is sent in the final chunk when stream_options.include_usage is true
+      if (chunk.usage) {
+        usage = {
+          promptTokens: chunk.usage.prompt_tokens,
+          completionTokens: chunk.usage.completion_tokens,
+          totalTokens: chunk.usage.total_tokens,
+        };
+      }
     }
 
     return {
       content,
       finishReason,
+      usage,
     };
   }
 

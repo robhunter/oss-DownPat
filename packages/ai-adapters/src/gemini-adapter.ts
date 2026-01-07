@@ -11,8 +11,14 @@ interface GeminiClient {
 }
 
 interface GeminiModel {
-  generateContent(params: { contents: GeminiContent[] }): Promise<GeminiResponse>;
-  generateContentStream(params: { contents: GeminiContent[] }): Promise<GeminiStreamResponse>;
+  generateContent(params: {
+    contents: GeminiContent[];
+    systemInstruction?: { parts: Array<{ text: string }> };
+  }): Promise<GeminiResponse>;
+  generateContentStream(params: {
+    contents: GeminiContent[];
+    systemInstruction?: { parts: Array<{ text: string }> };
+  }): Promise<GeminiStreamResponse>;
 }
 
 interface GeminiContent {
@@ -70,62 +76,66 @@ export class GeminiAdapter implements AIAdapter {
   async complete(options: AICompletionOptions): Promise<AICompletionResult> {
     const { model, messages, onChunk, signal } = options;
 
-    // Convert messages to Gemini format
-    const contents = this.convertMessages(messages);
+    // Extract system message and convert remaining messages to Gemini format
+    const systemMessage = messages.find((m) => m.role === 'system');
+    const conversationMessages = messages.filter((m) => m.role !== 'system');
+    const contents = this.convertMessages(conversationMessages);
     const geminiModel = this.client.getGenerativeModel({ model });
 
-    if (onChunk) {
-      // Streaming mode
-      return this.completeStreaming(geminiModel, contents, onChunk, signal);
+    // Build systemInstruction if present
+    const systemInstruction = systemMessage
+      ? { parts: [{ text: systemMessage.content }] }
+      : undefined;
+
+    try {
+      if (onChunk) {
+        // Streaming mode
+        return await this.completeStreaming(geminiModel, contents, systemInstruction, onChunk, signal);
+      }
+
+      // Non-streaming mode
+      const response = await geminiModel.generateContent({ contents, systemInstruction });
+      const text = response.response.text();
+      const finishReason = this.mapFinishReason(
+        response.response.candidates?.[0]?.finishReason
+      );
+
+      return {
+        content: text,
+        finishReason,
+        usage: response.response.usageMetadata
+          ? {
+              promptTokens: response.response.usageMetadata.promptTokenCount,
+              completionTokens: response.response.usageMetadata.candidatesTokenCount,
+              totalTokens: response.response.usageMetadata.totalTokenCount,
+            }
+          : undefined,
+      };
+    } catch (error) {
+      // Return error result for API failures
+      return {
+        content: '',
+        finishReason: 'error',
+      };
     }
-
-    // Non-streaming mode
-    const response = await geminiModel.generateContent({ contents });
-    const text = response.response.text();
-    const finishReason = this.mapFinishReason(
-      response.response.candidates?.[0]?.finishReason
-    );
-
-    return {
-      content: text,
-      finishReason,
-      usage: response.response.usageMetadata
-        ? {
-            promptTokens: response.response.usageMetadata.promptTokenCount,
-            completionTokens: response.response.usageMetadata.candidatesTokenCount,
-            totalTokens: response.response.usageMetadata.totalTokenCount,
-          }
-        : undefined,
-    };
   }
 
   private convertMessages(messages: AIMessage[]): GeminiContent[] {
-    // Gemini doesn't have a system role, so we prepend system message to first user message
-    const systemMessage = messages.find((m) => m.role === 'system');
-    const conversationMessages = messages.filter((m) => m.role !== 'system');
-
-    return conversationMessages.map((msg, index) => {
-      let content = msg.content;
-
-      // Prepend system message to first user message
-      if (index === 0 && systemMessage && msg.role === 'user') {
-        content = `${systemMessage.content}\n\n${content}`;
-      }
-
-      return {
-        role: msg.role === 'user' ? 'user' : 'model',
-        parts: [{ text: content }],
-      };
-    });
+    // Convert messages to Gemini format (system messages should be filtered out before calling this)
+    return messages.map((msg) => ({
+      role: msg.role === 'user' ? 'user' : 'model',
+      parts: [{ text: msg.content }],
+    }));
   }
 
   private async completeStreaming(
     model: GeminiModel,
     contents: GeminiContent[],
+    systemInstruction: { parts: Array<{ text: string }> } | undefined,
     onChunk: (chunk: string) => void,
     signal?: AbortSignal
   ): Promise<AICompletionResult> {
-    const result = await model.generateContentStream({ contents });
+    const result = await model.generateContentStream({ contents, systemInstruction });
 
     let content = '';
     let finishReason: AICompletionResult['finishReason'] = 'stop';

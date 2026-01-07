@@ -63,48 +63,60 @@ export class AnthropicAdapter implements AIAdapter {
   async complete(options: AICompletionOptions): Promise<AICompletionResult> {
     const { model, messages, maxTokens, temperature, onChunk, signal } = options;
 
-    // Anthropic requires separating system message from conversation
-    const systemMessage = messages.find((m) => m.role === 'system');
+    // Anthropic requires separating system messages from conversation
+    // Concatenate all system messages to preserve context
+    const systemMessages = messages.filter((m) => m.role === 'system');
+    const systemContent = systemMessages.length > 0
+      ? systemMessages.map((m) => m.content).join('\n\n')
+      : undefined;
     const conversationMessages = this.convertMessages(
       messages.filter((m) => m.role !== 'system')
     );
 
-    if (onChunk) {
-      // Streaming mode
-      return this.completeStreaming(
-        conversationMessages,
-        systemMessage?.content,
+    try {
+      if (onChunk) {
+        // Streaming mode
+        return await this.completeStreaming(
+          conversationMessages,
+          systemContent,
+          model,
+          maxTokens ?? 4096,
+          temperature,
+          onChunk,
+          signal
+        );
+      }
+
+      // Non-streaming mode
+      const response = (await this.client.messages.create({
         model,
-        maxTokens ?? 4096,
-        temperature,
-        onChunk,
-        signal
-      );
+        max_tokens: maxTokens ?? 4096,
+        temperature: temperature ?? 0.7,
+        system: systemContent,
+        messages: conversationMessages,
+      })) as AnthropicResponse;
+
+      const content = response.content
+        .filter((block) => block.type === 'text')
+        .map((block) => block.text)
+        .join('');
+
+      return {
+        content,
+        finishReason: this.mapStopReason(response.stop_reason),
+        usage: {
+          promptTokens: response.usage.input_tokens,
+          completionTokens: response.usage.output_tokens,
+          totalTokens: response.usage.input_tokens + response.usage.output_tokens,
+        },
+      };
+    } catch (error) {
+      // Return error result for API failures
+      return {
+        content: '',
+        finishReason: 'error',
+      };
     }
-
-    // Non-streaming mode
-    const response = (await this.client.messages.create({
-      model,
-      max_tokens: maxTokens ?? 4096,
-      temperature: temperature ?? 0.7,
-      system: systemMessage?.content,
-      messages: conversationMessages,
-    })) as AnthropicResponse;
-
-    const content = response.content
-      .filter((block) => block.type === 'text')
-      .map((block) => block.text)
-      .join('');
-
-    return {
-      content,
-      finishReason: this.mapStopReason(response.stop_reason),
-      usage: {
-        promptTokens: response.usage.input_tokens,
-        completionTokens: response.usage.output_tokens,
-        totalTokens: response.usage.input_tokens + response.usage.output_tokens,
-      },
-    };
   }
 
   private convertMessages(messages: AIMessage[]): AnthropicMessage[] {

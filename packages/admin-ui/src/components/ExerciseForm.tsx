@@ -19,7 +19,7 @@ export interface ExerciseFormProps {
   isSubmitting?: boolean;
   /**
    * Available AI models to choose from.
-   * Use getAvailableModels() from @downpat/core to get models based on your AI config.
+   * Use registry.getAllModels() from @downpat/ai-adapters to get models from configured adapters.
    */
   availableModels: string[];
 }

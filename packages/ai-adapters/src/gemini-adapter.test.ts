@@ -123,7 +123,7 @@ describe('GeminiAdapter', () => {
     expect(result.finishReason).toBe('content_filter');
   });
 
-  it('prepends system message to first user message', async () => {
+  it('passes system message as systemInstruction parameter', async () => {
     mockModel.generateContent.mockResolvedValue({
       response: {
         text: () => 'Response',
@@ -144,9 +144,12 @@ describe('GeminiAdapter', () => {
       contents: [
         {
           role: 'user',
-          parts: [{ text: 'You are helpful.\n\nHello' }],
+          parts: [{ text: 'Hello' }],
         },
       ],
+      systemInstruction: {
+        parts: [{ text: 'You are helpful.' }],
+      },
     });
   });
 
@@ -174,6 +177,20 @@ describe('GeminiAdapter', () => {
         { role: 'model', parts: [{ text: 'Hi!' }] },
         { role: 'user', parts: [{ text: 'How are you?' }] },
       ],
+      systemInstruction: undefined,
     });
+  });
+
+  it('returns error result on API failure', async () => {
+    mockModel.generateContent.mockRejectedValue(new Error('Network error'));
+
+    const adapter = new GeminiAdapter(mockClient);
+    const result = await adapter.complete({
+      model: 'gemini-pro',
+      messages: [{ role: 'user', content: 'Hello' }],
+    });
+
+    expect(result.content).toBe('');
+    expect(result.finishReason).toBe('error');
   });
 });

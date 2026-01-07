@@ -76,19 +76,25 @@ export interface AIProviderConfig {
 }
 
 /**
- * Get available models from configured providers
+ * Get available models from configured providers.
+ *
+ * @deprecated Use `registry.getAllModels()` from @downpat/ai-adapters instead.
+ * The adapter registry is the authoritative source of available models.
+ *
+ * This function only returns models explicitly specified in the config.
+ * It no longer provides hardcoded fallback defaults - adapters define their own defaults.
  */
 export function getAvailableModels(config: AIProviderConfig): string[] {
   const models: string[] = [];
 
-  if (config.openai?.apiKey) {
-    models.push(...(config.openai.models || ['gpt-4', 'gpt-4-turbo', 'gpt-3.5-turbo']));
+  if (config.openai?.apiKey && config.openai.models) {
+    models.push(...config.openai.models);
   }
-  if (config.anthropic?.apiKey) {
-    models.push(...(config.anthropic.models || ['claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku']));
+  if (config.anthropic?.apiKey && config.anthropic.models) {
+    models.push(...config.anthropic.models);
   }
-  if (config.gemini?.apiKey) {
-    models.push(...(config.gemini.models || ['gemini-pro', 'gemini-1.5-pro']));
+  if (config.gemini?.apiKey && config.gemini.models) {
+    models.push(...config.gemini.models);
   }
 
   return models;

@@ -150,4 +150,43 @@ describe('AnthropicAdapter', () => {
       })
     );
   });
+
+  it('concatenates multiple system messages', async () => {
+    mockClient.messages.create.mockResolvedValue({
+      content: [{ type: 'text', text: 'Response' }],
+      stop_reason: 'end_turn',
+      usage: { input_tokens: 10, output_tokens: 5 },
+    });
+
+    const adapter = new AnthropicAdapter(mockClient);
+    await adapter.complete({
+      model: 'claude-3-opus',
+      messages: [
+        { role: 'system', content: 'You are a helpful assistant.' },
+        { role: 'system', content: 'Always be concise.' },
+        { role: 'user', content: 'Hello' },
+      ],
+    });
+
+    // Check that system messages were concatenated
+    expect(mockClient.messages.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        system: 'You are a helpful assistant.\n\nAlways be concise.',
+        messages: [{ role: 'user', content: 'Hello' }],
+      })
+    );
+  });
+
+  it('returns error result on API failure', async () => {
+    mockClient.messages.create.mockRejectedValue(new Error('Network error'));
+
+    const adapter = new AnthropicAdapter(mockClient);
+    const result = await adapter.complete({
+      model: 'claude-3-opus',
+      messages: [{ role: 'user', content: 'Hello' }],
+    });
+
+    expect(result.content).toBe('');
+    expect(result.finishReason).toBe('error');
+  });
 });

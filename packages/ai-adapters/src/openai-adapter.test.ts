@@ -59,11 +59,16 @@ describe('OpenAIAdapter', () => {
     });
   });
 
-  it('completes streaming request', async () => {
+  it('completes streaming request with usage data', async () => {
     const chunks = [
       { choices: [{ delta: { content: 'Hello' } }] },
       { choices: [{ delta: { content: ', world!' } }] },
       { choices: [{ delta: {}, finish_reason: 'stop' }] },
+      // Final chunk with usage (sent when stream_options.include_usage is true)
+      {
+        choices: [],
+        usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+      },
     ];
 
     mockClient.chat.completions.create.mockResolvedValue(
@@ -86,6 +91,19 @@ describe('OpenAIAdapter', () => {
     expect(result.content).toBe('Hello, world!');
     expect(result.finishReason).toBe('stop');
     expect(receivedChunks).toEqual(['Hello', ', world!']);
+    expect(result.usage).toEqual({
+      promptTokens: 10,
+      completionTokens: 5,
+      totalTokens: 15,
+    });
+
+    // Verify stream_options was passed
+    expect(mockClient.chat.completions.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stream: true,
+        stream_options: { include_usage: true },
+      })
+    );
   });
 
   it('handles content filter finish reason', async () => {
@@ -124,6 +142,19 @@ describe('OpenAIAdapter', () => {
     });
 
     expect(result.finishReason).toBe('length');
+  });
+
+  it('returns error result on API failure', async () => {
+    mockClient.chat.completions.create.mockRejectedValue(new Error('Network error'));
+
+    const adapter = new OpenAIAdapter(mockClient);
+    const result = await adapter.complete({
+      model: 'gpt-4',
+      messages: [{ role: 'user', content: 'Hello' }],
+    });
+
+    expect(result.content).toBe('');
+    expect(result.finishReason).toBe('error');
   });
 });
 
