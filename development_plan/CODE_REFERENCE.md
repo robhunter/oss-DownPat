@@ -102,7 +102,7 @@
 |------|---------|-----------|
 | `models/example.ts` | Exercise examples | ❓ DECIDE |
 | `models/starter.ts` | Starter prompts | ✅ KEEP |
-| `models/demo-link.ts` | Demo/anonymous access | ✅ KEEP |
+| `models/demo-link.ts` | Demo/anonymous access | ❌ DROP (deferred) |
 | `models/rating.ts` | Message ratings (thumbs) | ✅ KEEP |
 | `models/book.ts` | Book resources | ❌ DROP |
 
@@ -142,7 +142,7 @@
 | `validations/exercise.ts` | Exercise validation | ✅ KEEP |
 | `validations/chat.ts` | Chat validation | ✅ KEEP |
 | `validations/exercise-description.ts` | Description validation | ✅ KEEP |
-| `validations/demo-link.ts` | Demo link validation | ✅ KEEP |
+| `validations/demo-link.ts` | Demo link validation | ❌ DROP (deferred) |
 | `validations/user.ts` | User validation | ⚠️ SIMPLIFY |
 | `validations/auth.ts` | Auth validation | ⚠️ ADAPT |
 | `validations/feedback.ts` | Feedback validation | ❌ DROP |
@@ -196,7 +196,7 @@
 | `stores/conversation-store.ts` | Conversation CRUD | ✅ KEEP |
 | `stores/exercise-store.ts` | Exercise CRUD | ✅ KEEP |
 | `stores/example-store.ts` | Examples CRUD | ❓ DECIDE |
-| `stores/demo-store.ts` | Demo links CRUD | ✅ KEEP |
+| `stores/demo-store.ts` | Demo links CRUD | ❌ DROP (deferred) |
 | `stores/exercise-description-store.ts` | Descriptions | ✅ KEEP |
 | `stores/user-store.ts` | User CRUD | ⚠️ ADAPT |
 | `stores/organization-store.ts` | Org CRUD | ⚠️ SIMPLIFY |
@@ -215,7 +215,7 @@
 | `helpers/conversation-helper.ts` | Conversation utilities | ✅ KEEP |
 | `helpers/exercise-helper.ts` | Exercise utilities | ✅ KEEP |
 | `helpers/exercise-metadata-helper.ts` | Metadata utilities | ❓ DECIDE |
-| `helpers/demo-helper.ts` | Demo utilities | ✅ KEEP |
+| `helpers/demo-helper.ts` | Demo utilities | ❌ DROP (deferred) |
 | `helpers/exercise-description-helper.ts` | Description utilities | ✅ KEEP |
 | `helpers/user-helper.ts` | User utilities | ⚠️ ADAPT |
 | `helpers/organization-helper.ts` | Org utilities | ⚠️ SIMPLIFY |
@@ -256,7 +256,7 @@
 |-----------|---------|-----------|
 | `api/chat/` | Chat queries & mutations | ✅ KEEP |
 | `api/exercises/` | Exercise APIs | ✅ KEEP |
-| `api/demo/` | Demo link APIs | ✅ KEEP |
+| `api/demo/` | Demo link APIs | ❌ DROP (deferred) |
 | `api/user/` | User APIs | ⚠️ ADAPT |
 | `api/organization/` | Org APIs | ⚠️ SIMPLIFY |
 | `api/payments/` | Payment APIs | ❌ DROP |
@@ -296,7 +296,7 @@
 #### Components - Other
 | Directory | Purpose | Keep/Drop |
 |-----------|---------|-----------|
-| `components/demo-link/` | Demo link UI | ✅ KEEP |
+| `components/demo-link/` | Demo link UI | ❌ DROP (deferred) |
 | `components/chat/CoachWindow.tsx` | Text-based coach sidebar | ✅ KEEP |
 | `components/auth/` | Auth UI | ⚠️ ADAPT |
 | `components/navigation/` | Nav components | ⚠️ ADAPT |
@@ -322,7 +322,7 @@
 | `components/pages/PageEditExercise.tsx` | Edit exercise | ✅ KEEP |
 | `components/pages/PageCreatorDashboard.tsx` | Admin dashboard | ⚠️ ADAPT |
 | `components/pages/PageExercises.tsx` | Exercise list | ✅ KEEP |
-| `components/pages/PageCreateDemoLink.tsx` | Demo link gen | ✅ KEEP |
+| `components/pages/PageCreateDemoLink.tsx` | Demo link gen | ❌ DROP (deferred) |
 | `components/pages/PageLiveChat.tsx` | **Voice chat page** | ❌ DROP |
 | `components/pages/PageLiveChatV2.tsx` | **Voice chat page v2** | ❌ DROP |
 | Most other pages | Various | ❌ DROP |

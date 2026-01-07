@@ -35,7 +35,7 @@ DownPat was a platform that hosted educational prompts based on books and other 
 - **Multi-tenant Architecture**: Each expert had a custom subdomain with branded theming
 - **Payment Integration**: Stripe-based subscriptions
 - **Conversation Management**: Users could interact with exercises, with conversations stored in Firebase
-- **Admin Interface**: Exercise creation, demo link generation, organization management
+- **Admin Interface**: Exercise creation, organization management
 - **Real-time Interaction**: Socket.io-based streaming AI responses
 
 ### Current Tech Stack
@@ -77,36 +77,29 @@ DownPat was a platform that hosted educational prompts based on books and other 
    - Extract tasks
    - Simulate tasks
 
-3. **Anonymous/Unauthenticated Access**
-   - Demo link functionality
-   - Public conversation access
-   - Message limits for anonymous users
-
-4. **Admin Interface**
+3. **Admin Interface**
    - Exercise creation UI
    - Exercise editing UI
    - Starter message management
-   - Demo link generation
 
-5. **User-facing Conversation UI**
+4. **User-facing Conversation UI**
    - Message display components
    - Chat interface
    - Message actions (rate, regenerate, report)
    - Message type rendering (user, conversation, commentary, summary, etc.)
 
-6. **AI Integration**
+5. **AI Integration**
    - Adapter interface for LLM providers
    - Support for multiple AI providers
    - Structured response handling
    - Streaming responses
 
-7. **Firebase Integration**
+6. **Firebase Integration**
    - Conversation storage
    - Exercise storage
-   - Demo link storage
    - Basic authentication hooks
 
-8. **Theming/Styling**
+7. **Theming/Styling**
    - Customizable conversation UI styling
    - Theme provider pattern
    - CSS variable-based theming
@@ -307,10 +300,6 @@ DownPat was a platform that hosted educational prompts based on books and other 
   - Demo users marked with `isAdmin: false` and `isSubscriber: false`
   - Demo users bypass subscription checks (can start conversations)
   - Demo users can only access their own conversations (not other demos)
-- **Demo Link Generation**:
-  - Simple approach: Just a demo code/link
-  - No usage tracking or limits in v1 (can be added later)
-  - Host app can generate demo links as needed
 - **Rationale**: Simplicity, security (conversations stored for review), flexibility (host controls demo access)
 
 ### 3. Exercise & Conversation Features
@@ -486,7 +475,7 @@ DownPat was a platform that hosted educational prompts based on books and other 
 
 #### Q5.4: Data Retention
 - **Question**: Should we provide data retention/cleanup utilities?
-- **Context**: Demo conversations, old conversations, expired demo links
+- **Context**: Old conversations, conversation archival
 - **Specific Questions**:
   - Should demo conversations auto-expire?
   - Should old conversations be archived/deleted?
@@ -569,7 +558,6 @@ DownPat was a platform that hosted educational prompts based on books and other 
   - Exercise creation
   - Exercise editing
   - Starter message management
-  - Demo link generation (?)
 - **Nice-to-Have**:
   - Exercise preview
   - Conversation analytics/viewing
@@ -1042,7 +1030,6 @@ export { OpenAIAdapter, AnthropicAdapter, ... }
 **Contents**:
 - Conversation store implementation
 - Exercise store implementation
-- Demo link store implementation
 - User store implementation (if needed)
 - Firestore initialization utilities
 - Security rules documentation
@@ -1213,7 +1200,6 @@ export { ChatMessageActions }
 - Exercise editor
 - Starter message editor
 - Exercise list/grid
-- Demo link generator
 - Preview components
 
 **Dependencies**:
@@ -1228,7 +1214,6 @@ export { ChatMessageActions }
 export { ExerciseCreator, ExerciseEditor }
 export { StarterMessageEditor }
 export { ExerciseList, ExerciseCard }
-export { DemoLinkGenerator }
 ```
 
 **Questions**:
@@ -1563,10 +1548,9 @@ The following questions MUST be answered before implementation begins:
 8. **UI framework**: Styled, unstyled, or hybrid approach?
 9. **Theming**: Full theme system or simple CSS variables?
 10. **Admin auth**: How do host apps designate admins?
-11. **Demo access**: Backend or client-side demo link generation?
 
 ### Medium Priority (Affect Features)
-12. **Message types**: Keep all or simplify?
+11. **Message types**: Keep all or simplify?
 13. **Exercise versioning**: Keep, simplify, or drop?
 14. **Exercise examples**: Keep or drop?
 15. **Content moderation**: Include, optional, or drop?

@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import type { Exercise, Task, ConversationTask, BaseTask } from '@downpat/core';
+import type { Exercise, Task, ConversationTask, BaseTask, MessageFilter } from '@downpat/core';
 import { MessageType } from '@downpat/core';
 import { generateId, generateSlug } from '@downpat/core';
 
@@ -9,6 +9,7 @@ type EditableTask = Omit<BaseTask, 'responseType'> & {
   responseType: MessageType;
   role: string;
   prompt: string;
+  messageFilter?: MessageFilter;
 };
 
 export interface ExerciseFormProps {
@@ -20,28 +21,31 @@ export interface ExerciseFormProps {
   onCancel?: () => void;
   /** Whether the form is submitting */
   isSubmitting?: boolean;
-  /** Available AI models to choose from */
-  availableModels?: string[];
+  /**
+   * Available AI models to choose from.
+   * Use getAvailableModels() from @downpat/core to get models based on your AI config.
+   */
+  availableModels: string[];
 }
-
-const DEFAULT_MODELS = ['gpt-4', 'gpt-3.5-turbo', 'claude-3-opus', 'claude-3-sonnet'];
 
 /**
  * Form for creating and editing exercises.
+ *
+ * Requires CSS: import '@downpat/admin-ui/styles';
  */
 export function ExerciseForm({
   exercise,
   onSubmit,
   onCancel,
   isSubmitting = false,
-  availableModels = DEFAULT_MODELS,
+  availableModels,
 }: ExerciseFormProps): React.JSX.Element {
   const [formData, setFormData] = useState<Partial<Exercise>>(() => ({
     exerciseId: exercise?.exerciseId || generateId(),
     exerciseName: exercise?.exerciseName || '',
     slug: exercise?.slug || '',
     maxUserMessages: exercise?.maxUserMessages || 10,
-    model: exercise?.model || availableModels[0] || 'gpt-4',
+    model: exercise?.model || availableModels[0],
     talkToCoachEnabled: exercise?.talkToCoachEnabled || false,
     continuationTasks: exercise?.continuationTasks || [],
     completionTasks: exercise?.completionTasks || [],
@@ -114,49 +118,49 @@ export function ExerciseForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="downpat-exercise-form" style={{ maxWidth: '800px' }}>
-      <h2 style={{ marginBottom: '24px', fontSize: '24px', fontWeight: 600 }}>
+    <form onSubmit={handleSubmit} className="downpat-exercise-form">
+      <h2>
         {exercise ? 'Edit Exercise' : 'Create New Exercise'}
       </h2>
 
       {/* Basic Info */}
-      <section style={{ marginBottom: '32px' }}>
-        <h3 style={sectionTitleStyle}>Basic Information</h3>
+      <section className="downpat-form-section">
+        <h3 className="downpat-section-title">Basic Information</h3>
 
-        <div style={fieldStyle}>
-          <label style={labelStyle}>Exercise Name *</label>
+        <div className="downpat-field">
+          <label className="downpat-label">Exercise Name *</label>
           <input
             type="text"
             value={formData.exerciseName}
             onChange={(e) => handleNameChange(e.target.value)}
             placeholder="Enter exercise name"
             required
-            style={inputStyle}
+            className="downpat-input"
           />
         </div>
 
-        <div style={fieldStyle}>
-          <label style={labelStyle}>Slug *</label>
+        <div className="downpat-field">
+          <label className="downpat-label">Slug *</label>
           <input
             type="text"
             value={formData.slug}
             onChange={(e) => updateField('slug', e.target.value)}
             placeholder="exercise-slug"
             required
-            style={inputStyle}
+            className="downpat-input"
             pattern="[a-z0-9\-]+"
             title="Lowercase letters, numbers, and hyphens only"
           />
-          <small style={helpTextStyle}>URL-friendly identifier (auto-generated from name)</small>
+          <small className="downpat-help-text">URL-friendly identifier (auto-generated from name)</small>
         </div>
 
-        <div style={fieldStyle}>
-          <label style={labelStyle}>AI Model *</label>
+        <div className="downpat-field">
+          <label className="downpat-label">AI Model *</label>
           <select
             value={formData.model}
             onChange={(e) => updateField('model', e.target.value)}
             required
-            style={inputStyle}
+            className="downpat-select"
           >
             {availableModels.map((model) => (
               <option key={model} value={model}>
@@ -166,8 +170,8 @@ export function ExerciseForm({
           </select>
         </div>
 
-        <div style={fieldStyle}>
-          <label style={labelStyle}>Max User Messages *</label>
+        <div className="downpat-field">
+          <label className="downpat-label">Max User Messages *</label>
           <input
             type="number"
             value={formData.maxUserMessages}
@@ -175,77 +179,77 @@ export function ExerciseForm({
             min={1}
             max={100}
             required
-            style={{ ...inputStyle, width: '120px' }}
+            className="downpat-input downpat-input--narrow"
           />
-          <small style={helpTextStyle}>
+          <small className="downpat-help-text">
             Conversation will end after this many user messages
           </small>
         </div>
       </section>
 
       {/* Content */}
-      <section style={{ marginBottom: '32px' }}>
-        <h3 style={sectionTitleStyle}>Content</h3>
+      <section className="downpat-form-section">
+        <h3 className="downpat-section-title">Content</h3>
 
-        <div style={fieldStyle}>
-          <label style={labelStyle}>Welcome Message</label>
+        <div className="downpat-field">
+          <label className="downpat-label">Welcome Message</label>
           <textarea
             value={formData.welcomeMessage}
             onChange={(e) => updateField('welcomeMessage', e.target.value)}
             placeholder="Message shown when conversation starts..."
             rows={3}
-            style={textareaStyle}
+            className="downpat-textarea"
           />
         </div>
 
-        <div style={fieldStyle}>
-          <label style={labelStyle}>Guidelines</label>
+        <div className="downpat-field">
+          <label className="downpat-label">Guidelines</label>
           <textarea
             value={formData.guidelines}
             onChange={(e) => updateField('guidelines', e.target.value)}
             placeholder="Guidelines for the AI..."
             rows={4}
-            style={textareaStyle}
+            className="downpat-textarea"
           />
         </div>
 
-        <div style={fieldStyle}>
-          <label style={labelStyle}>Conversation Starters</label>
+        <div className="downpat-field">
+          <label className="downpat-label">Conversation Starters</label>
           {formData.starters?.map((starter, index) => (
-            <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+            <div key={index} className="downpat-starter-row">
               <input
                 type="text"
                 value={starter}
                 onChange={(e) => updateStarter(index, e.target.value)}
                 placeholder={`Starter ${index + 1}`}
-                style={{ ...inputStyle, flex: 1 }}
+                className="downpat-input downpat-starter-input"
               />
               {formData.starters!.length > 1 && (
                 <button
                   type="button"
                   onClick={() => removeStarter(index)}
-                  style={removeButtonStyle}
+                  className="downpat-btn downpat-btn--remove"
                 >
                   Remove
                 </button>
               )}
             </div>
           ))}
-          <button type="button" onClick={addStarter} style={addButtonStyle}>
+          <button type="button" onClick={addStarter} className="downpat-btn downpat-btn--add">
             + Add Starter
           </button>
         </div>
       </section>
 
       {/* Tasks */}
-      <section style={{ marginBottom: '32px' }}>
-        <h3 style={sectionTitleStyle}>Continuation Tasks</h3>
-        <small style={{ ...helpTextStyle, display: 'block', marginBottom: '16px' }}>
+      <section className="downpat-form-section">
+        <h3 className="downpat-section-title">Continuation Tasks</h3>
+        <small className="downpat-help-text">
           Tasks that run after each user message
         </small>
 
         {formData.continuationTasks?.length === 0 ? (
-          <p style={{ color: '#6b7280', fontStyle: 'italic' }}>No tasks configured</p>
+          <p className="downpat-empty-state">No tasks configured</p>
         ) : (
           formData.continuationTasks?.map((task, index) => (
             <TaskEditor
@@ -266,40 +270,35 @@ export function ExerciseForm({
           ))
         )}
 
-        <button type="button" onClick={addContinuationTask} style={addButtonStyle}>
+        <button type="button" onClick={addContinuationTask} className="downpat-btn downpat-btn--add">
           + Add Task
         </button>
       </section>
 
       {/* Settings */}
-      <section style={{ marginBottom: '32px' }}>
-        <h3 style={sectionTitleStyle}>Settings</h3>
+      <section className="downpat-form-section">
+        <h3 className="downpat-section-title">Settings</h3>
 
-        <div style={{ ...fieldStyle, display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="downpat-field downpat-checkbox-field">
           <input
             type="checkbox"
             id="talkToCoach"
             checked={formData.talkToCoachEnabled}
             onChange={(e) => updateField('talkToCoachEnabled', e.target.checked)}
-            style={{ width: '18px', height: '18px' }}
+            className="downpat-checkbox"
           />
-          <label htmlFor="talkToCoach" style={{ ...labelStyle, marginBottom: 0 }}>
+          <label htmlFor="talkToCoach" className="downpat-label">
             Enable Talk to Coach
           </label>
         </div>
       </section>
 
       {/* Actions */}
-      <div style={{ display: 'flex', gap: '16px', paddingTop: '16px', borderTop: '1px solid #e5e7eb' }}>
+      <div className="downpat-form-actions">
         <button
           type="submit"
           disabled={isSubmitting}
-          style={{
-            ...buttonStyle,
-            backgroundColor: '#3b82f6',
-            color: 'white',
-            opacity: isSubmitting ? 0.5 : 1,
-          }}
+          className="downpat-btn downpat-btn--primary"
         >
           {isSubmitting ? 'Saving...' : exercise ? 'Update Exercise' : 'Create Exercise'}
         </button>
@@ -308,7 +307,7 @@ export function ExerciseForm({
             type="button"
             onClick={onCancel}
             disabled={isSubmitting}
-            style={{ ...buttonStyle, backgroundColor: '#f3f4f6' }}
+            className="downpat-btn downpat-btn--secondary"
           >
             Cancel
           </button>
@@ -326,44 +325,36 @@ interface TaskEditorProps {
 }
 
 function TaskEditor({ task, onChange, onRemove }: TaskEditorProps): React.JSX.Element {
-
   return (
-    <div
-      style={{
-        padding: '16px',
-        marginBottom: '16px',
-        border: '1px solid #e5e7eb',
-        borderRadius: '8px',
-        backgroundColor: '#f9fafb',
-      }}
-    >
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+    <div className="downpat-task-editor">
+      <div className="downpat-task-header">
+        <div className="downpat-task-header-left">
           <input
             type="checkbox"
             checked={task.enabled}
             onChange={(e) => onChange({ ...task, enabled: e.target.checked })}
+            className="downpat-checkbox"
           />
           <input
             type="text"
             value={task.name}
             onChange={(e) => onChange({ ...task, name: e.target.value })}
-            style={{ ...inputStyle, fontWeight: 500, width: '200px' }}
+            className="downpat-input downpat-input--medium"
             placeholder="Task name"
           />
         </div>
-        <button type="button" onClick={onRemove} style={removeButtonStyle}>
+        <button type="button" onClick={onRemove} className="downpat-btn downpat-btn--remove">
           Remove
         </button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+      <div className="downpat-task-grid">
         <div>
-          <label style={{ ...labelStyle, fontSize: '12px' }}>Response Type</label>
+          <label className="downpat-label downpat-label--small">Response Type</label>
           <select
             value={task.responseType}
             onChange={(e) => onChange({ ...task, responseType: e.target.value as MessageType })}
-            style={inputStyle}
+            className="downpat-select"
           >
             <option value={MessageType.CONVERSATION}>Conversation</option>
             <option value={MessageType.COMMENTARY}>Commentary</option>
@@ -372,96 +363,97 @@ function TaskEditor({ task, onChange, onRemove }: TaskEditorProps): React.JSX.El
           </select>
         </div>
         <div>
-          <label style={{ ...labelStyle, fontSize: '12px' }}>Role</label>
+          <label className="downpat-label downpat-label--small">Role</label>
           <input
             type="text"
             value={task.role}
             onChange={(e) => onChange({ ...task, role: e.target.value })}
-            style={inputStyle}
+            className="downpat-input"
             placeholder="Assistant"
           />
         </div>
       </div>
 
       <div>
-        <label style={{ ...labelStyle, fontSize: '12px' }}>Prompt</label>
+        <label className="downpat-label downpat-label--small">Prompt</label>
         <textarea
           value={task.prompt}
           onChange={(e) => onChange({ ...task, prompt: e.target.value })}
           rows={3}
-          style={textareaStyle}
+          className="downpat-textarea"
           placeholder="AI prompt for this task..."
         />
+      </div>
+
+      {/* Message Filter Section */}
+      <div className="downpat-task-filter-section">
+        <label className="downpat-label downpat-label--small">
+          Message Filter (Context Window)
+        </label>
+
+        <div className="downpat-task-grid downpat-task-grid--three">
+          <div>
+            <label className="downpat-label downpat-label--tiny">Max Messages</label>
+            <input
+              type="number"
+              value={task.messageFilter?.maxMessages ?? ''}
+              onChange={(e) => {
+                const val = e.target.value ? parseInt(e.target.value, 10) : undefined;
+                onChange({
+                  ...task,
+                  messageFilter: { ...task.messageFilter, maxMessages: val },
+                });
+              }}
+              className="downpat-input downpat-input--small"
+              placeholder="All"
+              min={1}
+            />
+          </div>
+
+          <div>
+            <label className="downpat-label downpat-label--tiny">Include Types</label>
+            <select
+              multiple
+              value={task.messageFilter?.includeTypes ?? []}
+              onChange={(e) => {
+                const selected = Array.from(e.target.selectedOptions, (opt) => opt.value as MessageType);
+                onChange({
+                  ...task,
+                  messageFilter: { ...task.messageFilter, includeTypes: selected.length > 0 ? selected : undefined },
+                });
+              }}
+              className="downpat-select downpat-select--multi"
+            >
+              {Object.values(MessageType).map((type) => (
+                <option key={type} value={type}>{type}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="downpat-label downpat-label--tiny">Exclude Types</label>
+            <select
+              multiple
+              value={task.messageFilter?.excludeTypes ?? []}
+              onChange={(e) => {
+                const selected = Array.from(e.target.selectedOptions, (opt) => opt.value as MessageType);
+                onChange({
+                  ...task,
+                  messageFilter: { ...task.messageFilter, excludeTypes: selected.length > 0 ? selected : undefined },
+                });
+              }}
+              className="downpat-select downpat-select--multi"
+            >
+              {Object.values(MessageType).map((type) => (
+                <option key={type} value={type}>{type}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <small className="downpat-help-text">
+          Configure which messages are included in AI context. Hold Ctrl/Cmd to select multiple types.
+        </small>
       </div>
     </div>
   );
 }
-
-// Styles
-const fieldStyle: React.CSSProperties = {
-  marginBottom: '20px',
-};
-
-const labelStyle: React.CSSProperties = {
-  display: 'block',
-  marginBottom: '6px',
-  fontWeight: 500,
-  fontSize: '14px',
-  color: '#374151',
-};
-
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  padding: '10px 12px',
-  fontSize: '14px',
-  border: '1px solid #d1d5db',
-  borderRadius: '6px',
-  fontFamily: 'inherit',
-  boxSizing: 'border-box',
-};
-
-const textareaStyle: React.CSSProperties = {
-  ...inputStyle,
-  resize: 'vertical',
-  minHeight: '80px',
-};
-
-const sectionTitleStyle: React.CSSProperties = {
-  fontSize: '18px',
-  fontWeight: 600,
-  marginBottom: '16px',
-  paddingBottom: '8px',
-  borderBottom: '1px solid #e5e7eb',
-};
-
-const helpTextStyle: React.CSSProperties = {
-  fontSize: '12px',
-  color: '#6b7280',
-  marginTop: '4px',
-};
-
-const buttonStyle: React.CSSProperties = {
-  padding: '10px 20px',
-  fontSize: '14px',
-  fontWeight: 500,
-  border: 'none',
-  borderRadius: '6px',
-  cursor: 'pointer',
-  fontFamily: 'inherit',
-};
-
-const addButtonStyle: React.CSSProperties = {
-  ...buttonStyle,
-  padding: '8px 16px',
-  fontSize: '13px',
-  backgroundColor: '#e5e7eb',
-  color: '#374151',
-};
-
-const removeButtonStyle: React.CSSProperties = {
-  ...buttonStyle,
-  padding: '6px 12px',
-  fontSize: '12px',
-  backgroundColor: '#fee2e2',
-  color: '#dc2626',
-};

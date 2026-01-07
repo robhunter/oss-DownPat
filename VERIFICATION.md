@@ -129,6 +129,21 @@ The screenshot should show:
 - [ ] API Status showing "Hello from DownPat!"
 - [ ] Three green checkmarks for verification items
 
+### Admin UI Verification
+
+After logging in as admin, verify the admin pages render correctly:
+
+```bash
+# Take screenshot of admin exercise form (requires login first)
+shot-scraper http://localhost:5173/admin/exercises/new -o /tmp/admin-form.png --wait 3000
+```
+
+The admin form should show:
+- [ ] Styled form inputs with proper borders and spacing
+- [ ] Section headers ("Basic Information", "Content", "Tasks", "Settings")
+- [ ] Blue primary buttons
+- [ ] Proper label styling
+
 ### Troubleshooting Browser Verification
 
 **Issue**: `shot-scraper: command not found`

@@ -9,13 +9,15 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    }
+    },
+    "./styles": "./dist/styles/admin-ui.css",
+    "./dist/styles/*.css": "./dist/styles/*.css"
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && cp -r src/styles dist/",
     "dev": "tsc --watch",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -27,6 +29,11 @@
   "peerDependencies": {
     "react": "^18.0.0",
     "react-dom": "^18.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react-dom": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.0.0",

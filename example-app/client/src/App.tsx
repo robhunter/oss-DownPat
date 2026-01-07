@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import '@downpat/ui-components/styles';
+import '@downpat/admin-ui/styles';
 
 import { AuthProvider } from './components/AuthProvider';
 import { Layout } from './components/Layout';

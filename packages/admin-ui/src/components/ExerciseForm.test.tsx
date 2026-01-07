@@ -1,8 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { MessageType } from '@downpat/core';
 import type { Exercise } from '@downpat/core';
 import { ExerciseForm } from './ExerciseForm.js';
+
+const DEFAULT_MODELS = ['gpt-4', 'gpt-3.5-turbo'];
 
 const createExercise = (): Exercise => ({
   exerciseId: 'ex-123',
@@ -21,7 +22,7 @@ const createExercise = (): Exercise => ({
 describe('ExerciseForm', () => {
   it('renders create form when no exercise provided', () => {
     const onSubmit = vi.fn();
-    render(<ExerciseForm onSubmit={onSubmit} />);
+    render(<ExerciseForm onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
 
     expect(screen.getByText('Create New Exercise')).toBeInTheDocument();
     expect(screen.getByText('Create Exercise')).toBeInTheDocument();
@@ -29,7 +30,7 @@ describe('ExerciseForm', () => {
 
   it('renders edit form when exercise provided', () => {
     const onSubmit = vi.fn();
-    render(<ExerciseForm exercise={createExercise()} onSubmit={onSubmit} />);
+    render(<ExerciseForm exercise={createExercise()} onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
 
     expect(screen.getByText('Edit Exercise')).toBeInTheDocument();
     expect(screen.getByText('Update Exercise')).toBeInTheDocument();
@@ -38,7 +39,7 @@ describe('ExerciseForm', () => {
   it('populates form with existing exercise data', () => {
     const exercise = createExercise();
     const onSubmit = vi.fn();
-    render(<ExerciseForm exercise={exercise} onSubmit={onSubmit} />);
+    render(<ExerciseForm exercise={exercise} onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
 
     expect(screen.getByDisplayValue('Test Exercise')).toBeInTheDocument();
     expect(screen.getByDisplayValue('test-exercise')).toBeInTheDocument();
@@ -47,7 +48,7 @@ describe('ExerciseForm', () => {
 
   it('calls onSubmit with exercise data', () => {
     const onSubmit = vi.fn();
-    render(<ExerciseForm onSubmit={onSubmit} />);
+    render(<ExerciseForm onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
 
     fireEvent.change(screen.getByPlaceholderText('Enter exercise name'), {
       target: { value: 'My Exercise' },
@@ -65,7 +66,7 @@ describe('ExerciseForm', () => {
   it('calls onCancel when cancel button clicked', () => {
     const onSubmit = vi.fn();
     const onCancel = vi.fn();
-    render(<ExerciseForm onSubmit={onSubmit} onCancel={onCancel} />);
+    render(<ExerciseForm onSubmit={onSubmit} onCancel={onCancel} availableModels={DEFAULT_MODELS} />);
 
     fireEvent.click(screen.getByText('Cancel'));
 
@@ -74,14 +75,14 @@ describe('ExerciseForm', () => {
 
   it('disables submit button when submitting', () => {
     const onSubmit = vi.fn();
-    render(<ExerciseForm onSubmit={onSubmit} isSubmitting={true} />);
+    render(<ExerciseForm onSubmit={onSubmit} isSubmitting={true} availableModels={DEFAULT_MODELS} />);
 
     expect(screen.getByText('Saving...')).toBeDisabled();
   });
 
   it('auto-generates slug from name for new exercises', () => {
     const onSubmit = vi.fn();
-    render(<ExerciseForm onSubmit={onSubmit} />);
+    render(<ExerciseForm onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
 
     fireEvent.change(screen.getByPlaceholderText('Enter exercise name'), {
       target: { value: 'My New Exercise' },
@@ -92,7 +93,7 @@ describe('ExerciseForm', () => {
 
   it('allows adding starters', () => {
     const onSubmit = vi.fn();
-    render(<ExerciseForm onSubmit={onSubmit} />);
+    render(<ExerciseForm onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
 
     fireEvent.click(screen.getByText('+ Add Starter'));
 
@@ -103,7 +104,7 @@ describe('ExerciseForm', () => {
 
   it('allows adding continuation tasks', () => {
     const onSubmit = vi.fn();
-    render(<ExerciseForm onSubmit={onSubmit} />);
+    render(<ExerciseForm onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
 
     expect(screen.getByText('No tasks configured')).toBeInTheDocument();
 

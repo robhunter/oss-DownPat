@@ -29,6 +29,8 @@ export interface ExerciseListProps {
 
 /**
  * Displays a list of exercises with admin actions.
+ *
+ * Requires CSS: import '@downpat/admin-ui/styles';
  */
 export function ExerciseList({
   exercises,
@@ -64,32 +66,22 @@ export function ExerciseList({
 
   if (exercises.length === 0) {
     return (
-      <div
-        className={`downpat-exercise-list ${className}`}
-        style={{
-          padding: '48px',
-          textAlign: 'center',
-          backgroundColor: '#f9fafb',
-          borderRadius: '8px',
-        }}
-      >
-        <p style={{ color: '#6b7280', fontSize: '16px' }}>No exercises yet</p>
-        <p style={{ color: '#9ca3af', fontSize: '14px', marginTop: '8px' }}>
-          Create your first exercise to get started
-        </p>
+      <div className={`downpat-exercise-list downpat-exercise-list--empty ${className}`}>
+        <p>No exercises yet</p>
+        <p>Create your first exercise to get started</p>
       </div>
     );
   }
 
   return (
     <div className={`downpat-exercise-list ${className}`}>
-      <table style={tableStyle}>
+      <table className="downpat-table">
         <thead>
           <tr>
-            <th style={headerStyle}>Exercise</th>
-            <th style={headerStyle}>Status</th>
-            <th style={headerStyle}>Model</th>
-            <th style={{ ...headerStyle, textAlign: 'right' }}>Actions</th>
+            <th>Exercise</th>
+            <th>Status</th>
+            <th>Model</th>
+            <th className="downpat-table th--right">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -98,34 +90,29 @@ export function ExerciseList({
             const slug = exercise.slug;
 
             return (
-              <tr key={exercise.exerciseId} style={rowStyle}>
-                <td style={cellStyle}>
-                  <div style={{ fontWeight: 500 }}>{exercise.exerciseName}</div>
-                  <div style={{ fontSize: '12px', color: '#6b7280' }}>/{slug}</div>
+              <tr key={exercise.exerciseId}>
+                <td>
+                  <div className="downpat-exercise-name">{exercise.exerciseName}</div>
+                  <div className="downpat-exercise-slug">/{slug}</div>
                 </td>
-                <td style={cellStyle}>
+                <td>
                   <span
-                    style={{
-                      padding: '4px 8px',
-                      borderRadius: '4px',
-                      fontSize: '12px',
-                      fontWeight: 500,
-                      backgroundColor: isPublished ? '#d1fae5' : '#fef3c7',
-                      color: isPublished ? '#065f46' : '#92400e',
-                    }}
+                    className={`downpat-status-badge ${
+                      isPublished ? 'downpat-status-badge--published' : 'downpat-status-badge--draft'
+                    }`}
                   >
                     {isPublished ? 'Published' : 'Draft'}
                   </span>
                 </td>
-                <td style={cellStyle}>
-                  <span style={{ fontSize: '13px', color: '#4b5563' }}>{exercise.model}</span>
+                <td>
+                  <span className="downpat-exercise-model">{exercise.model}</span>
                 </td>
-                <td style={{ ...cellStyle, textAlign: 'right' }}>
-                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                <td className="downpat-table td--right">
+                  <div className="downpat-action-buttons">
                     <button
                       onClick={() => onEdit(exercise)}
                       disabled={isLoading}
-                      style={actionButtonStyle}
+                      className="downpat-action-btn"
                     >
                       Edit
                     </button>
@@ -134,7 +121,7 @@ export function ExerciseList({
                       <button
                         onClick={() => onTest(exercise)}
                         disabled={isLoading}
-                        style={{ ...actionButtonStyle, color: '#2563eb' }}
+                        className="downpat-action-btn downpat-action-btn--test"
                         title="Test this exercise in a conversation"
                       >
                         Test
@@ -146,22 +133,22 @@ export function ExerciseList({
                         <button
                           onClick={() => onUnpublish(slug)}
                           disabled={isLoading}
-                          style={{ ...actionButtonStyle, color: '#dc2626' }}
+                          className="downpat-action-btn downpat-action-btn--unpublish"
                         >
                           Unpublish
                         </button>
                         {confirmRestore === slug ? (
-                          <div style={{ display: 'flex', gap: '4px' }}>
+                          <div className="downpat-confirm-group">
                             <button
                               onClick={() => handleRestore(slug)}
                               disabled={isLoading}
-                              style={{ ...actionButtonStyle, backgroundColor: '#fef3c7', color: '#92400e' }}
+                              className="downpat-action-btn downpat-action-btn--confirm-restore"
                             >
                               Confirm Restore
                             </button>
                             <button
                               onClick={() => setConfirmRestore(null)}
-                              style={actionButtonStyle}
+                              className="downpat-action-btn"
                             >
                               Cancel
                             </button>
@@ -170,7 +157,7 @@ export function ExerciseList({
                           <button
                             onClick={() => handleRestore(slug)}
                             disabled={isLoading}
-                            style={{ ...actionButtonStyle, color: '#7c3aed' }}
+                            className="downpat-action-btn downpat-action-btn--restore"
                             title="Restore draft from published version"
                           >
                             Restore
@@ -181,24 +168,24 @@ export function ExerciseList({
                       <button
                         onClick={() => onPublish(slug)}
                         disabled={isLoading}
-                        style={{ ...actionButtonStyle, color: '#059669' }}
+                        className="downpat-action-btn downpat-action-btn--publish"
                       >
                         Publish
                       </button>
                     )}
 
                     {confirmDelete === slug ? (
-                      <div style={{ display: 'flex', gap: '4px' }}>
+                      <div className="downpat-confirm-group">
                         <button
                           onClick={() => handleDelete(slug)}
                           disabled={isLoading}
-                          style={{ ...actionButtonStyle, backgroundColor: '#fee2e2', color: '#dc2626' }}
+                          className="downpat-action-btn downpat-action-btn--confirm"
                         >
                           Confirm Delete
                         </button>
                         <button
                           onClick={() => setConfirmDelete(null)}
-                          style={actionButtonStyle}
+                          className="downpat-action-btn"
                         >
                           Cancel
                         </button>
@@ -207,7 +194,7 @@ export function ExerciseList({
                       <button
                         onClick={() => handleDelete(slug)}
                         disabled={isLoading}
-                        style={{ ...actionButtonStyle, color: '#dc2626' }}
+                        className="downpat-action-btn downpat-action-btn--delete"
                       >
                         Delete
                       </button>
@@ -222,45 +209,3 @@ export function ExerciseList({
     </div>
   );
 }
-
-// Styles
-const tableStyle: React.CSSProperties = {
-  width: '100%',
-  borderCollapse: 'collapse',
-  backgroundColor: 'white',
-  borderRadius: '8px',
-  overflow: 'hidden',
-  boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
-};
-
-const headerStyle: React.CSSProperties = {
-  padding: '12px 16px',
-  textAlign: 'left',
-  fontSize: '12px',
-  fontWeight: 600,
-  textTransform: 'uppercase',
-  color: '#6b7280',
-  backgroundColor: '#f9fafb',
-  borderBottom: '1px solid #e5e7eb',
-};
-
-const rowStyle: React.CSSProperties = {
-  borderBottom: '1px solid #e5e7eb',
-};
-
-const cellStyle: React.CSSProperties = {
-  padding: '16px',
-  verticalAlign: 'middle',
-};
-
-const actionButtonStyle: React.CSSProperties = {
-  padding: '6px 12px',
-  fontSize: '13px',
-  fontWeight: 500,
-  border: '1px solid #e5e7eb',
-  borderRadius: '4px',
-  backgroundColor: 'white',
-  cursor: 'pointer',
-  color: '#374151',
-  fontFamily: 'inherit',
-};

@@ -1,0 +1,550 @@
+/**
+ * DownPat Admin UI Styles
+ * Uses CSS variables from @downpat/ui-components for consistency.
+ * Override variables in your stylesheet to customize the admin theme.
+ *
+ * Usage:
+ * import '@downpat/admin-ui/styles';
+ */
+
+:root {
+  /* Admin-specific variables (extend the base theme) */
+  --downpat-admin-input-bg: #ffffff;
+  --downpat-admin-input-border: var(--downpat-border, #d1d5db);
+  --downpat-admin-input-focus: var(--downpat-primary-500, #3b82f6);
+  --downpat-admin-label-color: var(--downpat-text, #374151);
+  --downpat-admin-help-color: var(--downpat-text-secondary, #6b7280);
+  --downpat-admin-section-border: var(--downpat-border, #e5e7eb);
+
+  /* Button colors */
+  --downpat-admin-btn-primary-bg: var(--downpat-primary-500, #3b82f6);
+  --downpat-admin-btn-primary-hover: var(--downpat-primary-600, #2563eb);
+  --downpat-admin-btn-secondary-bg: #f3f4f6;
+  --downpat-admin-btn-danger-bg: #fee2e2;
+  --downpat-admin-btn-danger-color: #dc2626;
+  --downpat-admin-btn-success-color: #059669;
+
+  /* Status badge colors */
+  --downpat-admin-status-draft-bg: #fef3c7;
+  --downpat-admin-status-draft-color: #92400e;
+  --downpat-admin-status-published-bg: #d1fae5;
+  --downpat-admin-status-published-color: #065f46;
+
+  /* Task card */
+  --downpat-admin-task-bg: #f9fafb;
+  --downpat-admin-task-border: var(--downpat-border, #e5e7eb);
+}
+
+/* Dark mode support */
+[data-theme="dark"],
+.dark {
+  --downpat-admin-input-bg: #374151;
+  --downpat-admin-input-border: #4b5563;
+  --downpat-admin-btn-secondary-bg: #4b5563;
+  --downpat-admin-task-bg: #1f2937;
+  --downpat-admin-status-draft-bg: #78350f;
+  --downpat-admin-status-published-bg: #065f46;
+}
+
+/* ============================================
+   Exercise Form Styles
+   ============================================ */
+
+.downpat-exercise-form {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  max-width: 800px;
+}
+
+.downpat-exercise-form h2 {
+  margin-bottom: var(--downpat-spacing-lg, 24px);
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--downpat-text, #1f2937);
+}
+
+.downpat-form-section {
+  margin-bottom: var(--downpat-spacing-xl, 32px);
+}
+
+.downpat-section-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: var(--downpat-spacing-md, 16px);
+  padding-bottom: var(--downpat-spacing-sm, 8px);
+  border-bottom: 1px solid var(--downpat-admin-section-border);
+  color: var(--downpat-text, #1f2937);
+}
+
+.downpat-field {
+  margin-bottom: 20px;
+}
+
+.downpat-label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--downpat-admin-label-color);
+}
+
+.downpat-label--small {
+  font-size: 12px;
+}
+
+.downpat-label--tiny {
+  font-size: 11px;
+  color: var(--downpat-admin-help-color);
+}
+
+.downpat-input {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  border: 1px solid var(--downpat-admin-input-border);
+  border-radius: var(--downpat-radius-md, 6px);
+  background-color: var(--downpat-admin-input-bg);
+  color: var(--downpat-text, #1f2937);
+  box-sizing: border-box;
+}
+
+.downpat-input:focus {
+  outline: 2px solid var(--downpat-admin-input-focus);
+  outline-offset: 1px;
+}
+
+.downpat-input--small {
+  font-size: 12px;
+  padding: 6px 8px;
+}
+
+.downpat-input--narrow {
+  width: 120px;
+}
+
+.downpat-input--medium {
+  width: 200px;
+}
+
+.downpat-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  border: 1px solid var(--downpat-admin-input-border);
+  border-radius: var(--downpat-radius-md, 6px);
+  background-color: var(--downpat-admin-input-bg);
+  color: var(--downpat-text, #1f2937);
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 80px;
+}
+
+.downpat-textarea:focus {
+  outline: 2px solid var(--downpat-admin-input-focus);
+  outline-offset: 1px;
+}
+
+.downpat-select {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  border: 1px solid var(--downpat-admin-input-border);
+  border-radius: var(--downpat-radius-md, 6px);
+  background-color: var(--downpat-admin-input-bg);
+  color: var(--downpat-text, #1f2937);
+  box-sizing: border-box;
+}
+
+.downpat-select:focus {
+  outline: 2px solid var(--downpat-admin-input-focus);
+  outline-offset: 1px;
+}
+
+.downpat-select--multi {
+  height: 80px;
+  font-size: 11px;
+  padding: 4px;
+}
+
+.downpat-help-text {
+  font-size: 12px;
+  color: var(--downpat-admin-help-color);
+  margin-top: 4px;
+}
+
+.downpat-checkbox-field {
+  display: flex;
+  align-items: center;
+  gap: var(--downpat-spacing-sm, 8px);
+}
+
+.downpat-checkbox {
+  width: 18px;
+  height: 18px;
+}
+
+/* Buttons */
+.downpat-btn {
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  border: none;
+  border-radius: var(--downpat-radius-md, 6px);
+  cursor: pointer;
+  transition: opacity 0.15s, background-color 0.15s;
+}
+
+.downpat-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.downpat-btn--primary {
+  background-color: var(--downpat-admin-btn-primary-bg);
+  color: white;
+}
+
+.downpat-btn--primary:hover:not(:disabled) {
+  background-color: var(--downpat-admin-btn-primary-hover);
+}
+
+.downpat-btn--secondary {
+  background-color: var(--downpat-admin-btn-secondary-bg);
+  color: var(--downpat-text, #374151);
+}
+
+.downpat-btn--small {
+  padding: 8px 16px;
+  font-size: 13px;
+}
+
+.downpat-btn--add {
+  padding: 8px 16px;
+  font-size: 13px;
+  background-color: #e5e7eb;
+  color: var(--downpat-text, #374151);
+}
+
+.downpat-btn--remove {
+  padding: 6px 12px;
+  font-size: 12px;
+  background-color: var(--downpat-admin-btn-danger-bg);
+  color: var(--downpat-admin-btn-danger-color);
+}
+
+.downpat-form-actions {
+  display: flex;
+  gap: var(--downpat-spacing-md, 16px);
+  padding-top: var(--downpat-spacing-md, 16px);
+  border-top: 1px solid var(--downpat-admin-section-border);
+}
+
+/* Task Editor */
+.downpat-task-editor {
+  padding: var(--downpat-spacing-md, 16px);
+  margin-bottom: var(--downpat-spacing-md, 16px);
+  border: 1px solid var(--downpat-admin-task-border);
+  border-radius: var(--downpat-radius-md, 8px);
+  background-color: var(--downpat-admin-task-bg);
+}
+
+.downpat-task-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.downpat-task-header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--downpat-spacing-sm, 8px);
+}
+
+.downpat-task-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.downpat-task-grid--three {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.downpat-task-filter-section {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--downpat-admin-section-border);
+}
+
+/* Starter list */
+.downpat-starter-row {
+  display: flex;
+  gap: var(--downpat-spacing-sm, 8px);
+  margin-bottom: var(--downpat-spacing-sm, 8px);
+}
+
+.downpat-starter-input {
+  flex: 1;
+}
+
+/* Empty state */
+.downpat-empty-state {
+  color: var(--downpat-admin-help-color);
+  font-style: italic;
+}
+
+/* ============================================
+   Exercise List Styles
+   ============================================ */
+
+.downpat-exercise-list {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+.downpat-exercise-list--empty {
+  padding: 48px;
+  text-align: center;
+  background-color: var(--downpat-admin-task-bg);
+  border-radius: var(--downpat-radius-md, 8px);
+}
+
+.downpat-exercise-list--empty p {
+  color: var(--downpat-admin-help-color);
+  font-size: 16px;
+}
+
+.downpat-exercise-list--empty p:last-child {
+  color: var(--downpat-text-secondary, #9ca3af);
+  font-size: 14px;
+  margin-top: var(--downpat-spacing-sm, 8px);
+}
+
+.downpat-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: var(--downpat-background, white);
+  border-radius: var(--downpat-radius-md, 8px);
+  overflow: hidden;
+  box-shadow: var(--downpat-shadow-sm, 0 1px 3px 0 rgba(0, 0, 0, 0.1));
+}
+
+.downpat-table th {
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--downpat-admin-help-color);
+  background-color: var(--downpat-admin-task-bg);
+  border-bottom: 1px solid var(--downpat-admin-section-border);
+}
+
+.downpat-table th--right {
+  text-align: right;
+}
+
+.downpat-table tr {
+  border-bottom: 1px solid var(--downpat-admin-section-border);
+}
+
+.downpat-table td {
+  padding: var(--downpat-spacing-md, 16px);
+  vertical-align: middle;
+}
+
+.downpat-table td--right {
+  text-align: right;
+}
+
+.downpat-exercise-name {
+  font-weight: 500;
+  color: var(--downpat-text, #1f2937);
+}
+
+.downpat-exercise-slug {
+  font-size: 12px;
+  color: var(--downpat-admin-help-color);
+}
+
+.downpat-exercise-model {
+  font-size: 13px;
+  color: var(--downpat-text-secondary, #4b5563);
+}
+
+/* Status badges */
+.downpat-status-badge {
+  padding: 4px 8px;
+  border-radius: var(--downpat-radius-sm, 4px);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.downpat-status-badge--draft {
+  background-color: var(--downpat-admin-status-draft-bg);
+  color: var(--downpat-admin-status-draft-color);
+}
+
+.downpat-status-badge--published {
+  background-color: var(--downpat-admin-status-published-bg);
+  color: var(--downpat-admin-status-published-color);
+}
+
+/* Action buttons in list */
+.downpat-action-buttons {
+  display: flex;
+  gap: var(--downpat-spacing-sm, 8px);
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.downpat-action-btn {
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  border: 1px solid var(--downpat-admin-section-border);
+  border-radius: var(--downpat-radius-sm, 4px);
+  background-color: var(--downpat-background, white);
+  color: var(--downpat-text, #374151);
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.downpat-action-btn:hover:not(:disabled) {
+  background-color: var(--downpat-admin-task-bg);
+}
+
+.downpat-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.downpat-action-btn--test {
+  color: var(--downpat-primary-600, #2563eb);
+}
+
+.downpat-action-btn--publish {
+  color: var(--downpat-admin-btn-success-color);
+}
+
+.downpat-action-btn--unpublish,
+.downpat-action-btn--delete {
+  color: var(--downpat-admin-btn-danger-color);
+}
+
+.downpat-action-btn--restore {
+  color: #7c3aed;
+}
+
+.downpat-action-btn--confirm {
+  background-color: var(--downpat-admin-btn-danger-bg);
+  color: var(--downpat-admin-btn-danger-color);
+}
+
+.downpat-action-btn--confirm-restore {
+  background-color: var(--downpat-admin-status-draft-bg);
+  color: var(--downpat-admin-status-draft-color);
+}
+
+.downpat-confirm-group {
+  display: flex;
+  gap: 4px;
+}
+
+/* ============================================
+   Admin App & Page Styles
+   ============================================ */
+
+.downpat-admin-app {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  color: var(--downpat-text, #1f2937);
+  min-height: 100%;
+}
+
+.downpat-admin-page {
+  padding: var(--downpat-spacing-lg, 24px);
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.downpat-admin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--downpat-spacing-lg, 24px);
+  flex-wrap: wrap;
+  gap: var(--downpat-spacing-md, 16px);
+}
+
+.downpat-admin-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--downpat-text, #111827);
+  margin: 0;
+}
+
+.downpat-admin-back-link {
+  color: var(--downpat-primary-600, #2563eb);
+  text-decoration: none;
+  font-size: 0.875rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+}
+
+.downpat-admin-back-link:hover {
+  text-decoration: underline;
+}
+
+.downpat-admin-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 60px 0;
+  color: var(--downpat-text-secondary, #6b7280);
+  font-size: 1rem;
+}
+
+.downpat-admin-error {
+  background-color: var(--downpat-moderation-bg, #fee2e2);
+  color: #b91c1c;
+  padding: var(--downpat-spacing-md, 16px);
+  border-radius: var(--downpat-radius-md, 8px);
+  margin-bottom: var(--downpat-spacing-lg, 24px);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--downpat-spacing-md, 16px);
+}
+
+.downpat-admin-error p {
+  margin: 0;
+}
+
+.downpat-admin-error-dismiss {
+  background: none;
+  border: 1px solid currentColor;
+  color: inherit;
+  padding: 4px 12px;
+  border-radius: var(--downpat-radius-sm, 4px);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.875rem;
+}
+
+.downpat-admin-error-dismiss:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.downpat-admin-form-container {
+  background-color: var(--downpat-background, white);
+  border-radius: var(--downpat-radius-lg, 12px);
+  padding: var(--downpat-spacing-lg, 24px);
+  box-shadow: var(--downpat-shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.1));
+}

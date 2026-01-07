@@ -7,7 +7,7 @@ We're extracting the core functionality from the DownPat legacy codebase to crea
 1. **Create AI-powered conversational exercises** with different interaction patterns
 2. **Build user-facing conversation interfaces** where users interact with these exercises
 3. **Provide admin interfaces** for exercise creation and management
-4. **Support anonymous/demo access** for public sharing
+4. **Support flexible authentication** for various access patterns
 
 ## Key Findings from Codebase Analysis
 
@@ -30,13 +30,12 @@ We're extracting the core functionality from the DownPat legacy codebase to crea
 - Example-based prompting
 
 **Storage:**
-- Firebase/Firestore for conversations, exercises, demo links
+- Firebase/Firestore for conversations, exercises
 - Conversation ownership and privacy
 
 **UI Components:**
 - Chat interface with message type renderers
 - Exercise creation/editing forms
-- Demo link generation
 - Theming/customization system
 
 ### What We're Dropping
@@ -81,7 +80,6 @@ A simple vanilla Node.js + Express + React app demonstrating integration of all 
 - User authentication (pluggable, not Firebase-specific)
 - Exercise creation (admin view)
 - Conversation interface (user view)
-- Demo/anonymous access
 - Theming customization
 - **Goal**: As simple as possible - no meta-frameworks, just the basics
 
