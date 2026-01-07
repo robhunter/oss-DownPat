@@ -129,3 +129,4 @@ docs/.cache/
 !tailwind.config.*
 
 .chainlink/issues.db
+code_review.md
