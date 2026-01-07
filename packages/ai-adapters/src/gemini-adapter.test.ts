@@ -192,4 +192,47 @@ describe('GeminiAdapter', () => {
       })
     ).rejects.toThrow('Network error');
   });
+
+  it('merges consecutive same-role messages for Gemini alternating turns requirement', async () => {
+    mockModel.generateContent.mockResolvedValue({
+      response: {
+        text: () => 'Response',
+        candidates: [{ finishReason: 'STOP' }],
+      },
+    });
+
+    const adapter = new GeminiAdapter(mockClient);
+    await adapter.complete({
+      model: 'gemini-pro',
+      messages: [
+        { role: 'user', content: 'Hello' },
+        { role: 'user', content: 'Are you there?' },
+        { role: 'assistant', content: 'Yes!' },
+        { role: 'assistant', content: 'How can I help?' },
+        { role: 'user', content: 'Thanks' },
+      ],
+    });
+
+    expect(mockModel.generateContent).toHaveBeenCalledWith({
+      contents: [
+        { role: 'user', parts: [{ text: 'Hello' }, { text: 'Are you there?' }] },
+        { role: 'model', parts: [{ text: 'Yes!' }, { text: 'How can I help?' }] },
+        { role: 'user', parts: [{ text: 'Thanks' }] },
+      ],
+      systemInstruction: undefined,
+    });
+  });
+
+  it('throws error when only system messages provided (empty contents)', async () => {
+    const adapter = new GeminiAdapter(mockClient);
+
+    await expect(
+      adapter.complete({
+        model: 'gemini-pro',
+        messages: [{ role: 'system', content: 'You are helpful.' }],
+      })
+    ).rejects.toThrow('At least one non-system message is required');
+
+    expect(mockModel.generateContent).not.toHaveBeenCalled();
+  });
 });

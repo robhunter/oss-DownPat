@@ -162,6 +162,40 @@ const result = await adapter.complete({
 | `getProviders()` | List registered provider names |
 | `getModerationAdapter()` | Get the moderation adapter (if available) |
 
+## Provider-Specific Behaviors
+
+### Anthropic System Messages
+
+Anthropic's API accepts a single `system` parameter. When multiple system messages are provided, they are concatenated with double newlines:
+
+```typescript
+// Input messages:
+[
+  { role: 'system', content: 'You are helpful.' },
+  { role: 'system', content: 'Always be concise.' },
+  { role: 'user', content: 'Hello' },
+]
+
+// Sent to Anthropic as:
+// system: "You are helpful.\n\nAlways be concise."
+// messages: [{ role: 'user', content: 'Hello' }]
+```
+
+### Gemini Message Handling
+
+Gemini requires strictly alternating user/model turns. The adapter automatically merges consecutive same-role messages:
+
+```typescript
+// Input messages:
+[
+  { role: 'user', content: 'Hi' },
+  { role: 'user', content: 'Are you there?' },  // consecutive user
+]
+
+// Sent to Gemini as:
+// contents: [{ role: 'user', parts: [{ text: 'Hi' }, { text: 'Are you there?' }] }]
+```
+
 ## Custom Models
 
 You can specify custom model lists when creating adapters:

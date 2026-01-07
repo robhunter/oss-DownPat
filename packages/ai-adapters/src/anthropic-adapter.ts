@@ -11,6 +11,13 @@ const DEFAULT_ANTHROPIC_MODELS = ['claude-3-opus-20240229', 'claude-3-sonnet-202
 /**
  * Anthropic adapter for Claude models.
  * Supports streaming via callbacks.
+ *
+ * System Message Handling:
+ * - Multiple system messages are concatenated with double newlines (\n\n)
+ * - This preserves the content of all system messages while conforming to
+ *   Anthropic's single system parameter requirement
+ * - Example: [{role:'system', content:'A'}, {role:'system', content:'B'}]
+ *   becomes system: "A\n\nB"
  */
 export class AnthropicAdapter implements AIAdapter {
   readonly provider = 'anthropic';
@@ -117,7 +124,7 @@ export class AnthropicAdapter implements AIAdapter {
 
     for await (const event of stream) {
       if (signal?.aborted) {
-        break;
+        throw new DOMException('The operation was aborted', 'AbortError');
       }
 
       if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
@@ -152,7 +159,8 @@ export class AnthropicAdapter implements AIAdapter {
       case 'max_tokens':
         return 'length';
       default:
-        return 'stop';
+        // Unknown or unhandled stop reasons (e.g., 'tool_use') should be treated as errors
+        return reason ? 'error' : 'stop';
     }
   }
 }

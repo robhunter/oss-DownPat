@@ -105,10 +105,7 @@ export class OpenAIAdapter implements AIAdapter {
 
     for await (const chunk of stream) {
       if (signal?.aborted) {
-        // The loop might continue a bit before the abort exception is thrown by the SDK,
-        // or we can break early. The SDK usually throws on abort.
-        // We will let the SDK handle the abort error, or break if we detect it.
-        break;
+        throw new DOMException('The operation was aborted', 'AbortError');
       }
 
       const delta = chunk.choices[0]?.delta?.content;
@@ -147,7 +144,8 @@ export class OpenAIAdapter implements AIAdapter {
       case 'content_filter':
         return 'content_filter';
       default:
-        return 'stop';
+        // Unknown or unhandled finish reasons (e.g., 'tool_calls') should be treated as errors
+        return reason ? 'error' : 'stop';
     }
   }
 }

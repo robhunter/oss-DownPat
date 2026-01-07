@@ -39,6 +39,11 @@ export class GeminiAdapter implements AIAdapter {
     const contents = this.convertMessages(conversationMessages);
     const geminiModel = this.client.getGenerativeModel({ model });
 
+    // Validate that we have at least one non-system message
+    if (contents.length === 0) {
+      throw new Error('At least one non-system message is required');
+    }
+
     // Build systemInstruction if present
     const systemInstruction = systemMessages.length > 0
       ? { parts: [{ text: systemMessages.map(m => m.content).join('\n\n') }] }
@@ -71,10 +76,26 @@ export class GeminiAdapter implements AIAdapter {
 
   private convertMessages(messages: AIMessage[]): Content[] {
     // Convert messages to Gemini format (system messages should be filtered out before calling this)
-    return messages.map((msg) => ({
-      role: msg.role === 'user' ? 'user' : 'model',
-      parts: [{ text: msg.content }],
-    }));
+    // Gemini requires strictly alternating user/model turns, so we merge consecutive same-role messages
+    const result: Content[] = [];
+
+    for (const msg of messages) {
+      const role = msg.role === 'user' ? 'user' : 'model';
+      const lastMessage = result[result.length - 1];
+
+      if (lastMessage && lastMessage.role === role) {
+        // Merge with previous message of same role
+        lastMessage.parts.push({ text: msg.content });
+      } else {
+        // Start new message
+        result.push({
+          role,
+          parts: [{ text: msg.content }],
+        });
+      }
+    }
+
+    return result;
   }
 
   private async completeStreaming(
@@ -91,7 +112,7 @@ export class GeminiAdapter implements AIAdapter {
 
     for await (const chunk of result.stream) {
       if (signal?.aborted) {
-        break;
+        throw new DOMException('The operation was aborted', 'AbortError');
       }
 
       const text = chunk.text();
@@ -120,7 +141,8 @@ export class GeminiAdapter implements AIAdapter {
       case 'SAFETY':
         return 'content_filter';
       default:
-        return 'stop';
+        // Unknown or unhandled finish reasons should be treated as errors
+        return reason ? 'error' : 'stop';
     }
   }
 }
