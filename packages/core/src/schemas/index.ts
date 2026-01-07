@@ -32,7 +32,7 @@ export const MessageSchema = z.object({
   content: z.string(),
   timestamp: z.string().datetime({ message: 'Invalid timestamp format' }),
   taskId: z.string().optional(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 export type MessageInput = z.infer<typeof MessageSchema>;
@@ -43,7 +43,7 @@ export const AddMessageInputSchema = z.object({
   role: z.string().min(1, 'Role is required'),
   content: z.string(),
   taskId: z.string().optional(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 // ============================================
@@ -114,6 +114,18 @@ export const TaskSchema = z.discriminatedUnion('responseType', [
 export type TaskInput = z.infer<typeof TaskSchema>;
 
 // ============================================
+// Starter Schema
+// ============================================
+
+export const StarterSchema = z.object({
+  text: z.string().min(1, 'Starter text is required'),
+  context: z.string(),
+  attributes: z.record(z.string(), z.string()),
+});
+
+export type StarterInput = z.infer<typeof StarterSchema>;
+
+// ============================================
 // Exercise Schemas
 // ============================================
 
@@ -137,7 +149,7 @@ export const ExerciseSchema = z.object({
   completionTasks: z.array(TaskSchema),
   welcomeMessage: z.string(),
   guidelines: z.string(),
-  starters: z.array(z.string()),
+  starters: z.array(StarterSchema),
   status: ExerciseStatusSchema.optional(),
   priority: z.number().int().optional(),
   createdAt: z.string().datetime({ message: 'Invalid createdAt format' }).optional(),
@@ -172,8 +184,11 @@ export function validate<T>(schema: z.ZodSchema<T>, data: unknown): T {
 
 /**
  * Safely validate data against a schema.
- * Returns { success: true, data } or { success: false, error }.
+ * Returns { success: true, data: T } or { success: false, error: ZodError }.
  */
-export function safeValidate<T>(schema: z.ZodSchema<T>, data: unknown): z.SafeParseReturnType<unknown, T> {
+export function safeValidate<T>(
+  schema: z.ZodSchema<T>,
+  data: unknown
+): { success: true; data: T } | { success: false; error: z.ZodError } {
   return schema.safeParse(data);
 }

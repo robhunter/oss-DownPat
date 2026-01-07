@@ -24,7 +24,7 @@ const mockExercise: Exercise = {
   completionTasks: [],
   welcomeMessage: 'Welcome!',
   guidelines: 'Be helpful.',
-  starters: [],
+  starters: [] as { text: string; context: string; attributes: Record<string, string> }[],
 };
 
 const mockConversation: Conversation = {
@@ -64,6 +64,15 @@ describe('Socket.io attachSocketIO', () => {
 
     mockConversationStorage = {
       getConversation: vi.fn().mockResolvedValue(mockConversation),
+      getConversationMetadata: vi.fn().mockResolvedValue({
+        conversationId: mockConversation.conversationId,
+        exerciseId: mockConversation.exerciseId,
+        userId: mockConversation.userId,
+        createdAt: mockConversation.createdAt,
+        updatedAt: mockConversation.updatedAt,
+        isComplete: mockConversation.isComplete,
+        userMessageCount: 0,
+      }),
       createConversation: vi.fn().mockResolvedValue(mockConversation),
       updateConversation: vi.fn().mockResolvedValue(mockConversation),
       addMessage: vi.fn().mockImplementation(async (convId, msg) => ({

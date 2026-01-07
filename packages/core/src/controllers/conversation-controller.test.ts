@@ -46,7 +46,7 @@ const testExercise: Exercise = {
   completionTasks: [],
   welcomeMessage: 'Welcome to the exercise!',
   guidelines: 'Be helpful.',
-  starters: ['Hello'],
+  starters: [{ text: 'Hello', context: '', attributes: {} }],
 };
 
 const testConversation: Conversation = {
@@ -114,9 +114,9 @@ describe('ConversationController', () => {
       expect(result.userId).toBe('user-1');
       expect(result.isComplete).toBe(false);
       expect(result.userMessageCount).toBe(0);
-      expect(result.messages).toHaveLength(1); // Welcome message
-      expect(result.messages[0].type).toBe(MessageType.STARTER);
-      expect(result.messages[0].content).toBe('Welcome to the exercise!');
+      // Note: First message (starter or welcome) is now added by socket.ts to support
+      // starter selection based on query params
+      expect(result.messages).toHaveLength(0);
       expect(mockConversationStorage.createConversation).toHaveBeenCalled();
     });
 

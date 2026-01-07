@@ -1,6 +1,20 @@
 import { Task } from './task.js';
 
 /**
+ * A conversation starter prompt that can be selected at the start of a conversation.
+ * Starters are selected server-side (randomly or by query params) and displayed
+ * as the first message to the user.
+ */
+export interface Starter {
+  /** The main starter text shown to the user */
+  text: string;
+  /** Additional context for the AI about this starter scenario */
+  context: string;
+  /** Key-value pairs for filtering starters by URL query params */
+  attributes: Record<string, string>;
+}
+
+/**
  * Metadata for tracking draft/published versions of an exercise.
  * Each exercise has a draft version and optionally a published version.
  */
@@ -44,8 +58,8 @@ export interface Exercise {
   welcomeMessage: string;
   /** Guidelines/context for the AI */
   guidelines: string;
-  /** Conversation starter prompts user can choose from */
-  starters: string[];
+  /** Conversation starter prompts that can be selected at conversation start */
+  starters: Starter[];
 
   /** Version status of this exercise instance */
   status?: 'draft' | 'published';

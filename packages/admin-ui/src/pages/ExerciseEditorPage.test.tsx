@@ -19,7 +19,7 @@ const mockExercise: Exercise = {
   talkToCoachEnabled: false,
   welcomeMessage: 'Welcome to the test!',
   guidelines: 'Be helpful and concise.',
-  starters: ['Hello', 'Hi there'],
+  starters: [{ text: 'Hello', context: '', attributes: {} }, { text: 'Hi there', context: '', attributes: {} }],
   continuationTasks: [],
   completionTasks: [],
 };

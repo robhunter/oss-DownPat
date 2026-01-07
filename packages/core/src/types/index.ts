@@ -17,6 +17,7 @@ export {
 } from './task.js';
 
 export type {
+  Starter,
   ExerciseMetadata,
   Exercise,
   CreateExerciseInput,

@@ -16,7 +16,7 @@ const createExercise = (): Exercise => ({
   completionTasks: [],
   welcomeMessage: 'Welcome!',
   guidelines: 'Be helpful',
-  starters: ['Hello'],
+  starters: [{ text: 'Hello', context: '', attributes: {} }],
 });
 
 describe('ExerciseForm', () => {
@@ -106,8 +106,8 @@ describe('ExerciseForm', () => {
 
     fireEvent.click(screen.getByText('+ Add Starter'));
 
-    // Should now have 2 starter inputs
-    const starterInputs = screen.getAllByPlaceholderText(/Starter/);
+    // Should now have 2 starter text areas (using the new StarterEditor placeholder)
+    const starterInputs = screen.getAllByPlaceholderText('Opening message shown to the user...');
     expect(starterInputs.length).toBe(2);
   });
 
@@ -286,14 +286,14 @@ describe('ExerciseForm', () => {
       fireEvent.click(removeButtons[0]);
 
       // Should be back to 1 starter
-      const starterInputs = screen.getAllByPlaceholderText(/Starter/);
+      const starterInputs = screen.getAllByPlaceholderText('Opening message shown to the user...');
       expect(starterInputs.length).toBe(1);
     });
 
     it('should keep at least one starter', () => {
       const onSubmit = vi.fn();
       const exercise = createExercise();
-      exercise.starters = ['Single'];
+      exercise.starters = [{ text: 'Single', context: '', attributes: {} }];
       render(<ExerciseForm exercise={exercise} onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
 
       // Single starter - no remove button should appear
@@ -454,9 +454,9 @@ describe('ExerciseForm', () => {
         target: { value: 'Be helpful.' },
       });
 
-      // Add starters
+      // Add starters - the new StarterEditor uses textarea with different placeholder
       fireEvent.click(screen.getByText('+ Add Starter'));
-      const starterInputs = screen.getAllByPlaceholderText(/Starter/);
+      const starterInputs = screen.getAllByPlaceholderText('Opening message shown to the user...');
       fireEvent.change(starterInputs[0], { target: { value: 'First starter' } });
       // Leave second starter empty
 
@@ -464,7 +464,7 @@ describe('ExerciseForm', () => {
 
       expect(onSubmit).toHaveBeenCalledWith(
         expect.objectContaining({
-          starters: ['First starter'],
+          starters: [{ text: 'First starter', context: '', attributes: {} }],
         })
       );
     });

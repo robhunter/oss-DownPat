@@ -1,7 +1,75 @@
 import { Server as SocketServer } from 'socket.io';
 import type { Server as HTTPServer } from 'http';
-import type { ConversationStorage, ExerciseStorage, ServerAuthProvider, User, AIAdapter, AIMessage, Task, ModerationAdapter } from '@downpat/core';
-import { ConversationController, MessageType, isCommentaryTask } from '@downpat/core';
+import type { ConversationStorage, ExerciseStorage, ServerAuthProvider, User, AIAdapter, AIMessage, Task, ModerationAdapter, Starter, Message } from '@downpat/core';
+import { ConversationController, MessageType, isCommentaryTask, generateId } from '@downpat/core';
+
+/**
+ * Select a starter from the available starters based on query params.
+ * If query params match starter attributes, filters to matching starters.
+ * Only checks query params that exist in the starter's attributes (ignores
+ * unrelated params like UTM tracking codes).
+ * Returns a randomly selected starter from the filtered (or full) list.
+ */
+function selectStarter(starters: Starter[], query: Record<string, string> = {}): Starter | null {
+  if (!starters || starters.length === 0) {
+    return null;
+  }
+
+  // If query params are provided, filter starters by matching attributes
+  if (Object.keys(query).length > 0) {
+    const filtered = starters.filter((starter) => {
+      // Only check query params that exist in this starter's attributes
+      // This allows unrelated params (UTM, tracking, etc.) to be ignored
+      for (const key in starter.attributes) {
+        if (key in query) {
+          const queryValue = query[key]?.toLowerCase();
+          const attrValue = starter.attributes[key]?.toLowerCase();
+          if (queryValue !== attrValue) {
+            return false;
+          }
+        }
+      }
+      return true;
+    });
+
+    if (filtered.length > 0) {
+      return filtered[Math.floor(Math.random() * filtered.length)];
+    }
+    // If no matches, fall back to random from all starters
+  }
+
+  return starters[Math.floor(Math.random() * starters.length)];
+}
+
+/**
+ * Create a Message from a Starter.
+ */
+function starterToMessage(starter: Starter): Message {
+  return {
+    messageId: generateId(),
+    type: MessageType.STARTER,
+    role: 'Assistant', // Display as AI message
+    content: starter.text,
+    timestamp: new Date().toISOString(),
+    metadata: {
+      context: starter.context,
+      attributes: starter.attributes,
+    },
+  };
+}
+
+/**
+ * Create a welcome Message.
+ */
+function createWelcomeMessage(welcomeText: string): Message {
+  return {
+    messageId: generateId(),
+    type: MessageType.STARTER,
+    role: 'Assistant', // Display as AI message
+    content: welcomeText,
+    timestamp: new Date().toISOString(),
+  };
+}
 
 /**
  * Socket.io configuration options.
@@ -91,7 +159,7 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
     });
 
     // Start a new conversation by exercise slug
-    socket.on('start-conversation', async (data: { slug: string }) => {
+    socket.on('start-conversation', async (data: { slug: string; query?: Record<string, string> }) => {
       if (!socket.data.user) {
         socket.emit('error', { message: 'Not authenticated' });
         return;
@@ -109,13 +177,32 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
         // Create the conversation
         const conversation = await controller.startConversation(exercise.exerciseId, socket.data.user);
 
+        // Add the first message: either a selected starter or the welcome message
+        // Note: addMessage modifies conversation.messages in-place for in-memory storage,
+        // so we don't need to push separately
+        if (exercise.starters && exercise.starters.length > 0) {
+          // Exercise has starters - select one and use it as the opening message
+          const selectedStarter = selectStarter(exercise.starters, data.query);
+          if (selectedStarter) {
+            const starterMessage = starterToMessage(selectedStarter);
+            await config.conversationStorage.addMessage(conversation.conversationId, starterMessage);
+          }
+        } else if (exercise.welcomeMessage) {
+          // No starters - use welcome message as fallback
+          const welcomeMessage = createWelcomeMessage(exercise.welcomeMessage);
+          await config.conversationStorage.addMessage(conversation.conversationId, welcomeMessage);
+        }
+
+        // Fetch updated conversation to get messages (storage may have added them)
+        const updatedConversation = await config.conversationStorage.getConversation(conversation.conversationId);
+
         // Join the conversation room
         socket.join(`conversation:${conversation.conversationId}`);
 
         // Emit conversation started with messages and exercise settings
         socket.emit('conversation-started', {
           conversationId: conversation.conversationId,
-          messages: conversation.messages || [],
+          messages: updatedConversation?.messages || [],
           talkToCoachEnabled: exercise.talkToCoachEnabled ?? false,
         });
       } catch (error) {
@@ -453,7 +540,7 @@ Be concise, supportive, and focused on helping them learn.`,
  */
 interface ClientToServerEvents {
   authenticate: (token: string) => void;
-  'start-conversation': (data: { slug: string }) => void;
+  'start-conversation': (data: { slug: string; query?: Record<string, string> }) => void;
   'join-conversation': (conversationId: string) => void;
   'leave-conversation': (conversationId: string) => void;
   'send-message': (data: { conversationId: string; content: string }) => void;

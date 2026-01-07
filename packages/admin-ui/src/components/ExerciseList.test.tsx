@@ -19,7 +19,7 @@ const createExerciseWithMetadata = (
     completionTasks: [],
     welcomeMessage: 'Welcome!',
     guidelines: 'Be helpful',
-    starters: ['Hello'],
+    starters: [{ text: 'Hello', context: '', attributes: {} }],
     ...overrides,
   },
   metadata: {

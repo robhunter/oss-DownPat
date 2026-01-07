@@ -1,7 +1,12 @@
 import React, { useState, useCallback } from 'react';
-import type { Exercise, Task, BaseTask, ConversationTask } from '@downpat/core';
+import type { Exercise, Task, BaseTask, ConversationTask, Starter } from '@downpat/core';
 import { MessageType } from '@downpat/core';
 import { generateId, generateSlug } from '@downpat/core';
+
+/** Create an empty starter with default values */
+function createEmptyStarter(): Starter {
+  return { text: '', context: '', attributes: {} };
+}
 
 export interface ExerciseFormProps {
   /** Initial exercise data for editing (undefined for new exercise) */
@@ -71,7 +76,7 @@ export function ExerciseForm({
     completionTasks: exercise?.completionTasks || [],
     welcomeMessage: exercise?.welcomeMessage || '',
     guidelines: exercise?.guidelines || '',
-    starters: exercise?.starters || [''],
+    starters: exercise?.starters || [createEmptyStarter()],
   }));
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -164,25 +169,26 @@ export function ExerciseForm({
       completionTasks: formData.completionTasks!,
       welcomeMessage: formData.welcomeMessage!,
       guidelines: formData.guidelines!,
-      starters: formData.starters!.filter((s) => s.trim()),
+      // Filter out starters with empty text
+      starters: formData.starters!.filter((s) => s.text.trim()),
     };
 
     onSubmit(finalExercise);
   };
 
   const addStarter = () => {
-    updateField('starters', [...(formData.starters || []), '']);
+    updateField('starters', [...(formData.starters || []), createEmptyStarter()]);
   };
 
-  const updateStarter = (index: number, value: string) => {
+  const updateStarter = (index: number, updates: Partial<Starter>) => {
     const newStarters = [...(formData.starters || [])];
-    newStarters[index] = value;
+    newStarters[index] = { ...newStarters[index], ...updates };
     updateField('starters', newStarters);
   };
 
   const removeStarter = (index: number) => {
     const newStarters = (formData.starters || []).filter((_, i) => i !== index);
-    updateField('starters', newStarters.length > 0 ? newStarters : ['']);
+    updateField('starters', newStarters.length > 0 ? newStarters : [createEmptyStarter()]);
   };
 
   const addContinuationTask = () => {
@@ -312,25 +318,18 @@ export function ExerciseForm({
 
         <div className="downpat-field">
           <label className="downpat-label">Conversation Starters</label>
+          <small className="downpat-help-text">
+            Opening scenario messages shown to users. A random starter is selected when the conversation begins.
+          </small>
           {formData.starters?.map((starter, index) => (
-            <div key={index} className="downpat-starter-row">
-              <input
-                type="text"
-                value={starter}
-                onChange={(e) => updateStarter(index, e.target.value)}
-                placeholder={`Starter ${index + 1}`}
-                className="downpat-input downpat-starter-input"
-              />
-              {formData.starters!.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => removeStarter(index)}
-                  className="downpat-btn downpat-btn--remove"
-                >
-                  Remove
-                </button>
-              )}
-            </div>
+            <StarterEditor
+              key={index}
+              starter={starter}
+              index={index}
+              onChange={(updates) => updateStarter(index, updates)}
+              onRemove={() => removeStarter(index)}
+              canRemove={formData.starters!.length > 1}
+            />
           ))}
           <button type="button" onClick={addStarter} className="downpat-btn downpat-btn--add">
             + Add Starter
@@ -411,6 +410,151 @@ export function ExerciseForm({
         )}
       </div>
     </form>
+  );
+}
+
+// Starter Editor sub-component
+interface StarterEditorProps {
+  starter: Starter;
+  index: number;
+  onChange: (updates: Partial<Starter>) => void;
+  onRemove: () => void;
+  canRemove: boolean;
+}
+
+function StarterEditor({ starter, index, onChange, onRemove, canRemove }: StarterEditorProps): React.JSX.Element {
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  return (
+    <div className="downpat-starter-editor">
+      <div className="downpat-starter-header">
+        <span className="downpat-starter-label">Starter {index + 1}</span>
+        <div className="downpat-starter-actions">
+          <button
+            type="button"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="downpat-btn downpat-btn--small downpat-btn--text"
+          >
+            {showAdvanced ? 'Hide Options' : 'Show Options'}
+          </button>
+          {canRemove && (
+            <button
+              type="button"
+              onClick={onRemove}
+              className="downpat-btn downpat-btn--small downpat-btn--remove"
+            >
+              Remove
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="downpat-field">
+        <label className="downpat-label downpat-label--small">Text *</label>
+        <textarea
+          value={starter.text}
+          onChange={(e) => onChange({ text: e.target.value })}
+          placeholder="Opening message shown to the user..."
+          rows={2}
+          className="downpat-textarea"
+        />
+      </div>
+
+      {showAdvanced && (
+        <>
+          <div className="downpat-field">
+            <label className="downpat-label downpat-label--small">Context</label>
+            <textarea
+              value={starter.context}
+              onChange={(e) => onChange({ context: e.target.value })}
+              placeholder="Additional context for the AI about this scenario (not shown to user)..."
+              rows={2}
+              className="downpat-textarea"
+            />
+            <small className="downpat-help-text">
+              Private context for the AI to understand the scenario
+            </small>
+          </div>
+
+          <div className="downpat-field">
+            <label className="downpat-label downpat-label--small">Attributes</label>
+            <small className="downpat-help-text">
+              Key-value pairs for filtering starters via URL query params (e.g., ?difficulty=easy)
+            </small>
+            <AttributesEditor
+              attributes={starter.attributes}
+              onChange={(attributes) => onChange({ attributes })}
+            />
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// Attributes Editor sub-component for starter attributes
+interface AttributesEditorProps {
+  attributes: Record<string, string>;
+  onChange: (attributes: Record<string, string>) => void;
+}
+
+function AttributesEditor({ attributes, onChange }: AttributesEditorProps): React.JSX.Element {
+  const entries = Object.entries(attributes);
+
+  const addAttribute = () => {
+    onChange({ ...attributes, '': '' });
+  };
+
+  const updateAttribute = (oldKey: string, newKey: string, value: string) => {
+    const newAttrs = { ...attributes };
+    if (oldKey !== newKey) {
+      delete newAttrs[oldKey];
+    }
+    newAttrs[newKey] = value;
+    onChange(newAttrs);
+  };
+
+  const removeAttribute = (key: string) => {
+    const newAttrs = { ...attributes };
+    delete newAttrs[key];
+    onChange(newAttrs);
+  };
+
+  return (
+    <div className="downpat-attributes-editor">
+      {entries.map(([key, value], idx) => (
+        <div key={idx} className="downpat-attribute-row">
+          <input
+            type="text"
+            value={key}
+            onChange={(e) => updateAttribute(key, e.target.value, value)}
+            placeholder="Key"
+            className="downpat-input downpat-input--small"
+          />
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => updateAttribute(key, key, e.target.value)}
+            placeholder="Value"
+            className="downpat-input downpat-input--small"
+          />
+          <button
+            type="button"
+            onClick={() => removeAttribute(key)}
+            className="downpat-btn downpat-btn--small downpat-btn--remove"
+          >
+            ×
+          </button>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={addAttribute}
+        className="downpat-btn downpat-btn--small downpat-btn--add"
+      >
+        + Add Attribute
+      </button>
+    </div>
   );
 }
 

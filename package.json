@@ -23,9 +23,12 @@
     "dev:client": "npm run dev --workspace=example-app-client",
     "build:server": "npm run build --workspace=example-app-server",
     "build:client": "npm run build --workspace=example-app-client",
-    "verify:browser": "./scripts/verify-browser.sh"
+    "verify:browser": "./scripts/verify-browser.sh",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
   },
   "devDependencies": {
+    "@playwright/test": "^1.57.0",
     "@testing-library/jest-dom": "^6.1.0",
     "@types/node": "^20.10.0",
     "@typescript-eslint/eslint-plugin": "^6.13.0",

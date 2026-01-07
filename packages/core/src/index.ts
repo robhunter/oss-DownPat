@@ -15,6 +15,7 @@ export type {
   SummaryTask,
   SimpleTask,
   Task,
+  Starter,
   ExerciseMetadata,
   Exercise,
   CreateExerciseInput,
@@ -76,6 +77,7 @@ export {
   SummaryTaskSchema,
   SimpleTaskSchema,
   TaskSchema,
+  StarterSchema,
   ExerciseStatusSchema,
   ExerciseMetadataSchema,
   ExerciseSchema,
@@ -91,5 +93,6 @@ export type {
   MessageInput,
   ConversationInput,
   TaskInput,
+  StarterInput,
   ExerciseInput,
 } from './schemas/index.js';

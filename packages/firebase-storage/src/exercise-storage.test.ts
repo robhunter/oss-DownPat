@@ -56,7 +56,7 @@ const testExercise: Exercise = {
   completionTasks: [],
   welcomeMessage: 'Welcome!',
   guidelines: 'Be helpful.',
-  starters: ['Hello'],
+  starters: [{ text: 'Hello', context: '', attributes: {} }],
 };
 
 describe('FirebaseExerciseStorage', () => {

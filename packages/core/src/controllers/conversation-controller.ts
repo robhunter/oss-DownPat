@@ -50,17 +50,8 @@ export class ConversationController {
       userMessageCount: 0,
     };
 
-    // Add welcome message if present
-    if (exercise.welcomeMessage) {
-      const welcomeMessage: Message = {
-        messageId: generateId(),
-        type: MessageType.STARTER,
-        role: 'System',
-        content: exercise.welcomeMessage,
-        timestamp: now,
-      };
-      conversation.messages.push(welcomeMessage);
-    }
+    // Note: The first message (starter or welcome) is added by socket.ts
+    // to support starter selection logic based on query params
 
     await this.conversationStorage.createConversation(conversation);
     return conversation;

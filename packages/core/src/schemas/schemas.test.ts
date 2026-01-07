@@ -177,7 +177,7 @@ describe('Zod Schemas', () => {
       completionTasks: [],
       welcomeMessage: 'Welcome!',
       guidelines: 'Be nice.',
-      starters: ['Hi'],
+      starters: [{ text: 'Hi', context: '', attributes: {} }],
     };
 
     it('validates a valid exercise', () => {
@@ -226,7 +226,7 @@ describe('Zod Schemas', () => {
         completionTasks: [],
         welcomeMessage: 'Hi',
         guidelines: 'Guidelines',
-        starters: [],
+        starters: [] as { text: string; context: string; attributes: Record<string, string> }[],
       };
       expect(() => CreateExerciseInputSchema.parse(input)).not.toThrow();
     });
