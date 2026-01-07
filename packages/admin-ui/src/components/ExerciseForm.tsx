@@ -1,16 +1,7 @@
 import React, { useState, useCallback } from 'react';
-import type { Exercise, Task, ConversationTask, BaseTask, MessageFilter } from '@downpat/core';
+import type { Exercise, Task, BaseTask } from '@downpat/core';
 import { MessageType } from '@downpat/core';
 import { generateId, generateSlug } from '@downpat/core';
-
-// Internal task type that allows any response type for editing
-// Includes role and prompt fields from ConversationTask for form editing
-type EditableTask = Omit<BaseTask, 'responseType'> & {
-  responseType: MessageType;
-  role: string;
-  prompt: string;
-  messageFilter?: MessageFilter;
-};
 
 export interface ExerciseFormProps {
   /** Initial exercise data for editing (undefined for new exercise) */
@@ -40,12 +31,41 @@ export function ExerciseForm({
   isSubmitting = false,
   availableModels,
 }: ExerciseFormProps): React.JSX.Element {
+  const hasModels = availableModels.length > 0;
+
+  // Show blocking alert if no models are configured
+  if (!hasModels) {
+    return (
+      <div className="downpat-exercise-form">
+        <div className="downpat-config-error">
+          <div className="downpat-config-error-icon">⚠️</div>
+          <h3 className="downpat-config-error-title">Configuration Required</h3>
+          <p className="downpat-config-error-message">
+            No AI models are available. Please configure at least one model before creating exercises.
+          </p>
+          <p className="downpat-config-error-hint">
+            Pass the <code>availableModels</code> prop with your configured AI models.
+          </p>
+          {onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="downpat-btn downpat-btn--secondary"
+            >
+              Go Back
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   const [formData, setFormData] = useState<Partial<Exercise>>(() => ({
     exerciseId: exercise?.exerciseId || generateId(),
     exerciseName: exercise?.exerciseName || '',
     slug: exercise?.slug || '',
     maxUserMessages: exercise?.maxUserMessages || 10,
-    model: exercise?.model || availableModels[0],
+    model: exercise?.model || (hasModels ? availableModels[0] : ''),
     talkToCoachEnabled: exercise?.talkToCoachEnabled || false,
     continuationTasks: exercise?.continuationTasks || [],
     completionTasks: exercise?.completionTasks || [],
@@ -53,6 +73,62 @@ export function ExerciseForm({
     guidelines: exercise?.guidelines || '',
     starters: exercise?.starters || [''],
   }));
+
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+
+  const validateField = useCallback((field: string, value: unknown): string | null => {
+    switch (field) {
+      case 'exerciseName':
+        if (!value || (typeof value === 'string' && !value.trim())) {
+          return 'Exercise name is required';
+        }
+        break;
+      case 'slug':
+        if (!value || (typeof value === 'string' && !value.trim())) {
+          return 'Slug is required';
+        }
+        if (typeof value === 'string' && !/^[a-z0-9-]+$/.test(value)) {
+          return 'Slug must contain only lowercase letters, numbers, and hyphens';
+        }
+        break;
+      case 'welcomeMessage':
+        if (!value || (typeof value === 'string' && !value.trim())) {
+          return 'Welcome message is required';
+        }
+        break;
+      case 'guidelines':
+        if (!value || (typeof value === 'string' && !value.trim())) {
+          return 'Guidelines are required';
+        }
+        break;
+    }
+    return null;
+  }, []);
+
+  const handleBlur = useCallback((field: string) => {
+    setTouched((prev) => ({ ...prev, [field]: true }));
+    const error = validateField(field, formData[field as keyof Exercise]);
+    setErrors((prev) => ({ ...prev, [field]: error || '' }));
+  }, [formData, validateField]);
+
+  const validateForm = useCallback((): boolean => {
+    const requiredFields = ['exerciseName', 'slug', 'welcomeMessage', 'guidelines'];
+    const newErrors: Record<string, string> = {};
+    let isValid = true;
+
+    for (const field of requiredFields) {
+      const error = validateField(field, formData[field as keyof Exercise]);
+      if (error) {
+        newErrors[field] = error;
+        isValid = false;
+      }
+    }
+
+    setErrors(newErrors);
+    setTouched(Object.fromEntries(requiredFields.map((f) => [f, true])));
+    return isValid;
+  }, [formData, validateField]);
 
   const updateField = useCallback(<K extends keyof Exercise>(
     field: K,
@@ -73,12 +149,16 @@ export function ExerciseForm({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!validateForm()) {
+      return;
+    }
+
     const finalExercise: Exercise = {
       exerciseId: formData.exerciseId!,
       exerciseName: formData.exerciseName!,
       slug: formData.slug!,
       maxUserMessages: formData.maxUserMessages!,
-      model: formData.model!,
+      model: formData.model,
       talkToCoachEnabled: formData.talkToCoachEnabled!,
       continuationTasks: formData.continuationTasks!,
       completionTasks: formData.completionTasks!,
@@ -133,10 +213,14 @@ export function ExerciseForm({
             type="text"
             value={formData.exerciseName}
             onChange={(e) => handleNameChange(e.target.value)}
+            onBlur={() => handleBlur('exerciseName')}
             placeholder="Enter exercise name"
             required
-            className="downpat-input"
+            className={`downpat-input ${touched.exerciseName && errors.exerciseName ? 'downpat-input--error' : ''}`}
           />
+          {touched.exerciseName && errors.exerciseName && (
+            <small className="downpat-field-error-text">{errors.exerciseName}</small>
+          )}
         </div>
 
         <div className="downpat-field">
@@ -144,14 +228,19 @@ export function ExerciseForm({
           <input
             type="text"
             value={formData.slug}
+            onBlur={() => handleBlur('slug')}
             onChange={(e) => updateField('slug', e.target.value)}
             placeholder="exercise-slug"
             required
-            className="downpat-input"
+            className={`downpat-input ${touched.slug && errors.slug ? 'downpat-input--error' : ''}`}
             pattern="[a-z0-9\-]+"
             title="Lowercase letters, numbers, and hyphens only"
           />
-          <small className="downpat-help-text">URL-friendly identifier (auto-generated from name)</small>
+          {touched.slug && errors.slug ? (
+            <small className="downpat-field-error-text">{errors.slug}</small>
+          ) : (
+            <small className="downpat-help-text">URL-friendly identifier (auto-generated from name)</small>
+          )}
         </div>
 
         <div className="downpat-field">
@@ -192,25 +281,33 @@ export function ExerciseForm({
         <h3 className="downpat-section-title">Content</h3>
 
         <div className="downpat-field">
-          <label className="downpat-label">Welcome Message</label>
+          <label className="downpat-label">Welcome Message *</label>
           <textarea
             value={formData.welcomeMessage}
             onChange={(e) => updateField('welcomeMessage', e.target.value)}
+            onBlur={() => handleBlur('welcomeMessage')}
             placeholder="Message shown when conversation starts..."
             rows={3}
-            className="downpat-textarea"
+            className={`downpat-textarea ${touched.welcomeMessage && errors.welcomeMessage ? 'downpat-textarea--error' : ''}`}
           />
+          {touched.welcomeMessage && errors.welcomeMessage && (
+            <small className="downpat-field-error-text">{errors.welcomeMessage}</small>
+          )}
         </div>
 
         <div className="downpat-field">
-          <label className="downpat-label">Guidelines</label>
+          <label className="downpat-label">Guidelines *</label>
           <textarea
             value={formData.guidelines}
             onChange={(e) => updateField('guidelines', e.target.value)}
+            onBlur={() => handleBlur('guidelines')}
             placeholder="Guidelines for the AI..."
             rows={4}
-            className="downpat-textarea"
+            className={`downpat-textarea ${touched.guidelines && errors.guidelines ? 'downpat-textarea--error' : ''}`}
           />
+          {touched.guidelines && errors.guidelines && (
+            <small className="downpat-field-error-text">{errors.guidelines}</small>
+          )}
         </div>
 
         <div className="downpat-field">
@@ -254,7 +351,7 @@ export function ExerciseForm({
           formData.continuationTasks?.map((task, index) => (
             <TaskEditor
               key={task.taskId}
-              task={task as EditableTask}
+              task={task as BaseTask}
               onChange={(updated) => {
                 const newTasks = [...(formData.continuationTasks || [])] as Task[];
                 newTasks[index] = updated as Task;
@@ -319,8 +416,8 @@ export function ExerciseForm({
 
 // Task Editor sub-component
 interface TaskEditorProps {
-  task: EditableTask;
-  onChange: (task: EditableTask) => void;
+  task: BaseTask;
+  onChange: (task: BaseTask) => void;
   onRemove: () => void;
 }
 

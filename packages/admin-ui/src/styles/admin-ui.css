@@ -5,6 +5,12 @@
  *
  * Usage:
  * import '@downpat/admin-ui/styles';
+ *
+ * CSS Namespace:
+ * All classes use the `downpat-` prefix to avoid conflicts with host application
+ * styles. This follows BEM-like naming: .downpat-{block}--{modifier}
+ *
+ * For complete isolation, wrap the admin UI in a Shadow DOM container.
  */
 
 :root {
@@ -113,6 +119,14 @@
   outline-offset: 1px;
 }
 
+.downpat-input--error {
+  border-color: #dc2626;
+}
+
+.downpat-input--error:focus {
+  outline-color: #dc2626;
+}
+
 .downpat-input--small {
   font-size: 12px;
   padding: 6px 8px;
@@ -143,6 +157,22 @@
 .downpat-textarea:focus {
   outline: 2px solid var(--downpat-admin-input-focus);
   outline-offset: 1px;
+}
+
+.downpat-textarea--error {
+  border-color: #dc2626;
+}
+
+.downpat-textarea--error:focus {
+  outline-color: #dc2626;
+}
+
+/* Field error text */
+.downpat-field-error-text {
+  display: block;
+  color: #dc2626;
+  font-size: 12px;
+  margin-top: 4px;
 }
 
 .downpat-select {
@@ -295,6 +325,48 @@
 .downpat-empty-state {
   color: var(--downpat-admin-help-color);
   font-style: italic;
+}
+
+/* Configuration error - blocking alert */
+.downpat-config-error {
+  text-align: center;
+  padding: 48px 24px;
+  background-color: #fef3c7;
+  border: 1px solid #f59e0b;
+  border-radius: var(--downpat-radius-lg, 12px);
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.downpat-config-error-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.downpat-config-error-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #92400e;
+  margin: 0 0 12px 0;
+}
+
+.downpat-config-error-message {
+  font-size: 14px;
+  color: #78350f;
+  margin: 0 0 8px 0;
+}
+
+.downpat-config-error-hint {
+  font-size: 13px;
+  color: #a16207;
+  margin: 0 0 20px 0;
+}
+
+.downpat-config-error-hint code {
+  background-color: rgba(0, 0, 0, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: monospace;
 }
 
 /* ============================================

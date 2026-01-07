@@ -18,8 +18,14 @@ export { AdminProvider, useAdminContext, useAdminAPI } from './AdminContext.js';
 export type { AdminProviderProps } from './AdminContext.js';
 
 // API Client
-export { createAdminAPIClient } from './api-client.js';
-export type { AdminAPIClient, ExerciseWithMetadata } from './api-client.js';
+export { createAdminAPIClient, AdminAPIError } from './api-client.js';
+export type {
+  AdminAPIClient,
+  ExerciseWithMetadata,
+  APIErrorResponse,
+  PaginationParams,
+  PaginatedResponse,
+} from './api-client.js';
 
 // Page components (for advanced customization)
 export { ExerciseListPage } from './pages/ExerciseListPage.js';

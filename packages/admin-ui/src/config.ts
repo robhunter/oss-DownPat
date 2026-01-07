@@ -1,5 +1,20 @@
 /**
  * Configuration for the DownPat Admin UI.
+ *
+ * ## Navigation Architecture
+ *
+ * The admin UI manages its own routing state internally. This allows it to work
+ * as a self-contained module without requiring a specific router library.
+ *
+ * - **Internal navigation**: The admin UI tracks the current path and renders
+ *   the appropriate page. Users can navigate via links and buttons within the UI.
+ *
+ * - **onNavigate callback**: A notification hook that fires when navigation occurs.
+ *   Use this to sync with your app's router (update URL, browser history, etc.).
+ *   This is one-way notification, not a control mechanism.
+ *
+ * - **External navigation**: Use the `navigate()` method returned by `mountAdminUI()`
+ *   to programmatically navigate from outside the admin UI.
  */
 export interface AdminUIConfig {
   /**
@@ -16,20 +31,33 @@ export interface AdminUIConfig {
   /**
    * Available AI models for exercise configuration.
    * These are shown in the model dropdown when creating/editing exercises.
+   * Must contain at least one model.
    */
   availableModels: string[];
 
   /**
    * Base path for admin routes (e.g., '/admin').
-   * Used for internal navigation within the admin UI.
+   * Used for constructing full paths in onNavigate callbacks.
    * @default '/admin'
    */
   basePath?: string;
 
   /**
-   * Callback when navigation occurs.
-   * Use this to integrate with your app's router (e.g., react-router, next/router).
-   * If not provided, admin UI uses its own internal routing.
+   * Notification callback when navigation occurs within the admin UI.
+   *
+   * This is called whenever the user navigates (clicks a link, submits a form, etc.)
+   * so you can sync with your app's router. The path includes the basePath prefix.
+   *
+   * Note: This is a notification, not a control mechanism. The admin UI manages
+   * its own routing state internally. To navigate programmatically, use the
+   * `navigate()` method returned by `mountAdminUI()`.
+   *
+   * @example
+   * ```typescript
+   * onNavigate: (path) => {
+   *   window.history.pushState(null, '', path);
+   * }
+   * ```
    */
   onNavigate?: (path: string) => void;
 

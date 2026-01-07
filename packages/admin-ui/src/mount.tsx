@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { AdminApp } from './AdminApp.js';
+import { ControlledAdminApp } from './AdminApp.js';
 import type { AdminUIConfig } from './config.js';
 
 export interface MountAdminUIOptions extends AdminUIConfig {
@@ -18,8 +18,23 @@ export interface MountedAdminUI {
   unmount: () => void;
 
   /**
-   * Navigate to a path within the admin UI.
+   * Programmatically navigate to a path within the admin UI.
+   *
+   * Use this for external navigation control (e.g., syncing with browser URL).
    * Path should be relative to basePath (e.g., '/exercises', '/exercises/new').
+   *
+   * Note: This updates the internal routing state directly. Unlike internal
+   * navigation, this does NOT trigger the onNavigate callback (since you're
+   * already in control of the navigation from outside).
+   *
+   * @example
+   * ```typescript
+   * // Navigate to edit page when URL changes
+   * window.addEventListener('popstate', () => {
+   *   const path = window.location.pathname.replace('/admin', '');
+   *   admin.navigate(path);
+   * });
+   * ```
    */
   navigate: (path: string) => void;
 }
@@ -57,27 +72,25 @@ export function mountAdminUI(options: MountAdminUIOptions): MountedAdminUI {
   // Track navigation callback for external navigation
   let navigateCallback: ((path: string) => void) | null = null;
 
-  const configWithNavigation: AdminUIConfig = {
-    ...config,
-    onNavigate: (path) => {
-      // Store the path for the navigate() method
-      if (config.onNavigate) {
-        config.onNavigate(path);
-      }
-    },
-  };
-
   // Create React root and render
   const root: Root = createRoot(targetElement);
 
-  // Create a wrapper component that exposes navigation
+  // Create a wrapper component that manages path state and exposes navigation
   const AdminAppWithRef = () => {
-    const [, forceUpdate] = React.useState({});
+    const [currentPath, setCurrentPath] = useState('/');
 
-    React.useEffect(() => {
-      navigateCallback = (_path: string) => {
-        // Update internal state to trigger re-render with new path
-        forceUpdate({});
+    const handleNavigate = useCallback((path: string) => {
+      setCurrentPath(path);
+      // Notify host app of navigation
+      if (config.onNavigate) {
+        const fullPath = `${config.basePath || '/admin'}${path}`;
+        config.onNavigate(fullPath);
+      }
+    }, []);
+
+    useEffect(() => {
+      navigateCallback = (path: string) => {
+        setCurrentPath(path);
       };
 
       return () => {
@@ -85,7 +98,12 @@ export function mountAdminUI(options: MountAdminUIOptions): MountedAdminUI {
       };
     }, []);
 
-    return <AdminApp config={configWithNavigation} />;
+    const configWithNavigation: AdminUIConfig = {
+      ...config,
+      onNavigate: handleNavigate,
+    };
+
+    return <ControlledAdminApp config={configWithNavigation} path={currentPath} />;
   };
 
   root.render(<AdminAppWithRef />);

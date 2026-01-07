@@ -8,24 +8,31 @@ const APIClientContext = createContext<AdminAPIClient | null>(null);
 export interface AdminProviderProps {
   config: AdminUIConfig;
   children: React.ReactNode;
-  /** Initial path (defaults to '/') */
+  /** Initial path for uncontrolled mode (defaults to '/') */
   initialPath?: string;
+  /** Controlled path - when provided, overrides internal state */
+  path?: string;
 }
 
 /**
  * Provider component for admin UI configuration and state.
+ * Supports both controlled (path prop) and uncontrolled (initialPath) modes.
  */
 export function AdminProvider({
   config,
   children,
   initialPath = '/',
+  path,
 }: AdminProviderProps): React.JSX.Element {
-  const [currentPath, setCurrentPath] = useState(initialPath);
+  const [internalPath, setInternalPath] = useState(initialPath);
 
-  const navigate = useCallback((path: string) => {
-    setCurrentPath(path);
+  // Use controlled path if provided, otherwise use internal state
+  const currentPath = path !== undefined ? path : internalPath;
+
+  const navigate = useCallback((newPath: string) => {
+    setInternalPath(newPath);
     if (config.onNavigate) {
-      const fullPath = `${config.basePath || '/admin'}${path}`;
+      const fullPath = `${config.basePath || '/admin'}${newPath}`;
       config.onNavigate(fullPath);
     }
   }, [config]);
