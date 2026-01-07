@@ -127,3 +127,5 @@ docs/.cache/
 !tsconfig*.json
 !jest.config.*
 !tailwind.config.*
+
+.chainlink/issues.db
