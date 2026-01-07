@@ -62,11 +62,12 @@ Every milestone must pass:
 # Run tests
 npm test
 
-# Start server (terminal 1)
-npm run dev:server
+# Start both servers (backgrounds automatically)
+npm run dev
 
-# Start client (terminal 2)
-npm run dev:client -- --host 0.0.0.0
+# Or start separately:
+# npm run dev:server  (API on port 3001)
+# npm run dev:client  (Vite on port 5173)
 
 # Browser verification (captures screenshot)
 shot-scraper http://localhost:5173 -o /tmp/screenshot.png --wait 2000
