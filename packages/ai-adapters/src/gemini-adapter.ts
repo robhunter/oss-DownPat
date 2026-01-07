@@ -4,50 +4,7 @@ import type {
   AICompletionResult,
   AIMessage,
 } from '@downpat/core';
-
-// Types for Gemini SDK (to avoid requiring it at compile time)
-interface GeminiClient {
-  getGenerativeModel(params: { model: string }): GeminiModel;
-}
-
-interface GeminiModel {
-  generateContent(params: {
-    contents: GeminiContent[];
-    systemInstruction?: { parts: Array<{ text: string }> };
-  }): Promise<GeminiResponse>;
-  generateContentStream(params: {
-    contents: GeminiContent[];
-    systemInstruction?: { parts: Array<{ text: string }> };
-  }): Promise<GeminiStreamResponse>;
-}
-
-interface GeminiContent {
-  role: 'user' | 'model';
-  parts: Array<{ text: string }>;
-}
-
-interface GeminiResponse {
-  response: {
-    text(): string;
-    candidates?: Array<{
-      finishReason?: string;
-    }>;
-    usageMetadata?: {
-      promptTokenCount: number;
-      candidatesTokenCount: number;
-      totalTokenCount: number;
-    };
-  };
-}
-
-interface GeminiStreamResponse {
-  stream: AsyncIterable<{
-    text(): string;
-    candidates?: Array<{
-      finishReason?: string;
-    }>;
-  }>;
-}
+import type { GoogleGenerativeAI, GenerativeModel, Content } from '@google/generative-ai';
 
 const DEFAULT_GEMINI_MODELS = ['gemini-pro', 'gemini-1.5-pro', 'gemini-1.5-flash'];
 
@@ -58,9 +15,9 @@ const DEFAULT_GEMINI_MODELS = ['gemini-pro', 'gemini-1.5-pro', 'gemini-1.5-flash
 export class GeminiAdapter implements AIAdapter {
   readonly provider = 'gemini';
   private models: string[];
-  private client: GeminiClient;
+  private client: GoogleGenerativeAI;
 
-  constructor(client: GeminiClient, models: string[] = DEFAULT_GEMINI_MODELS) {
+  constructor(client: GoogleGenerativeAI, models: string[] = DEFAULT_GEMINI_MODELS) {
     this.client = client;
     this.models = models;
   }
@@ -76,51 +33,43 @@ export class GeminiAdapter implements AIAdapter {
   async complete(options: AICompletionOptions): Promise<AICompletionResult> {
     const { model, messages, onChunk, signal } = options;
 
-    // Extract system message and convert remaining messages to Gemini format
-    const systemMessage = messages.find((m) => m.role === 'system');
+    // Extract system messages and convert remaining messages to Gemini format
+    const systemMessages = messages.filter((m) => m.role === 'system');
     const conversationMessages = messages.filter((m) => m.role !== 'system');
     const contents = this.convertMessages(conversationMessages);
     const geminiModel = this.client.getGenerativeModel({ model });
 
     // Build systemInstruction if present
-    const systemInstruction = systemMessage
-      ? { parts: [{ text: systemMessage.content }] }
+    const systemInstruction = systemMessages.length > 0
+      ? { parts: [{ text: systemMessages.map(m => m.content).join('\n\n') }] }
       : undefined;
 
-    try {
-      if (onChunk) {
-        // Streaming mode
-        return await this.completeStreaming(geminiModel, contents, systemInstruction, onChunk, signal);
-      }
-
-      // Non-streaming mode
-      const response = await geminiModel.generateContent({ contents, systemInstruction });
-      const text = response.response.text();
-      const finishReason = this.mapFinishReason(
-        response.response.candidates?.[0]?.finishReason
-      );
-
-      return {
-        content: text,
-        finishReason,
-        usage: response.response.usageMetadata
-          ? {
-              promptTokens: response.response.usageMetadata.promptTokenCount,
-              completionTokens: response.response.usageMetadata.candidatesTokenCount,
-              totalTokens: response.response.usageMetadata.totalTokenCount,
-            }
-          : undefined,
-      };
-    } catch (error) {
-      // Return error result for API failures
-      return {
-        content: '',
-        finishReason: 'error',
-      };
+    if (onChunk) {
+      // Streaming mode
+      return await this.completeStreaming(geminiModel, contents, systemInstruction, onChunk, signal);
     }
+
+    // Non-streaming mode
+    const response = await geminiModel.generateContent({ contents, systemInstruction });
+    const text = response.response.text();
+    const finishReason = this.mapFinishReason(
+      response.response.candidates?.[0]?.finishReason
+    );
+
+    return {
+      content: text,
+      finishReason,
+      usage: response.response.usageMetadata
+        ? {
+            promptTokens: response.response.usageMetadata.promptTokenCount,
+            completionTokens: response.response.usageMetadata.candidatesTokenCount,
+            totalTokens: response.response.usageMetadata.totalTokenCount,
+          }
+        : undefined,
+    };
   }
 
-  private convertMessages(messages: AIMessage[]): GeminiContent[] {
+  private convertMessages(messages: AIMessage[]): Content[] {
     // Convert messages to Gemini format (system messages should be filtered out before calling this)
     return messages.map((msg) => ({
       role: msg.role === 'user' ? 'user' : 'model',
@@ -129,8 +78,8 @@ export class GeminiAdapter implements AIAdapter {
   }
 
   private async completeStreaming(
-    model: GeminiModel,
-    contents: GeminiContent[],
+    model: GenerativeModel,
+    contents: Content[],
     systemInstruction: { parts: Array<{ text: string }> } | undefined,
     onChunk: (chunk: string) => void,
     signal?: AbortSignal
@@ -142,7 +91,6 @@ export class GeminiAdapter implements AIAdapter {
 
     for await (const chunk of result.stream) {
       if (signal?.aborted) {
-        finishReason = 'error';
         break;
       }
 
@@ -187,7 +135,7 @@ export async function createGeminiAdapter(
 ): Promise<GeminiAdapter> {
   // Dynamically import Gemini to avoid requiring it at compile time
   const { GoogleGenerativeAI } = await import('@google/generative-ai');
-  const client = new GoogleGenerativeAI(apiKey) as unknown as GeminiClient;
+  const client = new GoogleGenerativeAI(apiKey);
 
   return new GeminiAdapter(client, models);
 }

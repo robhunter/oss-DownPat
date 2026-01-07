@@ -4,37 +4,7 @@ import type {
   AICompletionResult,
   AIMessage,
 } from '@downpat/core';
-
-// Types for Anthropic SDK (to avoid requiring it at compile time)
-interface AnthropicClient {
-  messages: {
-    create(params: unknown): Promise<unknown>;
-    stream(params: unknown): AsyncIterable<unknown>;
-  };
-}
-
-interface AnthropicMessage {
-  role: 'user' | 'assistant';
-  content: string;
-}
-
-interface AnthropicStreamEvent {
-  type: string;
-  delta?: { text?: string };
-  message?: {
-    stop_reason?: string;
-    usage?: { input_tokens: number; output_tokens: number };
-  };
-}
-
-interface AnthropicResponse {
-  content: Array<{ text: string; type: string }>;
-  stop_reason: string;
-  usage: {
-    input_tokens: number;
-    output_tokens: number;
-  };
-}
+import type { Anthropic } from '@anthropic-ai/sdk';
 
 const DEFAULT_ANTHROPIC_MODELS = ['claude-3-opus-20240229', 'claude-3-sonnet-20240229', 'claude-3-haiku-20240307'];
 
@@ -45,9 +15,9 @@ const DEFAULT_ANTHROPIC_MODELS = ['claude-3-opus-20240229', 'claude-3-sonnet-202
 export class AnthropicAdapter implements AIAdapter {
   readonly provider = 'anthropic';
   private models: string[];
-  private client: AnthropicClient;
+  private client: Anthropic;
 
-  constructor(client: AnthropicClient, models: string[] = DEFAULT_ANTHROPIC_MODELS) {
+  constructor(client: Anthropic, models: string[] = DEFAULT_ANTHROPIC_MODELS) {
     this.client = client;
     this.models = models;
   }
@@ -73,53 +43,48 @@ export class AnthropicAdapter implements AIAdapter {
       messages.filter((m) => m.role !== 'system')
     );
 
-    try {
-      if (onChunk) {
-        // Streaming mode
-        return await this.completeStreaming(
-          conversationMessages,
-          systemContent,
-          model,
-          maxTokens ?? 4096,
-          temperature,
-          onChunk,
-          signal
-        );
-      }
+    if (onChunk) {
+      // Streaming mode
+      return await this.completeStreaming(
+        conversationMessages,
+        systemContent,
+        model,
+        maxTokens ?? 4096,
+        temperature,
+        onChunk,
+        signal
+      );
+    }
 
-      // Non-streaming mode
-      const response = (await this.client.messages.create({
+    // Non-streaming mode
+    const response = await this.client.messages.create(
+      {
         model,
         max_tokens: maxTokens ?? 4096,
         temperature: temperature ?? 0.7,
         system: systemContent,
         messages: conversationMessages,
-      })) as AnthropicResponse;
+      },
+      { signal }
+    );
 
-      const content = response.content
-        .filter((block) => block.type === 'text')
-        .map((block) => block.text)
-        .join('');
+    const content = response.content
+      .filter((block) => block.type === 'text')
+      .map((block) => block.text)
+      .join('');
 
-      return {
-        content,
-        finishReason: this.mapStopReason(response.stop_reason),
-        usage: {
-          promptTokens: response.usage.input_tokens,
-          completionTokens: response.usage.output_tokens,
-          totalTokens: response.usage.input_tokens + response.usage.output_tokens,
-        },
-      };
-    } catch (error) {
-      // Return error result for API failures
-      return {
-        content: '',
-        finishReason: 'error',
-      };
-    }
+    return {
+      content,
+      finishReason: this.mapStopReason(response.stop_reason),
+      usage: {
+        promptTokens: response.usage.input_tokens,
+        completionTokens: response.usage.output_tokens,
+        totalTokens: response.usage.input_tokens + response.usage.output_tokens,
+      },
+    };
   }
 
-  private convertMessages(messages: AIMessage[]): AnthropicMessage[] {
+  private convertMessages(messages: AIMessage[]): Array<{ role: 'user' | 'assistant'; content: string }> {
     return messages.map((msg) => ({
       role: msg.role === 'user' ? 'user' : 'assistant',
       content: msg.content,
@@ -127,7 +92,7 @@ export class AnthropicAdapter implements AIAdapter {
   }
 
   private async completeStreaming(
-    messages: AnthropicMessage[],
+    messages: Array<{ role: 'user' | 'assistant'; content: string }>,
     system: string | undefined,
     model: string,
     maxTokens: number,
@@ -135,13 +100,16 @@ export class AnthropicAdapter implements AIAdapter {
     onChunk: (chunk: string) => void,
     signal?: AbortSignal
   ): Promise<AICompletionResult> {
-    const stream = this.client.messages.stream({
-      model,
-      max_tokens: maxTokens,
-      temperature: temperature ?? 0.7,
-      system,
-      messages,
-    }) as AsyncIterable<AnthropicStreamEvent>;
+    const stream = this.client.messages.stream(
+      {
+        model,
+        max_tokens: maxTokens,
+        temperature: temperature ?? 0.7,
+        system,
+        messages,
+      },
+      { signal }
+    );
 
     let content = '';
     let finishReason: AICompletionResult['finishReason'] = 'stop';
@@ -149,11 +117,10 @@ export class AnthropicAdapter implements AIAdapter {
 
     for await (const event of stream) {
       if (signal?.aborted) {
-        finishReason = 'error';
         break;
       }
 
-      if (event.type === 'content_block_delta' && event.delta?.text) {
+      if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
         content += event.delta.text;
         onChunk(event.delta.text);
       }
@@ -177,7 +144,7 @@ export class AnthropicAdapter implements AIAdapter {
     };
   }
 
-  private mapStopReason(reason?: string): AICompletionResult['finishReason'] {
+  private mapStopReason(reason?: string | null): AICompletionResult['finishReason'] {
     switch (reason) {
       case 'end_turn':
       case 'stop_sequence':
@@ -204,7 +171,7 @@ export async function createAnthropicAdapter(
   const client = new Anthropic({
     apiKey,
     baseURL: baseUrl,
-  }) as unknown as AnthropicClient;
+  });
 
   return new AnthropicAdapter(client, models);
 }

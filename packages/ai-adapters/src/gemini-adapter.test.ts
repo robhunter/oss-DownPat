@@ -185,12 +185,11 @@ describe('GeminiAdapter', () => {
     mockModel.generateContent.mockRejectedValue(new Error('Network error'));
 
     const adapter = new GeminiAdapter(mockClient);
-    const result = await adapter.complete({
-      model: 'gemini-pro',
-      messages: [{ role: 'user', content: 'Hello' }],
-    });
-
-    expect(result.content).toBe('');
-    expect(result.finishReason).toBe('error');
+    await expect(
+      adapter.complete({
+        model: 'gemini-pro',
+        messages: [{ role: 'user', content: 'Hello' }],
+      })
+    ).rejects.toThrow('Network error');
   });
 });

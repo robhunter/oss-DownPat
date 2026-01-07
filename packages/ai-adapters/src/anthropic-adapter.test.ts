@@ -55,8 +55,8 @@ describe('AnthropicAdapter', () => {
 
   it('completes streaming request', async () => {
     const events = [
-      { type: 'content_block_delta', delta: { text: 'Hello' } },
-      { type: 'content_block_delta', delta: { text: ' from Claude!' } },
+      { type: 'content_block_delta', delta: { type: 'text_delta', text: 'Hello' } },
+      { type: 'content_block_delta', delta: { type: 'text_delta', text: ' from Claude!' } },
       {
         type: 'message_stop',
         message: {
@@ -147,7 +147,8 @@ describe('AnthropicAdapter', () => {
           { role: 'assistant', content: 'Hi there!' },
           { role: 'user', content: 'How are you?' },
         ],
-      })
+      }),
+      { signal: undefined }
     );
   });
 
@@ -173,7 +174,8 @@ describe('AnthropicAdapter', () => {
       expect.objectContaining({
         system: 'You are a helpful assistant.\n\nAlways be concise.',
         messages: [{ role: 'user', content: 'Hello' }],
-      })
+      }),
+      { signal: undefined }
     );
   });
 
@@ -181,12 +183,11 @@ describe('AnthropicAdapter', () => {
     mockClient.messages.create.mockRejectedValue(new Error('Network error'));
 
     const adapter = new AnthropicAdapter(mockClient);
-    const result = await adapter.complete({
-      model: 'claude-3-opus',
-      messages: [{ role: 'user', content: 'Hello' }],
-    });
-
-    expect(result.content).toBe('');
-    expect(result.finishReason).toBe('error');
+    await expect(
+      adapter.complete({
+        model: 'claude-3-opus',
+        messages: [{ role: 'user', content: 'Hello' }],
+      })
+    ).rejects.toThrow('Network error');
   });
 });

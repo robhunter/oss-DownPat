@@ -102,7 +102,8 @@ describe('OpenAIAdapter', () => {
       expect.objectContaining({
         stream: true,
         stream_options: { include_usage: true },
-      })
+      }),
+      { signal: undefined }
     );
   });
 
@@ -148,13 +149,12 @@ describe('OpenAIAdapter', () => {
     mockClient.chat.completions.create.mockRejectedValue(new Error('Network error'));
 
     const adapter = new OpenAIAdapter(mockClient);
-    const result = await adapter.complete({
-      model: 'gpt-4',
-      messages: [{ role: 'user', content: 'Hello' }],
-    });
-
-    expect(result.content).toBe('');
-    expect(result.finishReason).toBe('error');
+    await expect(
+      adapter.complete({
+        model: 'gpt-4',
+        messages: [{ role: 'user', content: 'Hello' }],
+      })
+    ).rejects.toThrow('Network error');
   });
 });
 

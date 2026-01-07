@@ -5,55 +5,7 @@ import type {
   ModerationAdapter,
   ModerationResult,
 } from '@downpat/core';
-
-// Types for OpenAI SDK (to avoid requiring it at compile time)
-interface OpenAIClient {
-  chat: {
-    completions: {
-      create(params: unknown): Promise<unknown>;
-    };
-  };
-  moderations: {
-    create(params: { input: string }): Promise<unknown>;
-  };
-}
-
-interface OpenAIMessage {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
-}
-
-interface OpenAIChatCompletionChunk {
-  choices: Array<{
-    delta?: { content?: string };
-    finish_reason?: string;
-  }>;
-  usage?: {
-    prompt_tokens: number;
-    completion_tokens: number;
-    total_tokens: number;
-  };
-}
-
-interface OpenAIChatCompletion {
-  choices: Array<{
-    message: { content: string };
-    finish_reason: string;
-  }>;
-  usage?: {
-    prompt_tokens: number;
-    completion_tokens: number;
-    total_tokens: number;
-  };
-}
-
-interface OpenAIModerationResponse {
-  results: Array<{
-    flagged: boolean;
-    categories: Record<string, boolean>;
-    category_scores: Record<string, number>;
-  }>;
-}
+import type { OpenAI } from 'openai';
 
 const DEFAULT_OPENAI_MODELS = ['gpt-4', 'gpt-4-turbo', 'gpt-4o', 'gpt-3.5-turbo'];
 
@@ -64,9 +16,9 @@ const DEFAULT_OPENAI_MODELS = ['gpt-4', 'gpt-4-turbo', 'gpt-4o', 'gpt-3.5-turbo'
 export class OpenAIAdapter implements AIAdapter {
   readonly provider = 'openai';
   private models: string[];
-  private client: OpenAIClient;
+  private client: OpenAI;
 
-  constructor(client: OpenAIClient, models: string[] = DEFAULT_OPENAI_MODELS) {
+  constructor(client: OpenAI, models: string[] = DEFAULT_OPENAI_MODELS) {
     this.client = client;
     this.models = models;
   }
@@ -82,65 +34,70 @@ export class OpenAIAdapter implements AIAdapter {
   async complete(options: AICompletionOptions): Promise<AICompletionResult> {
     const { model, messages, maxTokens, temperature, onChunk, signal } = options;
 
-    const openaiMessages: OpenAIMessage[] = messages.map((msg) => ({
-      role: msg.role,
+    const openaiMessages = messages.map((msg) => ({
+      role: msg.role as 'system' | 'user' | 'assistant',
       content: msg.content,
     }));
 
-    try {
-      if (onChunk) {
-        // Streaming mode
-        return await this.completeStreaming(openaiMessages, model, maxTokens, temperature, onChunk, signal);
-      }
+    if (onChunk) {
+      // Streaming mode
+      return await this.completeStreaming(
+        openaiMessages,
+        model,
+        maxTokens,
+        temperature,
+        onChunk,
+        signal
+      );
+    }
 
-      // Non-streaming mode
-      const response = (await this.client.chat.completions.create({
+    // Non-streaming mode
+    const response = await this.client.chat.completions.create(
+      {
         model,
         messages: openaiMessages,
         max_tokens: maxTokens,
         temperature: temperature ?? 0.7,
-      })) as OpenAIChatCompletion;
+      },
+      { signal }
+    );
 
-      const choice = response.choices[0];
-      const content = choice?.message?.content || '';
-      const finishReason = this.mapFinishReason(choice?.finish_reason);
+    const choice = response.choices[0];
+    const content = choice?.message?.content || '';
+    const finishReason = this.mapFinishReason(choice?.finish_reason);
 
-      return {
-        content,
-        finishReason,
-        usage: response.usage
-          ? {
-              promptTokens: response.usage.prompt_tokens,
-              completionTokens: response.usage.completion_tokens,
-              totalTokens: response.usage.total_tokens,
-            }
-          : undefined,
-      };
-    } catch (error) {
-      // Return error result for API failures
-      return {
-        content: '',
-        finishReason: 'error',
-      };
-    }
+    return {
+      content,
+      finishReason,
+      usage: response.usage
+        ? {
+            promptTokens: response.usage.prompt_tokens,
+            completionTokens: response.usage.completion_tokens,
+            totalTokens: response.usage.total_tokens,
+          }
+        : undefined,
+    };
   }
 
   private async completeStreaming(
-    messages: OpenAIMessage[],
+    messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
     model: string,
     maxTokens: number | undefined,
     temperature: number | undefined,
     onChunk: (chunk: string) => void,
     signal?: AbortSignal
   ): Promise<AICompletionResult> {
-    const stream = (await this.client.chat.completions.create({
-      model,
-      messages,
-      max_tokens: maxTokens,
-      temperature: temperature ?? 0.7,
-      stream: true,
-      stream_options: { include_usage: true },
-    })) as AsyncIterable<OpenAIChatCompletionChunk>;
+    const stream = await this.client.chat.completions.create(
+      {
+        model,
+        messages,
+        max_tokens: maxTokens,
+        temperature: temperature ?? 0.7,
+        stream: true,
+        stream_options: { include_usage: true },
+      },
+      { signal }
+    );
 
     let content = '';
     let finishReason: AICompletionResult['finishReason'] = 'stop';
@@ -148,7 +105,9 @@ export class OpenAIAdapter implements AIAdapter {
 
     for await (const chunk of stream) {
       if (signal?.aborted) {
-        finishReason = 'error';
+        // The loop might continue a bit before the abort exception is thrown by the SDK,
+        // or we can break early. The SDK usually throws on abort.
+        // We will let the SDK handle the abort error, or break if we detect it.
         break;
       }
 
@@ -197,16 +156,16 @@ export class OpenAIAdapter implements AIAdapter {
  * OpenAI moderation adapter for content policy checking.
  */
 export class OpenAIModerationAdapter implements ModerationAdapter {
-  private client: OpenAIClient;
+  private client: OpenAI;
 
-  constructor(client: OpenAIClient) {
+  constructor(client: OpenAI) {
     this.client = client;
   }
 
   async checkContent(text: string): Promise<ModerationResult> {
-    const response = (await this.client.moderations.create({
+    const response = await this.client.moderations.create({
       input: text,
-    })) as OpenAIModerationResponse;
+    });
 
     const result = response.results[0];
 
@@ -232,7 +191,7 @@ export async function createOpenAIAdapter(
   const client = new OpenAI({
     apiKey,
     baseURL: baseUrl,
-  }) as unknown as OpenAIClient;
+  });
 
   return {
     adapter: new OpenAIAdapter(client, models),
