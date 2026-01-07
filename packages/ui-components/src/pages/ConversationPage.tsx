@@ -44,6 +44,7 @@ export function ConversationPage({
     talkToCoachEnabled,
     sendMessage,
     sendCoachMessage,
+    startNewConversation,
   } = useConversation({ slug, socketUrl });
 
   const displayTitle = title || slug.replace(/-/g, ' ');
@@ -98,11 +99,20 @@ export function ConversationPage({
       <div style={styles.mainContent}>
         {/* Header */}
         <div style={styles.header}>
-          {onBack && (
-            <button onClick={onBack} style={styles.backLink}>
-              {backText}
+          <div style={styles.headerTop}>
+            {onBack && (
+              <button onClick={onBack} style={styles.backLink}>
+                {backText}
+              </button>
+            )}
+            <button
+              onClick={startNewConversation}
+              style={styles.newConversationBtn}
+              className="downpat-new-conversation-btn"
+            >
+              New Conversation
             </button>
-          )}
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <h1 style={styles.title}>{displayTitle}</h1>
             {isAdminTest && (
@@ -121,11 +131,20 @@ export function ConversationPage({
         {isComplete ? (
           <div style={styles.conversationComplete}>
             <p>This conversation has ended.</p>
-            {onBack && (
-              <button onClick={onBack} style={styles.backBtn}>
-                {backText.replace('← ', '')}
+            <div style={styles.completeActions}>
+              <button
+                onClick={startNewConversation}
+                style={styles.newConversationBtnPrimary}
+                className="downpat-new-conversation-btn"
+              >
+                Start New Conversation
               </button>
-            )}
+              {onBack && (
+                <button onClick={onBack} style={styles.backBtn}>
+                  {backText.replace('← ', '')}
+                </button>
+              )}
+            </div>
           </div>
         ) : (
           <form onSubmit={handleSubmit} style={styles.inputContainer}>
@@ -191,15 +210,29 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '16px 0',
     borderBottom: '1px solid var(--downpat-neutral-200, #e5e7eb)',
   },
+  headerTop: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '8px',
+  },
   backLink: {
     background: 'none',
     border: 'none',
     color: 'var(--downpat-primary-600, #2563eb)',
     cursor: 'pointer',
     fontSize: '0.875rem',
-    marginBottom: '8px',
     padding: 0,
     textAlign: 'left',
+  },
+  newConversationBtn: {
+    background: 'none',
+    border: '1px solid var(--downpat-neutral-300, #d1d5db)',
+    color: 'var(--downpat-neutral-700, #374151)',
+    cursor: 'pointer',
+    fontSize: '0.875rem',
+    padding: '6px 12px',
+    borderRadius: '6px',
   },
   title: {
     fontSize: '1.5rem',
@@ -306,6 +339,22 @@ const styles: Record<string, React.CSSProperties> = {
     borderTop: '1px solid var(--downpat-neutral-200, #e5e7eb)',
     backgroundColor: 'var(--downpat-neutral-100, #f3f4f6)',
     color: 'var(--downpat-neutral-600, #4b5563)',
+  },
+  completeActions: {
+    display: 'flex',
+    justifyContent: 'center',
+    gap: '12px',
+    marginTop: '16px',
+  },
+  newConversationBtnPrimary: {
+    padding: '8px 24px',
+    backgroundColor: 'var(--downpat-primary-500, #3b82f6)',
+    color: 'white',
+    border: 'none',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontSize: '1rem',
+    fontWeight: '600',
   },
   testBadge: {
     padding: '4px 12px',

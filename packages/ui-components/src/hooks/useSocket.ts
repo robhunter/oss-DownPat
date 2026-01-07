@@ -135,6 +135,7 @@ export interface UseConversationReturn {
   talkToCoachEnabled: boolean;
   sendMessage: (text: string) => void;
   sendCoachMessage: (text: string) => void;
+  startNewConversation: () => void;
 }
 
 /**
@@ -392,6 +393,26 @@ export function useConversation({ slug, socketUrl }: UseConversationOptions): Us
     [socket, isConnected, conversation]
   );
 
+  const startNewConversation = useCallback(() => {
+    if (!socket || !isConnected) return;
+
+    // Reset all state for new conversation
+    setMessages([]);
+    setCoachMessages([]);
+    setConversation(null);
+    setIsComplete(false);
+    setError(null);
+    setIsLoading(true);
+    setIsStreaming(false);
+    setIsCoachStreaming(false);
+    streamingMessageRef.current = '';
+    streamingCommentaryRef.current = '';
+    streamingCoachRef.current = '';
+
+    // Request new conversation with same slug
+    socket.emit('start-conversation', { slug });
+  }, [socket, isConnected, slug]);
+
   return {
     conversation,
     messages,
@@ -404,5 +425,6 @@ export function useConversation({ slug, socketUrl }: UseConversationOptions): Us
     talkToCoachEnabled,
     sendMessage,
     sendCoachMessage,
+    startNewConversation,
   };
 }

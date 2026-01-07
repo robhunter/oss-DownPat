@@ -1,5 +1,16 @@
 # Claude Code Guidance
 
+## Guidelines
+
+When writing code:
+- Keep track of issues using chainlink.  Break up large issues (tasks that will result in more than a couple hundred lines of code).
+- All tests (unit and e2e) tests must pass
+- Keep in mind this code will be reviewed by a strict reviewer.
+- Ensure that the server is running and accessible.
+- Legacy code is available at .DownPatNode. When in doubt, check the source.
+
+If the user is repeating themselves, suggest updating claude.md with their guidance.
+
 ## Environment Setup (Docker Container)
 
 If chainlink is not available, install it:

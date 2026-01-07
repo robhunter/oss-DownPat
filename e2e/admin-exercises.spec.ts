@@ -311,6 +311,78 @@ test.describe('Exercise with Starters', () => {
   });
 });
 
+test.describe('New Conversation Button', () => {
+  let newConvSlug: string;
+  const testId = generateTestId();
+
+  test.beforeEach(async ({ page }) => {
+    await loginAsAdmin(page);
+  });
+
+  test('can start a new conversation from existing conversation', async ({ page }) => {
+    const exerciseName = `New Conv Test ${testId}`;
+    const welcomeMessage = 'Welcome to the new conversation test!';
+
+    // Create exercise
+    newConvSlug = await createExercise(page, {
+      name: exerciseName,
+      welcomeMessage,
+      guidelines: 'You are a helpful assistant. Keep responses very brief.',
+      maxMessages: 10,
+      tasks: [
+        {
+          name: 'Response',
+          responseType: 'CONVERSATION',
+          prompt: 'Respond briefly in 1 sentence.',
+        },
+      ],
+    });
+
+    // Test the exercise
+    await testExercise(page, newConvSlug);
+
+    // Wait for conversation to load
+    await expect(page.getByPlaceholder('Type your message...')).toBeVisible({ timeout: 10000 });
+
+    // Verify the welcome message is displayed
+    await expect(page.getByText(welcomeMessage)).toBeVisible({ timeout: 5000 });
+
+    // Send a message
+    await sendMessage(page, 'This is my first message in conversation 1');
+    let messageCount = await countMessages(page);
+    expect(messageCount).toBeGreaterThanOrEqual(3); // Welcome + user + AI response
+
+    // Verify the message is there
+    await expect(await hasMessageWithContent(page, 'conversation 1')).toBe(true);
+
+    // Click the New Conversation button
+    const newConvButton = page.locator('.downpat-new-conversation-btn');
+    await expect(newConvButton).toBeVisible();
+    await newConvButton.click();
+
+    // Wait for loading state to appear and resolve
+    await expect(page.getByText('Starting conversation...')).toBeVisible({ timeout: 3000 });
+    await expect(page.getByPlaceholder('Type your message...')).toBeVisible({ timeout: 10000 });
+
+    // Verify the old messages are gone
+    await expect(await hasMessageWithContent(page, 'conversation 1')).toBe(false);
+
+    // Verify the welcome message is back (fresh conversation)
+    await expect(page.getByText(welcomeMessage)).toBeVisible({ timeout: 5000 });
+
+    // Can have a new conversation
+    await sendMessage(page, 'This is my first message in conversation 2');
+    messageCount = await countMessages(page);
+    expect(messageCount).toBeGreaterThanOrEqual(3);
+
+    // Verify the new message is there
+    await expect(await hasMessageWithContent(page, 'conversation 2')).toBe(true);
+
+    // Cleanup
+    await deleteExercise(page, newConvSlug);
+  });
+});
+
 test.describe('Exercise with Welcome Message', () => {
   let welcomeSlug: string;
   const testId = generateTestId();
