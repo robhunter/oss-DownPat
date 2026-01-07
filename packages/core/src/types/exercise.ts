@@ -47,6 +47,8 @@ export interface Exercise {
   /** Conversation starter prompts user can choose from */
   starters: string[];
 
+  /** Version status of this exercise instance */
+  status?: 'draft' | 'published';
   /** Display priority (lower = higher priority) */
   priority?: number;
   /** When the exercise was created */

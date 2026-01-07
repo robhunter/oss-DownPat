@@ -1,4 +1,4 @@
-import { Conversation, Message } from '../types/conversation.js';
+import { Conversation, ConversationMetadata, Message } from '../types/conversation.js';
 
 /**
  * Storage interface for conversations.
@@ -7,7 +7,15 @@ import { Conversation, Message } from '../types/conversation.js';
  */
 export interface ConversationStorage {
   /**
-   * Get conversation by ID.
+   * Get conversation metadata by ID (without messages).
+   * Use this for ownership checks and status queries to avoid loading full message history.
+   * @param conversationId - The conversation ID
+   * @returns The conversation metadata or null if not found
+   */
+  getConversationMetadata(conversationId: string): Promise<ConversationMetadata | null>;
+
+  /**
+   * Get full conversation by ID (including messages).
    * @param conversationId - The conversation ID
    * @returns The conversation or null if not found
    */
@@ -30,11 +38,12 @@ export interface ConversationStorage {
    * Update conversation metadata (e.g., isComplete, userMessageCount).
    * @param conversationId - The conversation ID
    * @param updates - Fields to update
+   * @returns The updated conversation
    */
   updateConversation(
     conversationId: string,
     updates: Partial<Pick<Conversation, 'isComplete' | 'userMessageCount' | 'updatedAt'>>
-  ): Promise<void>;
+  ): Promise<Conversation>;
 
   /**
    * Get all conversations for a user.

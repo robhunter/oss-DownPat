@@ -21,17 +21,16 @@ export interface Message {
 }
 
 /**
- * A conversation is a series of messages between a user and AI.
+ * Lightweight conversation metadata without messages.
+ * Used for ownership checks and status queries without loading full message history.
  */
-export interface Conversation {
+export interface ConversationMetadata {
   /** Unique identifier */
   conversationId: string;
   /** ID of the exercise this conversation is for */
   exerciseId: string;
   /** ID of the user having this conversation */
   userId: string;
-  /** All messages in the conversation */
-  messages: Message[];
   /** When the conversation was started */
   createdAt: string;
   /** When the conversation was last updated */
@@ -40,6 +39,14 @@ export interface Conversation {
   isComplete: boolean;
   /** Number of user messages sent */
   userMessageCount: number;
+}
+
+/**
+ * A conversation is a series of messages between a user and AI.
+ */
+export interface Conversation extends ConversationMetadata {
+  /** All messages in the conversation */
+  messages: Message[];
 }
 
 /**

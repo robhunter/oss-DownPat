@@ -6,7 +6,7 @@ export default defineConfig({
   test: {
     globals: true,
     include: ['**/*.test.ts', '**/*.test.tsx'],
-    exclude: ['node_modules', 'dist', '.DownPatNode'],
+    exclude: ['**/node_modules/**', 'dist', '.DownPatNode'],
     environmentMatchGlobs: [
       // React component tests need jsdom environment
       ['**/client/**/*.test.tsx', 'jsdom'],

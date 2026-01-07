@@ -1,4 +1,4 @@
-import type { Exercise, ExerciseMetadata, Conversation, Message } from '../types/index.js';
+import type { Exercise, ExerciseMetadata, Conversation, ConversationMetadata, Message } from '../types/index.js';
 import type { ExerciseStorage, ConversationStorage } from '../interfaces/index.js';
 
 /**
@@ -124,6 +124,14 @@ export function createInMemoryStorage(): {
   };
 
   const conversationStorage: ConversationStorage = {
+    async getConversationMetadata(conversationId: string): Promise<ConversationMetadata | null> {
+      const conversation = conversations.get(conversationId);
+      if (!conversation) return null;
+      // Return metadata without messages
+      const { messages: _messages, ...metadata } = conversation;
+      return metadata;
+    },
+
     async getConversation(conversationId: string) {
       return conversations.get(conversationId) || null;
     },
@@ -140,11 +148,13 @@ export function createInMemoryStorage(): {
       conversations.set(conversation.conversationId, conversation);
     },
 
-    async updateConversation(conversationId: string, updates: Partial<Conversation>) {
+    async updateConversation(conversationId: string, updates: Partial<Conversation>): Promise<Conversation> {
       const conversation = conversations.get(conversationId);
-      if (conversation) {
-        Object.assign(conversation, updates);
+      if (!conversation) {
+        throw new Error('Conversation not found');
       }
+      Object.assign(conversation, updates);
+      return conversation;
     },
 
     async addMessage(conversationId: string, message: Message) {

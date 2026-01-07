@@ -1,7 +1,15 @@
-import { Conversation, Message, User } from '../types/index.js';
+import { Conversation, ConversationMetadata, Message, User } from '../types/index.js';
 import { MessageType } from '../constants/index.js';
 import { ConversationStorage, ExerciseStorage } from '../interfaces/index.js';
 import { generateId } from '../utils/index.js';
+
+/**
+ * Check if a user can start conversations.
+ * Subscribers and demo users are allowed.
+ */
+function canStartConversation(user: User): boolean {
+  return user.isSubscriber || user.isDemo === true;
+}
 
 /**
  * Framework-agnostic conversation controller.
@@ -17,11 +25,11 @@ export class ConversationController {
    * Start a new conversation.
    * @param exerciseId - The exercise to start a conversation for
    * @param user - The authenticated user
-   * @throws if user is not a subscriber
+   * @throws if user is not a subscriber or demo user
    * @throws if exercise is not found
    */
   async startConversation(exerciseId: string, user: User): Promise<Conversation> {
-    if (!user.isSubscriber) {
+    if (!canStartConversation(user)) {
       throw new Error('Unauthorized: Only subscribers can start conversations');
     }
 
@@ -59,23 +67,39 @@ export class ConversationController {
   }
 
   /**
+   * Verify user has access to a conversation (ownership check).
+   * Uses lightweight metadata fetch to avoid loading full message history.
+   * @param conversationId - The conversation ID
+   * @param user - The authenticated user
+   * @throws if conversation is not found or user doesn't own it
+   */
+  private async verifyAccess(conversationId: string, user: User): Promise<ConversationMetadata> {
+    const metadata = await this.conversationStorage.getConversationMetadata(conversationId);
+    if (!metadata) {
+      throw new Error('Conversation not found');
+    }
+
+    // Users can only access their own conversations (unless admin)
+    if (metadata.userId !== user.userId && !user.isAdmin) {
+      throw new Error('Unauthorized: Cannot access this conversation');
+    }
+
+    return metadata;
+  }
+
+  /**
    * Get a conversation by ID.
    * @param conversationId - The conversation ID
    * @param user - The authenticated user
    * @throws if conversation is not found or user doesn't own it
    */
   async getConversation(conversationId: string, user: User): Promise<Conversation> {
+    // First verify access with lightweight metadata check
+    await this.verifyAccess(conversationId, user);
+
+    // Now fetch full conversation (we know it exists and user has access)
     const conversation = await this.conversationStorage.getConversation(conversationId);
-    if (!conversation) {
-      throw new Error('Conversation not found');
-    }
-
-    // Users can only access their own conversations (unless admin)
-    if (conversation.userId !== user.userId && !user.isAdmin) {
-      throw new Error('Unauthorized: Cannot access this conversation');
-    }
-
-    return conversation;
+    return conversation!;
   }
 
   /**
@@ -90,14 +114,15 @@ export class ConversationController {
     content: string,
     user: User
   ): Promise<{ conversation: Conversation; isComplete: boolean }> {
-    const conversation = await this.getConversation(conversationId, user);
+    // Use metadata check for initial access verification
+    const metadata = await this.verifyAccess(conversationId, user);
 
-    if (conversation.isComplete) {
+    if (metadata.isComplete) {
       throw new Error('Conversation is already complete');
     }
 
     // Get exercise to check max messages
-    const exercise = await this.exerciseStorage.getExercise(conversation.exerciseId);
+    const exercise = await this.exerciseStorage.getExercise(metadata.exerciseId);
     if (!exercise) {
       throw new Error('Exercise not found');
     }
@@ -112,19 +137,18 @@ export class ConversationController {
 
     await this.conversationStorage.addMessage(conversationId, message);
 
-    const newUserMessageCount = conversation.userMessageCount + 1;
+    const newUserMessageCount = metadata.userMessageCount + 1;
     const isComplete = newUserMessageCount >= exercise.maxUserMessages;
 
-    await this.conversationStorage.updateConversation(conversationId, {
+    // updateConversation now returns the updated conversation
+    const updated = await this.conversationStorage.updateConversation(conversationId, {
       userMessageCount: newUserMessageCount,
       isComplete,
       updatedAt: new Date().toISOString(),
     });
 
-    // Return updated conversation
-    const updated = await this.conversationStorage.getConversation(conversationId);
     return {
-      conversation: updated!,
+      conversation: updated,
       isComplete,
     };
   }
@@ -140,8 +164,8 @@ export class ConversationController {
     message: Omit<Message, 'messageId' | 'timestamp'>,
     user: User
   ): Promise<Message> {
-    // Verify user owns the conversation
-    await this.getConversation(conversationId, user);
+    // Verify user owns the conversation (lightweight check)
+    await this.verifyAccess(conversationId, user);
 
     const fullMessage: Message = {
       ...message,
@@ -171,8 +195,8 @@ export class ConversationController {
    * @param user - The authenticated user
    */
   async completeConversation(conversationId: string, user: User): Promise<void> {
-    // Verify user owns the conversation
-    await this.getConversation(conversationId, user);
+    // Verify user owns the conversation (lightweight check)
+    await this.verifyAccess(conversationId, user);
 
     await this.conversationStorage.updateConversation(conversationId, {
       isComplete: true,
@@ -186,8 +210,8 @@ export class ConversationController {
    * @param user - The authenticated user
    */
   async deleteConversation(conversationId: string, user: User): Promise<void> {
-    // Verify user owns the conversation (or is admin)
-    await this.getConversation(conversationId, user);
+    // Verify user owns the conversation (lightweight check)
+    await this.verifyAccess(conversationId, user);
 
     await this.conversationStorage.deleteConversation(conversationId);
   }

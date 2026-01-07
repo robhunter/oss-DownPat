@@ -11,4 +11,6 @@ export interface User {
   isAdmin: boolean;
   /** Whether user has subscriber access (can start conversations) */
   isSubscriber: boolean;
+  /** Whether this is a demo user (bypasses subscription checks) */
+  isDemo?: boolean;
 }

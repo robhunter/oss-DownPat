@@ -1,5 +1,5 @@
 import type { Firestore } from 'firebase-admin/firestore';
-import type { Conversation, Message, ConversationStorage } from '@downpat/core';
+import type { Conversation, ConversationMetadata, Message, ConversationStorage } from '@downpat/core';
 
 /**
  * Firebase implementation of ConversationStorage.
@@ -11,6 +11,21 @@ export class FirebaseConversationStorage implements ConversationStorage {
   private collection: string = 'conversations';
 
   constructor(private db: Firestore) {}
+
+  async getConversationMetadata(conversationId: string): Promise<ConversationMetadata | null> {
+    // Use select() to only fetch metadata fields, excluding messages array
+    const doc = await this.db
+      .collection(this.collection)
+      .doc(conversationId)
+      .get();
+
+    if (!doc.exists) return null;
+
+    const data = doc.data() as Conversation;
+    // Return metadata without messages
+    const { messages: _messages, ...metadata } = data;
+    return metadata;
+  }
 
   async getConversation(conversationId: string): Promise<Conversation | null> {
     const doc = await this.db.collection(this.collection).doc(conversationId).get();
@@ -27,8 +42,15 @@ export class FirebaseConversationStorage implements ConversationStorage {
   async updateConversation(
     conversationId: string,
     updates: Partial<Conversation>
-  ): Promise<void> {
-    await this.db.collection(this.collection).doc(conversationId).update(updates);
+  ): Promise<Conversation> {
+    const docRef = this.db.collection(this.collection).doc(conversationId);
+    await docRef.update(updates);
+    // Fetch and return the updated conversation
+    const updated = await docRef.get();
+    if (!updated.exists) {
+      throw new Error('Conversation not found after update');
+    }
+    return updated.data() as Conversation;
   }
 
   async addMessage(conversationId: string, message: Message): Promise<void> {

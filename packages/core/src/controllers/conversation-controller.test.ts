@@ -60,6 +60,17 @@ const testConversation: Conversation = {
   userMessageCount: 0,
 };
 
+// Metadata is conversation without messages
+const testConversationMetadata = {
+  conversationId: testConversation.conversationId,
+  exerciseId: testConversation.exerciseId,
+  userId: testConversation.userId,
+  createdAt: testConversation.createdAt,
+  updatedAt: testConversation.updatedAt,
+  isComplete: testConversation.isComplete,
+  userMessageCount: testConversation.userMessageCount,
+};
+
 describe('ConversationController', () => {
   let mockConversationStorage: ConversationStorage;
   let mockExerciseStorage: ExerciseStorage;
@@ -67,11 +78,13 @@ describe('ConversationController', () => {
 
   beforeEach(() => {
     mockConversationStorage = {
+      getConversationMetadata: vi.fn(),
       getConversation: vi.fn(),
       createConversation: vi.fn(),
       updateConversation: vi.fn(),
       addMessage: vi.fn(),
       getConversationsByUser: vi.fn(),
+      getConversationsByExercise: vi.fn(),
       deleteConversation: vi.fn(),
     };
 
@@ -126,6 +139,7 @@ describe('ConversationController', () => {
 
   describe('getConversation', () => {
     it('returns conversation for owner', async () => {
+      vi.mocked(mockConversationStorage.getConversationMetadata).mockResolvedValue(testConversationMetadata);
       vi.mocked(mockConversationStorage.getConversation).mockResolvedValue(testConversation);
 
       const result = await controller.getConversation('conv-1', subscriberUser);
@@ -134,6 +148,7 @@ describe('ConversationController', () => {
     });
 
     it('allows admin to access any conversation', async () => {
+      vi.mocked(mockConversationStorage.getConversationMetadata).mockResolvedValue(testConversationMetadata);
       vi.mocked(mockConversationStorage.getConversation).mockResolvedValue(testConversation);
 
       const result = await controller.getConversation('conv-1', adminUser);
@@ -143,7 +158,7 @@ describe('ConversationController', () => {
 
     it('prevents non-owner from accessing conversation', async () => {
       const otherUser: User = { ...subscriberUser, userId: 'other-user' };
-      vi.mocked(mockConversationStorage.getConversation).mockResolvedValue(testConversation);
+      vi.mocked(mockConversationStorage.getConversationMetadata).mockResolvedValue(testConversationMetadata);
 
       await expect(
         controller.getConversation('conv-1', otherUser)
@@ -151,7 +166,7 @@ describe('ConversationController', () => {
     });
 
     it('throws when conversation not found', async () => {
-      vi.mocked(mockConversationStorage.getConversation).mockResolvedValue(null);
+      vi.mocked(mockConversationStorage.getConversationMetadata).mockResolvedValue(null);
 
       await expect(
         controller.getConversation('non-existent', subscriberUser)
@@ -161,10 +176,10 @@ describe('ConversationController', () => {
 
   describe('addUserMessage', () => {
     it('adds message and updates count', async () => {
-      vi.mocked(mockConversationStorage.getConversation)
-        .mockResolvedValueOnce(testConversation)
-        .mockResolvedValueOnce({ ...testConversation, userMessageCount: 1 });
+      vi.mocked(mockConversationStorage.getConversationMetadata).mockResolvedValue(testConversationMetadata);
       vi.mocked(mockExerciseStorage.getExercise).mockResolvedValue(testExercise);
+      const updatedConversation = { ...testConversation, userMessageCount: 1 };
+      vi.mocked(mockConversationStorage.updateConversation).mockResolvedValue(updatedConversation);
 
       const result = await controller.addUserMessage('conv-1', 'Hello!', subscriberUser);
 
@@ -177,11 +192,11 @@ describe('ConversationController', () => {
     });
 
     it('marks conversation complete when max messages reached', async () => {
-      const almostCompleteConvo = { ...testConversation, userMessageCount: 2 };
-      vi.mocked(mockConversationStorage.getConversation)
-        .mockResolvedValueOnce(almostCompleteConvo)
-        .mockResolvedValueOnce({ ...almostCompleteConvo, userMessageCount: 3, isComplete: true });
+      const almostCompleteMetadata = { ...testConversationMetadata, userMessageCount: 2 };
+      vi.mocked(mockConversationStorage.getConversationMetadata).mockResolvedValue(almostCompleteMetadata);
       vi.mocked(mockExerciseStorage.getExercise).mockResolvedValue(testExercise);
+      const updatedConversation = { ...testConversation, userMessageCount: 3, isComplete: true };
+      vi.mocked(mockConversationStorage.updateConversation).mockResolvedValue(updatedConversation);
 
       const result = await controller.addUserMessage('conv-1', 'Final message', subscriberUser);
 
@@ -193,8 +208,8 @@ describe('ConversationController', () => {
     });
 
     it('throws when conversation is already complete', async () => {
-      const completeConvo = { ...testConversation, isComplete: true };
-      vi.mocked(mockConversationStorage.getConversation).mockResolvedValue(completeConvo);
+      const completeMetadata = { ...testConversationMetadata, isComplete: true };
+      vi.mocked(mockConversationStorage.getConversationMetadata).mockResolvedValue(completeMetadata);
 
       await expect(
         controller.addUserMessage('conv-1', 'Too late', subscriberUser)
@@ -204,7 +219,7 @@ describe('ConversationController', () => {
 
   describe('addAIMessage', () => {
     it('adds AI message to conversation', async () => {
-      vi.mocked(mockConversationStorage.getConversation).mockResolvedValue(testConversation);
+      vi.mocked(mockConversationStorage.getConversationMetadata).mockResolvedValue(testConversationMetadata);
 
       const message = {
         type: MessageType.CONVERSATION,
@@ -234,7 +249,7 @@ describe('ConversationController', () => {
 
   describe('completeConversation', () => {
     it('marks conversation as complete', async () => {
-      vi.mocked(mockConversationStorage.getConversation).mockResolvedValue(testConversation);
+      vi.mocked(mockConversationStorage.getConversationMetadata).mockResolvedValue(testConversationMetadata);
 
       await controller.completeConversation('conv-1', subscriberUser);
 
@@ -247,7 +262,7 @@ describe('ConversationController', () => {
 
   describe('deleteConversation', () => {
     it('deletes conversation for owner', async () => {
-      vi.mocked(mockConversationStorage.getConversation).mockResolvedValue(testConversation);
+      vi.mocked(mockConversationStorage.getConversationMetadata).mockResolvedValue(testConversationMetadata);
 
       await controller.deleteConversation('conv-1', subscriberUser);
 
@@ -255,7 +270,7 @@ describe('ConversationController', () => {
     });
 
     it('allows admin to delete any conversation', async () => {
-      vi.mocked(mockConversationStorage.getConversation).mockResolvedValue(testConversation);
+      vi.mocked(mockConversationStorage.getConversationMetadata).mockResolvedValue(testConversationMetadata);
 
       await controller.deleteConversation('conv-1', adminUser);
 
