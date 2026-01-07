@@ -22,6 +22,23 @@ export interface MessageProps {
 }
 
 /**
+ * Parse content for display based on message type.
+ * STARTER messages contain JSON with text, context, and attributes - only display 'text'.
+ */
+function getDisplayContent(message: MessageData): string {
+  if (message.type === MessageType.STARTER) {
+    try {
+      const parsed = JSON.parse(message.content) as { text?: string };
+      return parsed.text || message.content;
+    } catch {
+      // If not valid JSON, return content as-is (backwards compatibility)
+      return message.content;
+    }
+  }
+  return message.content;
+}
+
+/**
  * Renders a single message in the conversation.
  * Styling varies based on message type.
  */
@@ -32,6 +49,7 @@ export function Message({
   showAvatar = true,
 }: MessageProps): React.JSX.Element {
   const style = getMessageStyle(message.type);
+  const displayContent = getDisplayContent(message);
 
   return (
     <div
@@ -76,7 +94,7 @@ export function Message({
               wordBreak: 'break-word',
             }}
           >
-            {message.content}
+            {displayContent}
           </div>
           {showTimestamp && (
             <div
@@ -130,8 +148,7 @@ function getMessageStyle(type: MessageType): React.CSSProperties {
       };
     case MessageType.STARTER:
       return {
-        backgroundColor: 'var(--downpat-starter-bg, #f3f4f6)',
-        fontStyle: 'italic',
+        backgroundColor: 'var(--downpat-conversation-bg, #f9fafb)',
       };
     case MessageType.CONTEXT:
       return {

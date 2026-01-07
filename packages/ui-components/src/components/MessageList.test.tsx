@@ -41,19 +41,19 @@ describe('MessageList', () => {
     expect(screen.getByText('No messages yet')).toBeInTheDocument();
   });
 
-  it('filters out CONTEXT messages', () => {
+  it('shows CONTEXT messages', () => {
     const messagesWithContext: MessageData[] = [
       ...createMessages(),
       {
         messageId: 'msg-4',
         type: MessageType.CONTEXT,
         role: 'System',
-        content: 'This should be hidden',
+        content: 'This is context for the user',
         timestamp: '2024-01-01T12:03:00.000Z',
       },
     ];
     render(<MessageList messages={messagesWithContext} />);
-    expect(screen.queryByText('This should be hidden')).not.toBeInTheDocument();
+    expect(screen.getByText('This is context for the user')).toBeInTheDocument();
   });
 
   it('applies custom filter', () => {

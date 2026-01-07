@@ -69,6 +69,7 @@ coverage/
 *.lcov
 .jest-cache/
 __snapshots__/
+packages/*/test-results/
 
 # Logs
 logs/

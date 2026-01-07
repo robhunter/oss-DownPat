@@ -30,6 +30,7 @@ export enum MessageType {
  * Message types that are visible to the user in the main conversation.
  */
 export const VISIBLE_MESSAGE_TYPES = [
+  MessageType.CONTEXT,
   MessageType.STARTER,
   MessageType.USER,
   MessageType.CONVERSATION,

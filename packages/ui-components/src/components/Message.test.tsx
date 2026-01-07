@@ -83,4 +83,47 @@ describe('Message', () => {
       expect(screen.getByText('(Moderation)')).toBeInTheDocument();
     });
   });
+
+  describe('starter message JSON parsing', () => {
+    it('parses JSON content and displays only text field', () => {
+      const jsonContent = JSON.stringify({
+        text: 'Welcome to the exercise!',
+        context: 'This is hidden context for the AI',
+        difficulty: 'easy',
+      });
+      render(<Message message={createMessage({
+        type: MessageType.STARTER,
+        content: jsonContent
+      })} />);
+      expect(screen.getByText('Welcome to the exercise!')).toBeInTheDocument();
+      expect(screen.queryByText('This is hidden context for the AI')).not.toBeInTheDocument();
+      expect(screen.queryByText('easy')).not.toBeInTheDocument();
+    });
+
+    it('handles plain text content for backwards compatibility', () => {
+      render(<Message message={createMessage({
+        type: MessageType.STARTER,
+        content: 'Plain text starter message'
+      })} />);
+      expect(screen.getByText('Plain text starter message')).toBeInTheDocument();
+    });
+
+    it('handles invalid JSON gracefully', () => {
+      render(<Message message={createMessage({
+        type: MessageType.STARTER,
+        content: 'not valid { json'
+      })} />);
+      expect(screen.getByText('not valid { json')).toBeInTheDocument();
+    });
+
+    it('handles JSON without text field', () => {
+      const jsonContent = JSON.stringify({ context: 'only context' });
+      render(<Message message={createMessage({
+        type: MessageType.STARTER,
+        content: jsonContent
+      })} />);
+      // Should fall back to showing the full JSON when no text field
+      expect(screen.getByText(jsonContent)).toBeInTheDocument();
+    });
+  });
 });

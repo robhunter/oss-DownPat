@@ -424,6 +424,63 @@ interface StarterEditorProps {
 
 function StarterEditor({ starter, index, onChange, onRemove, canRemove }: StarterEditorProps): React.JSX.Element {
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [editMode, setEditMode] = useState<'gui' | 'json'>('gui');
+  const [jsonValue, setJsonValue] = useState('');
+  const [jsonError, setJsonError] = useState<string | null>(null);
+
+  // Convert starter to JSON string for JSON editor
+  const starterToJson = (s: Starter): string => {
+    return JSON.stringify({ text: s.text, context: s.context, attributes: s.attributes }, null, 2);
+  };
+
+  // Switch to JSON mode
+  const switchToJson = () => {
+    setJsonValue(starterToJson(starter));
+    setJsonError(null);
+    setEditMode('json');
+  };
+
+  // Switch to GUI mode
+  const switchToGui = () => {
+    // Try to parse current JSON and apply it
+    if (jsonValue.trim()) {
+      try {
+        const parsed = JSON.parse(jsonValue);
+        onChange({
+          text: parsed.text || '',
+          context: parsed.context || '',
+          attributes: parsed.attributes || {},
+        });
+        setJsonError(null);
+      } catch {
+        // Keep GUI mode but show error
+        setJsonError('Invalid JSON - changes not applied');
+      }
+    }
+    setEditMode('gui');
+  };
+
+  // Handle JSON textarea change
+  const handleJsonChange = (value: string) => {
+    setJsonValue(value);
+    try {
+      const parsed = JSON.parse(value);
+      // Validate structure
+      if (typeof parsed !== 'object' || parsed === null) {
+        setJsonError('JSON must be an object');
+        return;
+      }
+      setJsonError(null);
+      // Apply changes immediately
+      onChange({
+        text: parsed.text || '',
+        context: parsed.context || '',
+        attributes: typeof parsed.attributes === 'object' ? parsed.attributes : {},
+      });
+    } catch (e) {
+      setJsonError('Invalid JSON syntax');
+    }
+  };
 
   return (
     <div className="downpat-starter-editor">
@@ -432,11 +489,20 @@ function StarterEditor({ starter, index, onChange, onRemove, canRemove }: Starte
         <div className="downpat-starter-actions">
           <button
             type="button"
-            onClick={() => setShowAdvanced(!showAdvanced)}
+            onClick={editMode === 'gui' ? switchToJson : switchToGui}
             className="downpat-btn downpat-btn--small downpat-btn--text"
           >
-            {showAdvanced ? 'Hide Options' : 'Show Options'}
+            {editMode === 'gui' ? 'Edit JSON' : 'Edit Fields'}
           </button>
+          {editMode === 'gui' && (
+            <button
+              type="button"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="downpat-btn downpat-btn--small downpat-btn--text"
+            >
+              {showAdvanced ? 'Hide Options' : 'Show Options'}
+            </button>
+          )}
           {canRemove && (
             <button
               type="button"
@@ -449,43 +515,67 @@ function StarterEditor({ starter, index, onChange, onRemove, canRemove }: Starte
         </div>
       </div>
 
-      <div className="downpat-field">
-        <label className="downpat-label downpat-label--small">Text *</label>
-        <textarea
-          value={starter.text}
-          onChange={(e) => onChange({ text: e.target.value })}
-          placeholder="Opening message shown to the user..."
-          rows={2}
-          className="downpat-textarea"
-        />
-      </div>
-
-      {showAdvanced && (
+      {editMode === 'json' ? (
+        <div className="downpat-field">
+          <label className="downpat-label downpat-label--small">JSON</label>
+          <textarea
+            value={jsonValue}
+            onChange={(e) => handleJsonChange(e.target.value)}
+            placeholder='{"text": "...", "context": "...", "attributes": {}}'
+            rows={8}
+            className={`downpat-textarea downpat-textarea--monospace ${jsonError ? 'downpat-textarea--error' : ''}`}
+            style={{ fontFamily: 'monospace', fontSize: '13px' }}
+          />
+          {jsonError && (
+            <small className="downpat-help-text downpat-help-text--error" style={{ color: '#dc2626' }}>
+              {jsonError}
+            </small>
+          )}
+          <small className="downpat-help-text">
+            Edit starter as JSON for easy copy/paste. Changes apply automatically.
+          </small>
+        </div>
+      ) : (
         <>
           <div className="downpat-field">
-            <label className="downpat-label downpat-label--small">Context</label>
+            <label className="downpat-label downpat-label--small">Text *</label>
             <textarea
-              value={starter.context}
-              onChange={(e) => onChange({ context: e.target.value })}
-              placeholder="Additional context for the AI about this scenario (not shown to user)..."
+              value={starter.text}
+              onChange={(e) => onChange({ text: e.target.value })}
+              placeholder="Opening message shown to the user..."
               rows={2}
               className="downpat-textarea"
             />
-            <small className="downpat-help-text">
-              Private context for the AI to understand the scenario
-            </small>
           </div>
 
-          <div className="downpat-field">
-            <label className="downpat-label downpat-label--small">Attributes</label>
-            <small className="downpat-help-text">
-              Key-value pairs for filtering starters via URL query params (e.g., ?difficulty=easy)
-            </small>
-            <AttributesEditor
-              attributes={starter.attributes}
-              onChange={(attributes) => onChange({ attributes })}
-            />
-          </div>
+          {showAdvanced && (
+            <>
+              <div className="downpat-field">
+                <label className="downpat-label downpat-label--small">Context</label>
+                <textarea
+                  value={starter.context}
+                  onChange={(e) => onChange({ context: e.target.value })}
+                  placeholder="Additional context for the AI about this scenario (not shown to user)..."
+                  rows={2}
+                  className="downpat-textarea"
+                />
+                <small className="downpat-help-text">
+                  Private context for the AI to understand the scenario
+                </small>
+              </div>
+
+              <div className="downpat-field">
+                <label className="downpat-label downpat-label--small">Attributes</label>
+                <small className="downpat-help-text">
+                  Key-value pairs for filtering starters via URL query params (e.g., ?difficulty=easy)
+                </small>
+                <AttributesEditor
+                  attributes={starter.attributes}
+                  onChange={(attributes) => onChange({ attributes })}
+                />
+              </div>
+            </>
+          )}
         </>
       )}
     </div>

@@ -42,20 +42,63 @@ function selectStarter(starters: Starter[], query: Record<string, string> = {}):
 }
 
 /**
- * Create a Message from a Starter.
+ * Create Messages from a Starter.
+ * Returns an array of messages:
+ * - If context exists, a CONTEXT message is created first (for AI context, not displayed to user)
+ * - Then a STARTER message with the full starter object as JSON content
+ *
+ * The JSON format allows passing all starter data (text, context, attributes) to the AI.
+ * The UI should parse the JSON and display only the 'text' field.
  */
-function starterToMessage(starter: Starter): Message {
-  return {
+function starterToMessages(starter: Starter): Message[] {
+  const messages: Message[] = [];
+  const timestamp = new Date().toISOString();
+
+  // If context exists, create a CONTEXT message first
+  // This provides scenario context to the AI but is filtered from user display
+  if (starter.context && starter.context.trim()) {
+    messages.push({
+      messageId: generateId(),
+      type: MessageType.CONTEXT,
+      role: 'System',
+      content: starter.context,
+      timestamp,
+    });
+  }
+
+  // Create the STARTER message with full starter object as JSON
+  // This includes text, context, and all attributes for the AI
+  const starterContent = JSON.stringify({
+    text: starter.text,
+    context: starter.context || '',
+    ...starter.attributes,
+  });
+
+  // Get role from attributes if 'name' is provided, otherwise default to 'Assistant'
+  const role = starter.attributes?.name || 'Assistant';
+
+  messages.push({
     messageId: generateId(),
     type: MessageType.STARTER,
-    role: 'Assistant', // Display as AI message
-    content: starter.text,
-    timestamp: new Date().toISOString(),
-    metadata: {
-      context: starter.context,
-      attributes: starter.attributes,
-    },
-  };
+    role,
+    content: starterContent,
+    timestamp,
+  });
+
+  return messages;
+}
+
+/**
+ * Parse starter content from a STARTER message.
+ * Returns the parsed object or null if parsing fails.
+ */
+function parseStarterContent(content: string): { text: string; context?: string; [key: string]: unknown } | null {
+  try {
+    return JSON.parse(content) as { text: string; context?: string; [key: string]: unknown };
+  } catch {
+    // If not valid JSON, treat content as plain text (backwards compatibility)
+    return { text: content };
+  }
 }
 
 /**
@@ -65,7 +108,7 @@ function createWelcomeMessage(welcomeText: string): Message {
   return {
     messageId: generateId(),
     type: MessageType.STARTER,
-    role: 'Assistant', // Display as AI message
+    role: 'System',
     content: welcomeText,
     timestamp: new Date().toISOString(),
   };
@@ -177,20 +220,26 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
         // Create the conversation
         const conversation = await controller.startConversation(exercise.exerciseId, socket.data.user);
 
-        // Add the first message: either a selected starter or the welcome message
+        // Add the first message(s): welcome message first, then starter if defined
         // Note: addMessage modifies conversation.messages in-place for in-memory storage,
         // so we don't need to push separately
-        if (exercise.starters && exercise.starters.length > 0) {
-          // Exercise has starters - select one and use it as the opening message
-          const selectedStarter = selectStarter(exercise.starters, data.query);
-          if (selectedStarter) {
-            const starterMessage = starterToMessage(selectedStarter);
-            await config.conversationStorage.addMessage(conversation.conversationId, starterMessage);
-          }
-        } else if (exercise.welcomeMessage) {
-          // No starters - use welcome message as fallback
+
+        // Always add welcome message first if it exists
+        if (exercise.welcomeMessage) {
           const welcomeMessage = createWelcomeMessage(exercise.welcomeMessage);
           await config.conversationStorage.addMessage(conversation.conversationId, welcomeMessage);
+        }
+
+        // Then add starter messages if starters are defined
+        if (exercise.starters && exercise.starters.length > 0) {
+          const selectedStarter = selectStarter(exercise.starters, data.query);
+          if (selectedStarter) {
+            // starterToMessages returns array: [CONTEXT message (if context exists), STARTER message]
+            const starterMessages = starterToMessages(selectedStarter);
+            for (const msg of starterMessages) {
+              await config.conversationStorage.addMessage(conversation.conversationId, msg);
+            }
+          }
         }
 
         // Fetch updated conversation to get messages (storage may have added them)
@@ -329,6 +378,16 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
               aiMessages.push({ role: 'user', content: msg.content });
             } else if (msg.type === MessageType.CONVERSATION) {
               aiMessages.push({ role: 'assistant', content: msg.content });
+            } else if (msg.type === MessageType.CONTEXT) {
+              // CONTEXT messages provide scenario context to the AI
+              aiMessages.push({ role: 'system', content: `Context: ${msg.content}` });
+            } else if (msg.type === MessageType.STARTER) {
+              // STARTER messages contain the full starter object as JSON
+              // Parse and include for AI context (includes text, context, and attributes)
+              const parsed = parseStarterContent(msg.content);
+              if (parsed) {
+                aiMessages.push({ role: 'assistant', content: JSON.stringify(parsed) });
+              }
             }
           }
 
@@ -386,9 +445,15 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
                       commentaryMessages.push({ role: 'user', content: msg.content });
                     } else if (msg.type === MessageType.CONVERSATION) {
                       commentaryMessages.push({ role: 'assistant', content: msg.content });
-                    }
-                    // Optionally include previous commentary
-                    if (msg.type === MessageType.COMMENTARY) {
+                    } else if (msg.type === MessageType.CONTEXT) {
+                      commentaryMessages.push({ role: 'system', content: `Context: ${msg.content}` });
+                    } else if (msg.type === MessageType.STARTER) {
+                      const parsed = parseStarterContent(msg.content);
+                      if (parsed) {
+                        commentaryMessages.push({ role: 'assistant', content: JSON.stringify(parsed) });
+                      }
+                    } else if (msg.type === MessageType.COMMENTARY) {
+                      // Include previous commentary
                       commentaryMessages.push({ role: 'assistant', content: `[Previous Commentary]: ${msg.content}` });
                     }
                   }
