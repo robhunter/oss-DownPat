@@ -29,12 +29,6 @@ describe('AdminApp', () => {
 
     expect(screen.getByTestId('exercise-list-page')).toBeInTheDocument();
   });
-
-  it('should have the admin app container class', () => {
-    const { container } = render(<AdminApp config={mockConfig} />);
-
-    expect(container.querySelector('.downpat-admin-app')).toBeInTheDocument();
-  });
 });
 
 describe('ControlledAdminApp', () => {

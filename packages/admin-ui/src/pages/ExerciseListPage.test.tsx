@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { ExerciseListPage } from './ExerciseListPage.js';
 import { AdminProvider } from '../AdminContext.js';
 import type { AdminUIConfig } from '../config.js';
@@ -199,9 +199,10 @@ describe('ExerciseListPage', () => {
         expect(screen.getByText('Test Exercise 1')).toBeInTheDocument();
       });
 
-      // Find and click publish button for first exercise (draft)
-      const publishButtons = screen.getAllByText('Publish');
-      fireEvent.click(publishButtons[0]);
+      // Find the table row containing "Test Exercise 1" and click its Publish button
+      const exerciseRow = screen.getByText('Test Exercise 1').closest('tr');
+      const publishButton = within(exerciseRow as HTMLElement).getByText('Publish');
+      fireEvent.click(publishButton);
 
       await waitFor(() => {
         expect(mockFetch).toHaveBeenCalledWith(
@@ -234,9 +235,10 @@ describe('ExerciseListPage', () => {
         expect(screen.getByText('Test Exercise 1')).toBeInTheDocument();
       });
 
-      // Find and click delete button
-      const deleteButtons = screen.getAllByText('Delete');
-      fireEvent.click(deleteButtons[0]);
+      // Find the table row containing "Test Exercise 1" and click its Delete button
+      const exerciseRow = screen.getByText('Test Exercise 1').closest('tr');
+      const deleteButton = within(exerciseRow as HTMLElement).getByText('Delete');
+      fireEvent.click(deleteButton);
 
       // Confirm deletion
       const confirmButton = screen.getByText('Confirm Delete');
@@ -282,8 +284,10 @@ describe('ExerciseListPage', () => {
         expect(screen.getByText('Test Exercise 1')).toBeInTheDocument();
       });
 
-      const testButtons = screen.getAllByText('Test');
-      fireEvent.click(testButtons[0]);
+      // Find the table row containing "Test Exercise 1" and click its Test button
+      const exerciseRow = screen.getByText('Test Exercise 1').closest('tr');
+      const testButton = within(exerciseRow as HTMLElement).getByText('Test');
+      fireEvent.click(testButton);
 
       expect(onTestExercise).toHaveBeenCalledWith('ex-1', 'test-exercise-1');
     });
