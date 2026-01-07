@@ -209,6 +209,14 @@ const registry = await createAdapterRegistry({
 });
 ```
 
+## Limitations
+
+### Tool Use Not Supported
+
+These adapters do not support tool/function calling. If a model returns a `tool_calls` finish reason (OpenAI) or similar, the adapter will report `finishReason: 'error'`. This is intentional: when a model expects to call tools, its response is incomplete and waiting for tool results. Since the adapter cannot execute tools, returning `'stop'` would incorrectly indicate successful completion.
+
+If you need tool support, use the provider SDKs directly.
+
 ## License
 
 MIT

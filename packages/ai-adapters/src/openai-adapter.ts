@@ -135,6 +135,15 @@ export class OpenAIAdapter implements AIAdapter {
     };
   }
 
+  /**
+   * Maps OpenAI finish reasons to standardized adapter finish reasons.
+   *
+   * Note on 'tool_calls': When the model returns 'tool_calls', it expects the caller
+   * to execute tools and continue the conversation. Since this adapter does not support
+   * tool use, 'tool_calls' is mapped to 'error' because the interaction cannot complete
+   * successfully - the model's response is incomplete and waiting for tool results that
+   * will never arrive. Returning 'stop' would incorrectly indicate a successful completion.
+   */
   private mapFinishReason(reason?: string): AICompletionResult['finishReason'] {
     switch (reason) {
       case 'stop':
@@ -144,7 +153,7 @@ export class OpenAIAdapter implements AIAdapter {
       case 'content_filter':
         return 'content_filter';
       default:
-        // Unknown or unhandled finish reasons (e.g., 'tool_calls') should be treated as errors
+        // Unknown finish reasons (including 'tool_calls') indicate incomplete responses
         return reason ? 'error' : 'stop';
     }
   }

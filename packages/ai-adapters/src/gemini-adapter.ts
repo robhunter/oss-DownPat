@@ -109,6 +109,7 @@ export class GeminiAdapter implements AIAdapter {
 
     let content = '';
     let finishReason: AICompletionResult['finishReason'] = 'stop';
+    let usage: AICompletionResult['usage'] | undefined;
 
     for await (const chunk of result.stream) {
       if (signal?.aborted) {
@@ -124,14 +125,29 @@ export class GeminiAdapter implements AIAdapter {
       if (chunk.candidates?.[0]?.finishReason) {
         finishReason = this.mapFinishReason(chunk.candidates[0].finishReason);
       }
+
+      // Extract usage metadata if available (sent in final chunks)
+      if (chunk.usageMetadata) {
+        usage = {
+          promptTokens: chunk.usageMetadata.promptTokenCount,
+          completionTokens: chunk.usageMetadata.candidatesTokenCount,
+          totalTokens: chunk.usageMetadata.totalTokenCount,
+        };
+      }
     }
 
     return {
       content,
       finishReason,
+      usage,
     };
   }
 
+  /**
+   * Maps Gemini finish reasons to standardized adapter finish reasons.
+   * Uses string literals to avoid static imports of the optional peer dependency.
+   * Values match the FinishReason enum from @google/generative-ai.
+   */
   private mapFinishReason(reason?: string): AICompletionResult['finishReason'] {
     switch (reason) {
       case 'STOP':
@@ -139,9 +155,13 @@ export class GeminiAdapter implements AIAdapter {
       case 'MAX_TOKENS':
         return 'length';
       case 'SAFETY':
+      case 'RECITATION':
         return 'content_filter';
+      case 'OTHER':
+        return 'error';
+      case 'FINISH_REASON_UNSPECIFIED':
       default:
-        // Unknown or unhandled finish reasons should be treated as errors
+        // Unspecified or unknown finish reasons
         return reason ? 'error' : 'stop';
     }
   }

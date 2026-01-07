@@ -89,6 +89,42 @@ describe('GeminiAdapter', () => {
     expect(receivedChunks).toEqual(['Hello', ' from Gemini!']);
   });
 
+  it('returns usage metadata in streaming mode', async () => {
+    const chunks = [
+      { text: () => 'Hello' },
+      {
+        text: () => '',
+        candidates: [{ finishReason: 'STOP' }],
+        usageMetadata: {
+          promptTokenCount: 5,
+          candidatesTokenCount: 10,
+          totalTokenCount: 15,
+        },
+      },
+    ];
+
+    mockModel.generateContentStream.mockResolvedValue({
+      stream: (async function* () {
+        for (const chunk of chunks) {
+          yield chunk;
+        }
+      })(),
+    });
+
+    const adapter = new GeminiAdapter(mockClient);
+    const result = await adapter.complete({
+      model: 'gemini-pro',
+      messages: [{ role: 'user', content: 'Hello' }],
+      onChunk: () => {},
+    });
+
+    expect(result.usage).toEqual({
+      promptTokens: 5,
+      completionTokens: 10,
+      totalTokens: 15,
+    });
+  });
+
   it('handles MAX_TOKENS finish reason', async () => {
     mockModel.generateContent.mockResolvedValue({
       response: {
