@@ -98,6 +98,8 @@ describe('ExerciseController', () => {
 
   describe('updateExercise', () => {
     it('allows admin to update exercise', async () => {
+      vi.mocked(mockStorage.getExercise).mockResolvedValue(testExercise);
+
       await controller.updateExercise(testExercise, adminUser);
 
       expect(mockStorage.updateExercise).toHaveBeenCalledWith(testExercise);
@@ -107,6 +109,26 @@ describe('ExerciseController', () => {
       await expect(
         controller.updateExercise(testExercise, regularUser)
       ).rejects.toThrow('Unauthorized');
+    });
+
+    it('throws when exercise not found', async () => {
+      vi.mocked(mockStorage.getExercise).mockResolvedValue(null);
+
+      await expect(
+        controller.updateExercise(testExercise, adminUser)
+      ).rejects.toThrow('Exercise not found');
+    });
+
+    it('prevents changing the slug', async () => {
+      vi.mocked(mockStorage.getExercise).mockResolvedValue(testExercise);
+
+      const updatedExercise = { ...testExercise, slug: 'new-slug' };
+
+      await expect(
+        controller.updateExercise(updatedExercise, adminUser)
+      ).rejects.toThrow('Cannot change exercise slug: slug is immutable');
+
+      expect(mockStorage.updateExercise).not.toHaveBeenCalled();
     });
   });
 

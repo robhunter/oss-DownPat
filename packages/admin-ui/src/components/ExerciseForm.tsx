@@ -234,18 +234,21 @@ export function ExerciseForm({
           <input
             type="text"
             value={formData.slug}
-            onBlur={() => handleBlur('slug')}
-            onChange={(e) => updateField('slug', e.target.value)}
+            onBlur={() => !exercise && handleBlur('slug')}
+            onChange={(e) => !exercise && updateField('slug', e.target.value)}
             placeholder="exercise-slug"
             required
-            className={`downpat-input ${touched.slug && errors.slug ? 'downpat-input--error' : ''}`}
+            readOnly={!!exercise}
+            className={`downpat-input ${touched.slug && errors.slug ? 'downpat-input--error' : ''} ${exercise ? 'downpat-input--readonly' : ''}`}
             pattern="[a-z0-9\-]+"
             title="Lowercase letters, numbers, and hyphens only"
           />
           {touched.slug && errors.slug ? (
             <small className="downpat-field-error-text">{errors.slug}</small>
           ) : (
-            <small className="downpat-help-text">URL-friendly identifier (auto-generated from name)</small>
+            <small className="downpat-help-text">
+              {exercise ? 'Slug cannot be changed after creation' : 'URL-friendly identifier (auto-generated from name)'}
+            </small>
           )}
         </div>
 

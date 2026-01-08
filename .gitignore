@@ -70,6 +70,8 @@ coverage/
 .jest-cache/
 __snapshots__/
 packages/*/test-results/
+test-results/
+playwright-report/
 
 # Logs
 logs/

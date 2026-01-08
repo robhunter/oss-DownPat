@@ -71,10 +71,22 @@ export class ExerciseController {
    * @param exercise - The exercise with updated fields
    * @param user - The authenticated user
    * @throws if user is not an admin
+   * @throws if attempting to change the slug (slug is immutable)
    */
   async updateExercise(exercise: Exercise, user: User): Promise<void> {
     if (!user.isAdmin) {
       throw new Error('Unauthorized: Only admins can update exercises');
+    }
+
+    // Fetch the existing exercise to check if slug is being changed
+    const existing = await this.storage.getExercise(exercise.exerciseId);
+    if (!existing) {
+      throw new Error('Exercise not found');
+    }
+
+    // Slug is immutable since it's used as the metadata document ID
+    if (exercise.slug && exercise.slug !== existing.slug) {
+      throw new Error('Cannot change exercise slug: slug is immutable');
     }
 
     await this.storage.updateExercise(exercise);

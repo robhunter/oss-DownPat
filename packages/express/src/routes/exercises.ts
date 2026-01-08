@@ -161,6 +161,14 @@ export function createExerciseRouter(
           res.status(403).json({ error: error.message });
           return;
         }
+        if (error instanceof Error && error.message.includes('slug is immutable')) {
+          res.status(400).json({ error: error.message });
+          return;
+        }
+        if (error instanceof Error && error.message === 'Exercise not found') {
+          res.status(404).json({ error: error.message });
+          return;
+        }
         next(error);
       }
     }

@@ -127,6 +127,12 @@
   outline-color: #dc2626;
 }
 
+.downpat-input--readonly {
+  background-color: var(--downpat-admin-section-bg, #f9fafb);
+  color: var(--downpat-text-muted, #6b7280);
+  cursor: not-allowed;
+}
+
 .downpat-input--small {
   font-size: 12px;
   padding: 6px 8px;

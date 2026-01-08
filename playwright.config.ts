@@ -25,6 +25,7 @@ export default defineConfig({
       url: 'http://localhost:3001/api/downpat/health',
       reuseExistingServer: !process.env.CI,
       timeout: 30000,
+      env: { NODE_ENV: 'test' },
     },
     {
       command: 'npm run dev:client',

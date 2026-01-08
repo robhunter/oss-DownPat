@@ -1,10 +1,14 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { createServer } from 'http';
 import { fileURLToPath } from 'url';
-import type { User } from '@downpat/core';
+import { initializeApp, cert, getApps } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
+import type { User, ExerciseStorage, ConversationStorage } from '@downpat/core';
 import { createInMemoryStorage } from '@downpat/core';
 import { createDownpatRouter, attachSocketIO, createMockAuthProvider } from '@downpat/express';
+import { FirebaseExerciseStorage, FirebaseConversationStorage } from '@downpat/firebase-storage';
 import { createAdapterRegistry, type AIProviderConfig } from '@downpat/ai-adapters';
 
 const app = express();
@@ -54,10 +58,68 @@ app.post('/api/downpat/auth/login', (req, res): void => {
 const mockAuthProvider = createMockAuthProvider();
 
 /**
- * In-memory storage for development.
- * In production, use FirebaseExerciseStorage and FirebaseConversationStorage.
+ * Initialize Firebase Admin SDK.
+ * Uses GOOGLE_APPLICATION_CREDENTIALS environment variable for service account.
  */
-const { exerciseStorage, conversationStorage } = createInMemoryStorage();
+function initializeFirebase() {
+  if (getApps().length > 0) {
+    return getFirestore();
+  }
+
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const credentialsPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  const credentialsBase64 = process.env.FIREBASE_SERVICE_ACCOUNT_BASE64;
+
+  if (!projectId) {
+    throw new Error('FIREBASE_PROJECT_ID environment variable is required');
+  }
+
+  if (credentialsBase64) {
+    // Use base64-encoded credentials (for Docker/CI)
+    const serviceAccount = JSON.parse(
+      Buffer.from(credentialsBase64, 'base64').toString('utf8')
+    );
+    initializeApp({
+      credential: cert(serviceAccount),
+      projectId,
+    });
+  } else if (credentialsPath) {
+    // Use file path credentials
+    initializeApp({
+      credential: cert(credentialsPath),
+      projectId,
+    });
+  } else {
+    throw new Error(
+      'Either GOOGLE_APPLICATION_CREDENTIALS or FIREBASE_SERVICE_ACCOUNT_BASE64 must be set'
+    );
+  }
+
+  return getFirestore();
+}
+
+/**
+ * Storage selection based on NODE_ENV.
+ * - test: in-memory storage
+ * - development/production: Firebase storage
+ */
+let exerciseStorage: ExerciseStorage;
+let conversationStorage: ConversationStorage;
+
+function getStorage() {
+  if (!exerciseStorage || !conversationStorage) {
+    if (process.env.NODE_ENV === 'test') {
+      const storage = createInMemoryStorage();
+      exerciseStorage = storage.exerciseStorage;
+      conversationStorage = storage.conversationStorage;
+    } else {
+      const db = initializeFirebase();
+      exerciseStorage = new FirebaseExerciseStorage(db);
+      conversationStorage = new FirebaseConversationStorage(db);
+    }
+  }
+  return { exerciseStorage, conversationStorage };
+}
 
 /**
  * AI Provider Configuration.
@@ -79,14 +141,17 @@ const aiConfig: AIProviderConfig = {
  * Initialize DownPat router
  */
 async function initializeDownpat() {
+  // Initialize storage (lazy initialization)
+  const { exerciseStorage, conversationStorage } = getStorage();
+
   // Create AI adapter registry
   const aiRegistry = await createAdapterRegistry(aiConfig);
 
   // Create DownPat router
   const downpat = createDownpatRouter({
     serverAuth: mockAuthProvider,
-    exerciseStorage: exerciseStorage,
-    conversationStorage: conversationStorage,
+    exerciseStorage,
+    conversationStorage,
   });
 
   // Mount DownPat API routes
@@ -100,7 +165,7 @@ async function initializeDownpat() {
     console.log('No AI providers configured. Set OPENAI_API_KEY, ANTHROPIC_API_KEY, or GEMINI_API_KEY.');
   }
 
-  return { downpat, aiRegistry };
+  return { downpat, aiRegistry, exerciseStorage, conversationStorage };
 }
 
 // Only start server when run directly (not when imported for tests)
@@ -113,7 +178,7 @@ const isMainModule =
   process.argv[1]?.includes('tsx/');
 
 if (isMainModule) {
-  initializeDownpat().then(({ aiRegistry }) => {
+  initializeDownpat().then(({ aiRegistry, exerciseStorage, conversationStorage }) => {
     const httpServer = createServer(app);
 
     // Get AI adapter (prefer OpenAI, fall back to any available)
@@ -127,8 +192,8 @@ if (isMainModule) {
     // Attach Socket.io for real-time conversation
     attachSocketIO(httpServer, {
       serverAuth: mockAuthProvider,
-      exerciseStorage: exerciseStorage,
-      conversationStorage: conversationStorage,
+      exerciseStorage,
+      conversationStorage,
       aiAdapter,
       moderationAdapter: moderationAdapter || undefined,
       defaultModel: 'gpt-4',
@@ -169,4 +234,4 @@ function stopServer() {
   }
 }
 
-export { app, server, startServer, stopServer, mockAuthProvider, exerciseStorage };
+export { app, server, startServer, stopServer, mockAuthProvider, getStorage };
