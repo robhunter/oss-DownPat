@@ -173,3 +173,12 @@ If `npm test` fails with platform errors (darwin vs linux), reinstall:
 ```bash
 rm -rf node_modules package-lock.json && npm install
 ```
+
+## Common Pitfalls
+
+- When asked a design question ("What do you need to do...?"), discuss the approach before implementing
+- When adding to .gitignore, check if files are already tracked (`git rm --cached`)
+- After modifying workspace packages, rebuild them (`npm run build --workspace=@downpat/...`)
+- When making API-level changes, consider if UI changes are also needed
+- When configuring test behavior, check both unit tests (vitest) AND e2e tests (playwright)
+- Debug root causes rather than adding fallbacks/workarounds
