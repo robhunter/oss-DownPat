@@ -1,5 +1,10 @@
-import { describe, it, expect, vi } from 'vitest';
-import { AIAdapterRegistry } from './index.js';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import {
+  AIAdapterRegistry,
+  createAdapterRegistryFromEnv,
+  DEFAULT_PROVIDER_PREFERENCE,
+  ENV_VAR_NAMES,
+} from './index.js';
 import type { AIAdapter, ModerationAdapter } from '@downpat/core';
 
 describe('AIAdapterRegistry', () => {
@@ -91,5 +96,152 @@ describe('AIAdapterRegistry', () => {
 
     expect(registry.getAdapter('openai')).toBe(adapter2);
     expect(registry.getAllModels()).toEqual(['gpt-4o']);
+  });
+
+  describe('getDefaultAdapter', () => {
+    it('returns undefined for empty registry', () => {
+      const registry = new AIAdapterRegistry();
+      expect(registry.getDefaultAdapter()).toBeUndefined();
+    });
+
+    it('returns first adapter by default preference order', () => {
+      const registry = new AIAdapterRegistry();
+      const anthropicAdapter = createMockAdapter('anthropic', ['claude-3-opus']);
+      const openaiAdapter = createMockAdapter('openai', ['gpt-4']);
+
+      // Register anthropic first, but openai should be preferred
+      registry.registerAdapter(anthropicAdapter);
+      registry.registerAdapter(openaiAdapter);
+
+      expect(registry.getDefaultAdapter()).toBe(openaiAdapter);
+    });
+
+    it('falls back to second preference if first not available', () => {
+      const registry = new AIAdapterRegistry();
+      const anthropicAdapter = createMockAdapter('anthropic', ['claude-3-opus']);
+
+      registry.registerAdapter(anthropicAdapter);
+
+      expect(registry.getDefaultAdapter()).toBe(anthropicAdapter);
+    });
+
+    it('respects custom provider preference', () => {
+      const registry = new AIAdapterRegistry();
+      const anthropicAdapter = createMockAdapter('anthropic', ['claude-3-opus']);
+      const openaiAdapter = createMockAdapter('openai', ['gpt-4']);
+
+      registry.registerAdapter(openaiAdapter);
+      registry.registerAdapter(anthropicAdapter);
+      registry.setProviderPreference(['anthropic', 'openai', 'gemini']);
+
+      expect(registry.getDefaultAdapter()).toBe(anthropicAdapter);
+    });
+
+    it('falls back to any available adapter if none in preference', () => {
+      const registry = new AIAdapterRegistry();
+      const geminiAdapter = createMockAdapter('gemini', ['gemini-pro']);
+
+      registry.registerAdapter(geminiAdapter);
+      registry.setProviderPreference(['custom-provider']);
+
+      expect(registry.getDefaultAdapter()).toBe(geminiAdapter);
+    });
+  });
+});
+
+describe('createAdapterRegistryFromEnv', () => {
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    process.env = { ...originalEnv };
+    // Clear all API keys
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.GEMINI_API_KEY;
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+  });
+
+  it('creates empty registry when no API keys set', async () => {
+    const registry = await createAdapterRegistryFromEnv();
+
+    expect(registry.getProviders()).toEqual([]);
+    expect(registry.getAllModels()).toEqual([]);
+  });
+
+  it('creates OpenAI adapter when OPENAI_API_KEY is set', async () => {
+    process.env.OPENAI_API_KEY = 'test-openai-key';
+
+    const registry = await createAdapterRegistryFromEnv();
+
+    expect(registry.getProviders()).toContain('openai');
+    expect(registry.getAdapter('openai')).toBeDefined();
+  });
+
+  it('creates Anthropic adapter when ANTHROPIC_API_KEY is set', async () => {
+    process.env.ANTHROPIC_API_KEY = 'test-anthropic-key';
+
+    const registry = await createAdapterRegistryFromEnv();
+
+    expect(registry.getProviders()).toContain('anthropic');
+    expect(registry.getAdapter('anthropic')).toBeDefined();
+  });
+
+  it('creates Gemini adapter when GEMINI_API_KEY is set', async () => {
+    process.env.GEMINI_API_KEY = 'test-gemini-key';
+
+    const registry = await createAdapterRegistryFromEnv();
+
+    expect(registry.getProviders()).toContain('gemini');
+    expect(registry.getAdapter('gemini')).toBeDefined();
+  });
+
+  it('creates multiple adapters when multiple keys set', async () => {
+    process.env.OPENAI_API_KEY = 'test-openai-key';
+    process.env.ANTHROPIC_API_KEY = 'test-anthropic-key';
+
+    const registry = await createAdapterRegistryFromEnv();
+
+    expect(registry.getProviders()).toContain('openai');
+    expect(registry.getProviders()).toContain('anthropic');
+    expect(registry.getProviders()).toHaveLength(2);
+  });
+
+  it('applies custom provider preference', async () => {
+    process.env.OPENAI_API_KEY = 'test-openai-key';
+    process.env.ANTHROPIC_API_KEY = 'test-anthropic-key';
+
+    const registry = await createAdapterRegistryFromEnv({
+      providerPreference: ['anthropic', 'openai'],
+    });
+
+    const defaultAdapter = registry.getDefaultAdapter();
+    expect(defaultAdapter?.provider).toBe('anthropic');
+  });
+
+  it('supports custom env var names', async () => {
+    process.env.MY_CUSTOM_OPENAI_KEY = 'test-key';
+
+    const registry = await createAdapterRegistryFromEnv({
+      envVarNames: { openai: 'MY_CUSTOM_OPENAI_KEY' },
+    });
+
+    expect(registry.getProviders()).toContain('openai');
+  });
+});
+
+describe('constants', () => {
+  it('exports DEFAULT_PROVIDER_PREFERENCE', () => {
+    expect(DEFAULT_PROVIDER_PREFERENCE).toEqual(['openai', 'anthropic', 'gemini']);
+  });
+
+  it('exports ENV_VAR_NAMES', () => {
+    expect(ENV_VAR_NAMES).toEqual({
+      openai: 'OPENAI_API_KEY',
+      anthropic: 'ANTHROPIC_API_KEY',
+      gemini: 'GEMINI_API_KEY',
+    });
   });
 });

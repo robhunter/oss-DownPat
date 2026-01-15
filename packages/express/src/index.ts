@@ -1,8 +1,12 @@
-// Router
+// High-level server setup (recommended)
+export { createDownpatServer } from './server.js';
+export type { CreateDownpatServerConfig, DownpatServerResult } from './server.js';
+
+// Router (lower-level)
 export { createDownpatRouter } from './router.js';
 export type { DownpatConfig, DownpatRouterResult } from './router.js';
 
-// Socket.io
+// Socket.io (lower-level)
 export { attachSocketIO } from './socket.js';
 export type { SocketConfig } from './socket.js';
 

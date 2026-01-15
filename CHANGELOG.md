@@ -11,6 +11,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 ### Changed
+- Refactor example-app: Move DownPat-specific code to packages (#10)
+- Update example-app server to use createDownpatServer() from @downpat/express (#35)
+- Update @downpat/express with higher-level server setup (#19)
+- Add GET /api/downpat/models endpoint to expose available AI models (#29)
+- Add GET /api/downpat/exercises/stats endpoint for dashboard (#28)
+- Add createDownpatServer() higher-level helper that combines router + Socket.io setup (#27)
+- Update @downpat/ai-adapters with helper functions (#18)
+- Add getDefaultAdapter() method to registry with configurable preference order (#26)
+- Add createAdapterRegistryFromEnv() that auto-detects API keys (#25)
+- Add createFirebaseStorage() helper that auto-detects env and uses in-memory for test (#24)
+- Add initializeFirebaseFromEnv() helper function (#23)
 - Address code review feedback for @downpat/react (#46)
 - Replace inline styles with CSS module in ExerciseBrowserPage (#50)
 - Replace singleton pattern with React Context for client initialization (#49)
