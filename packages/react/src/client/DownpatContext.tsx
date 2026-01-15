@@ -8,8 +8,8 @@ import { DownpatClient, createDownpatClient } from './DownpatClient.js';
 export interface DownpatProviderConfig {
   /** Base URL for the DownPat API (default: '/api/downpat') */
   baseUrl?: string;
-  /** Function to get the current auth token */
-  getToken: () => string | null;
+  /** Function to get the current auth token (can be async) */
+  getToken: () => string | null | Promise<string | null>;
   /** Current auth token (optional, for reactive updates) */
   token?: string | null;
 }

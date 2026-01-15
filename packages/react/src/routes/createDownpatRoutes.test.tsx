@@ -28,6 +28,8 @@ vi.mock('@downpat/ui-components', () => ({
       <button onClick={onBack}>Back</button>
     </div>
   )),
+  provideDownPatToken: vi.fn(),
+  clearDownPatToken: vi.fn(),
 }));
 
 // Mock ControlledAdminApp from admin-ui

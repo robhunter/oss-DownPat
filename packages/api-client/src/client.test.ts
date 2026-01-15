@@ -431,7 +431,7 @@ describe('DownpatClient', () => {
       const result = await client.getExerciseStats();
 
       expect(global.fetch).toHaveBeenCalledWith(
-        '/api/downpat/exercises/stats',
+        '/api/downpat/stats',
         expect.any(Object)
       );
       expect(result).toEqual(mockStats);

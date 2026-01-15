@@ -11,6 +11,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 ### Changed
+- Fix code review blockers from server-side refactor (#51)
+- Update React hooks to use Context instead of singleton (#55)
+- Wrap DownpatRoutes with DownpatProvider (#54)
+- Fix getExercise method - uses slug but calls ID endpoint (#53)
+- Fix stats endpoint path mismatch in api-client (#52)
 - Refactor example-app: Move DownPat-specific code to packages (#10)
 - Update example-app server to use createDownpatServer() from @downpat/express (#35)
 - Update @downpat/express with higher-level server setup (#19)

@@ -5,6 +5,7 @@ import { ConversationPage } from '@downpat/ui-components';
 import { ControlledAdminApp } from '@downpat/admin-ui';
 import type { AdminUIConfig } from '@downpat/admin-ui';
 import { usePublishedExercises } from '../hooks/index.js';
+import { DownpatProvider } from '../client/DownpatContext.js';
 import styles from './styles/ExerciseBrowser.module.css';
 
 /**
@@ -248,7 +249,18 @@ export function createDownpatRouteObjects(config: DownpatRoutesConfig): RouteObj
 }
 
 /**
+ * Internal component that renders routes (must be inside DownpatProvider).
+ */
+function DownpatRoutesInner(config: DownpatRoutesConfig): React.ReactElement | null {
+  const routes = createDownpatRouteObjects(config);
+  return useRoutes(routes);
+}
+
+/**
  * Component that renders DownPat routes using useRoutes.
+ *
+ * This component wraps routes with DownpatProvider to ensure hooks
+ * have access to the client via context.
  *
  * @example
  * ```tsx
@@ -273,8 +285,13 @@ export function createDownpatRouteObjects(config: DownpatRoutesConfig): RouteObj
  * ```
  */
 export function DownpatRoutes(config: DownpatRoutesConfig): React.ReactElement | null {
-  const routes = createDownpatRouteObjects(config);
-  return useRoutes(routes);
+  const { apiBaseUrl = '/api/downpat', getAuthToken } = config;
+
+  return (
+    <DownpatProvider baseUrl={apiBaseUrl} getToken={getAuthToken}>
+      <DownpatRoutesInner {...config} />
+    </DownpatProvider>
+  );
 }
 
 /**

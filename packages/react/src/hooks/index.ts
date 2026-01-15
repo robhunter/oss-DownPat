@@ -1,6 +1,24 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useContext } from 'react';
 import type { Exercise } from '@downpat/core';
-import { getDownpatClient, type ExerciseWithMetadata } from '../client/index.js';
+import {
+  getDownpatClient,
+  DownpatContext,
+  type ExerciseWithMetadata,
+  type DownpatClient,
+} from '../client/index.js';
+
+/**
+ * Internal hook to get the client from context or fall back to singleton.
+ * Prefers context when available for proper dependency injection.
+ */
+function useClient(): DownpatClient {
+  const context = useContext(DownpatContext);
+  // If we have context, use it. Otherwise fall back to singleton.
+  if (context) {
+    return context.client;
+  }
+  return getDownpatClient();
+}
 
 /**
  * Hook for fetching published exercises.
@@ -18,6 +36,7 @@ import { getDownpatClient, type ExerciseWithMetadata } from '../client/index.js'
  * ```
  */
 export function usePublishedExercises() {
+  const client = useClient();
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +45,6 @@ export function usePublishedExercises() {
     setIsLoading(true);
     setError(null);
     try {
-      const client = getDownpatClient();
       const data = await client.getPublishedExercises();
       setExercises(data);
     } catch (err) {
@@ -34,7 +52,7 @@ export function usePublishedExercises() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [client]);
 
   useEffect(() => {
     refetch();
@@ -49,6 +67,7 @@ export function usePublishedExercises() {
  * Provides CRUD operations for exercises with automatic state management.
  */
 export function useExerciseAdmin() {
+  const client = useClient();
   const [exercises, setExercises] = useState<ExerciseWithMetadata[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +76,6 @@ export function useExerciseAdmin() {
     setIsLoading(true);
     setError(null);
     try {
-      const client = getDownpatClient();
       const data = await client.getExercisesWithMetadata();
       setExercises(data);
     } catch (err) {
@@ -65,35 +83,31 @@ export function useExerciseAdmin() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [client]);
 
   useEffect(() => {
     refetch();
   }, [refetch]);
 
   const publishExercise = useCallback(async (slug: string) => {
-    const client = getDownpatClient();
     await client.publishExercise(slug);
     await refetch();
-  }, [refetch]);
+  }, [client, refetch]);
 
   const unpublishExercise = useCallback(async (slug: string) => {
-    const client = getDownpatClient();
     await client.unpublishExercise(slug);
     await refetch();
-  }, [refetch]);
+  }, [client, refetch]);
 
   const deleteExercise = useCallback(async (slug: string) => {
-    const client = getDownpatClient();
     await client.deleteExercise(slug);
     await refetch();
-  }, [refetch]);
+  }, [client, refetch]);
 
   const restoreExercise = useCallback(async (slug: string) => {
-    const client = getDownpatClient();
     await client.restoreExercise(slug);
     await refetch();
-  }, [refetch]);
+  }, [client, refetch]);
 
   return {
     exercises,
@@ -113,6 +127,7 @@ export function useExerciseAdmin() {
  * @param slug - Exercise slug (undefined for new exercise)
  */
 export function useExerciseEditor(slug: string | undefined) {
+  const client = useClient();
   const [exercise, setExercise] = useState<Exercise | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(!!slug);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -122,29 +137,26 @@ export function useExerciseEditor(slug: string | undefined) {
 
   useEffect(() => {
     if (slug) {
-      loadExercise(slug);
+      const loadExercise = async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
+          const data = await client.getExercise(slug);
+          setExercise(data);
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Failed to load exercise');
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      loadExercise();
     }
-  }, [slug]);
-
-  const loadExercise = async (exerciseSlug: string) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const client = getDownpatClient();
-      const data = await client.getExercise(exerciseSlug);
-      setExercise(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load exercise');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  }, [slug, client]);
 
   const saveExercise = useCallback(async (data: Exercise): Promise<boolean> => {
     setIsSubmitting(true);
     setError(null);
     try {
-      const client = getDownpatClient();
       if (isNew) {
         await client.createExercise(data);
       } else {
@@ -157,7 +169,7 @@ export function useExerciseEditor(slug: string | undefined) {
     } finally {
       setIsSubmitting(false);
     }
-  }, [isNew]);
+  }, [client, isNew]);
 
   return {
     exercise,
@@ -173,6 +185,7 @@ export function useExerciseEditor(slug: string | undefined) {
  * Hook for fetching exercise statistics (admin dashboard).
  */
 export function useExerciseStats() {
+  const client = useClient();
   const [stats, setStats] = useState<{
     total: number;
     draftCount: number;
@@ -185,7 +198,6 @@ export function useExerciseStats() {
     setIsLoading(true);
     setError(null);
     try {
-      const client = getDownpatClient();
       const data = await client.getExerciseStats();
       setStats(data);
     } catch (err) {
@@ -193,7 +205,7 @@ export function useExerciseStats() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [client]);
 
   useEffect(() => {
     refetch();
@@ -206,6 +218,7 @@ export function useExerciseStats() {
  * Hook for fetching available AI models.
  */
 export function useAvailableModels() {
+  const client = useClient();
   const [models, setModels] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -213,7 +226,6 @@ export function useAvailableModels() {
   useEffect(() => {
     const fetchModels = async () => {
       try {
-        const client = getDownpatClient();
         const data = await client.getAvailableModels();
         setModels(data);
       } catch (err) {
@@ -223,7 +235,7 @@ export function useAvailableModels() {
       }
     };
     fetchModels();
-  }, []);
+  }, [client]);
 
   return { models, isLoading, error };
 }

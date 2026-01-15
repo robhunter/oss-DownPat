@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
+import { createContext } from 'react';
 
 // Mock the client module before importing hooks
 const mockClient = {
@@ -16,9 +17,14 @@ const mockClient = {
   getAvailableModels: vi.fn(),
 };
 
-vi.mock('../client/index.js', () => ({
-  getDownpatClient: vi.fn(() => mockClient),
-}));
+vi.mock('../client/index.js', async () => {
+  // Use a fresh createContext for each test run to avoid hoisting issues
+  const { createContext } = await import('react');
+  return {
+    getDownpatClient: vi.fn(() => mockClient),
+    DownpatContext: createContext(null),
+  };
+});
 
 // Import after mocking
 import {

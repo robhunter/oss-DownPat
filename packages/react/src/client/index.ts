@@ -16,6 +16,7 @@ export {
 
 export {
   DownpatProvider,
+  DownpatContext,
   useDownpatClient,
   useDownpatToken,
   useHasDownpatContext,

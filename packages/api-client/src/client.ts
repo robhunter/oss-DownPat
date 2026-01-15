@@ -182,16 +182,9 @@ export class DownpatClient {
 
   /**
    * Get a single exercise by slug (admin only).
+   * Returns the draft version of the exercise.
    */
   async getExercise(slug: string): Promise<Exercise> {
-    return this.request<Exercise>('GET', `/exercises/${slug}`);
-  }
-
-  /**
-   * Get a single exercise by slug using by-slug endpoint.
-   * Use this when you need the draft version specifically.
-   */
-  async getExerciseBySlug(slug: string): Promise<Exercise> {
     return this.request<Exercise>('GET', `/exercises/by-slug/${slug}`);
   }
 
@@ -305,7 +298,7 @@ export class DownpatClient {
    * Get exercise statistics (admin only).
    */
   async getExerciseStats(): Promise<ExerciseStats> {
-    return this.request<ExerciseStats>('GET', '/exercises/stats');
+    return this.request<ExerciseStats>('GET', '/stats');
   }
 
   /**
