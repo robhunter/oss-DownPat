@@ -50,7 +50,8 @@ export function DownpatProvider({
   token,
 }: DownpatProviderConfig & { children: React.ReactNode }) {
   // Track internal token state for provider (used for reactive updates)
-  const [, setCurrentToken] = useState<string | null>(() => token ?? getToken());
+  // Initialize with token prop only - async getToken is handled in useEffect
+  const [, setCurrentToken] = useState<string | null>(token ?? null);
 
   // Create client - memoized to avoid recreation
   const client = useMemo(() => {
@@ -77,13 +78,25 @@ export function DownpatProvider({
     }
   }, [token, updateToken]);
 
-  // Initial token setup
+  // Initial token setup - handles both sync and async getToken
   useEffect(() => {
-    const initialToken = getToken();
-    if (initialToken) {
-      provideDownPatToken(initialToken);
-    }
+    let cancelled = false;
+
+    const initializeToken = async () => {
+      const result = getToken();
+      // Handle both sync and async getToken
+      const initialToken = result instanceof Promise ? await result : result;
+
+      if (!cancelled && initialToken) {
+        provideDownPatToken(initialToken);
+        setCurrentToken(initialToken);
+      }
+    };
+
+    initializeToken();
+
     return () => {
+      cancelled = true;
       clearDownPatToken();
     };
   }, [getToken]);
