@@ -1,29 +1,10 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import type { User } from '@downpat/core';
-import { provideDownPatToken, clearDownPatToken } from '@downpat/ui-components';
-import { initializeAPI, getAPI } from '../lib/api';
+import { initializeDownpat, updateDownpatToken, clearDownpat } from '@downpat/react';
 
 /**
- * =============================================================================
- * KEEP IN: example-app (authentication is app's responsibility)
- *
- * This entire file should stay in the example app. Authentication varies widely
- * between apps (Firebase Auth, Auth0, Clerk, custom JWT, etc.).
- *
- * HOWEVER, note the tight coupling with DownPat:
- * - provideDownPatToken / clearDownPatToken must be called
- * - initializeAPI must be called with token getter
- *
- * SIMPLIFICATION OPPORTUNITY:
- * @downpat/react should provide a single initialization function:
- *
- *   import { initializeDownpat } from '@downpat/react';
- *
- *   // In auth provider, after getting token:
- *   initializeDownpat({ token });  // Sets token for both API client and Socket.io
- *
- * Instead of calling multiple functions (provideDownPatToken + initializeAPI).
- * =============================================================================
+ * Authentication provider for the example app.
+ * Authentication is app-specific - this won't be part of DownPat packages.
  */
 
 interface AuthContextType {
@@ -45,10 +26,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Initialize API with token getter
+  // Initialize DownPat client once on mount
+  // Use localStorage directly so the token getter always has current value
   useEffect(() => {
-    initializeAPI(() => token);
-  }, [token]);
+    initializeDownpat({
+      getToken: () => localStorage.getItem(TOKEN_KEY),
+    });
+  }, []);
 
   // Restore auth state from localStorage on mount
   useEffect(() => {
@@ -59,13 +43,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         setToken(savedToken);
         setUser(JSON.parse(savedUser));
-        // Provide token to DownPat hooks
-        provideDownPatToken(savedToken);
+        // Update token in DownPat (for Socket.io)
+        updateDownpatToken(savedToken);
       } catch {
         // Invalid stored data, clear it
         localStorage.removeItem(TOKEN_KEY);
         localStorage.removeItem(USER_KEY);
-        clearDownPatToken();
+        clearDownpat();
       }
     }
 
@@ -73,26 +57,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(async (email: string) => {
-    // Temporarily initialize API without token for login
-    initializeAPI(() => null);
-    const api = getAPI();
-    const response = await api.login(email);
+    // Demo login - in production this would call your auth API
+    const response = await fetch('/api/downpat/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
 
-    localStorage.setItem(TOKEN_KEY, response.token);
-    localStorage.setItem(USER_KEY, JSON.stringify(response.user));
+    if (!response.ok) {
+      throw new Error('Login failed');
+    }
 
-    // Provide token to DownPat hooks
-    provideDownPatToken(response.token);
+    const data = await response.json();
 
-    setToken(response.token);
-    setUser(response.user);
+    localStorage.setItem(TOKEN_KEY, data.token);
+    localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+
+    // Update token in DownPat
+    updateDownpatToken(data.token);
+
+    setToken(data.token);
+    setUser(data.user);
   }, []);
 
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
-    // Clear token from DownPat hooks
-    clearDownPatToken();
+    // Clear DownPat state
+    clearDownpat();
     setToken(null);
     setUser(null);
   }, []);

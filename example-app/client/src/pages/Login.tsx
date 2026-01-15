@@ -3,9 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../components/AuthProvider';
 
 /**
- * KEEP IN: example-app
+ * Login page for the example app.
  * Login pages are app-specific (auth provider, branding, form fields).
- * This should not be part of DownPat packages.
  */
 export function Login() {
   const [email, setEmail] = useState('');
@@ -17,7 +16,7 @@ export function Login() {
   const location = useLocation();
 
   // Get the page user was trying to access
-  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/exercises';
+  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/downpat/exercises';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

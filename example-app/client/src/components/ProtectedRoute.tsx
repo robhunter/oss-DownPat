@@ -2,13 +2,8 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './AuthProvider';
 
 /**
- * KEEP IN: example-app
+ * Route protection for the example app.
  * Route protection is app-specific (ties into app's auth system, redirect paths).
- * This should not be part of DownPat packages.
- *
- * NOTE: The requireAdmin check uses User.isAdmin from @downpat/core, which is
- * the correct integration point - DownPat defines the User type, apps decide
- * how to use it for authorization.
  */
 
 interface ProtectedRouteProps {
@@ -36,7 +31,7 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
 
   if (requireAdmin && !user?.isAdmin) {
     // Non-admin trying to access admin page
-    return <Navigate to="/exercises" replace />;
+    return <Navigate to="/downpat/exercises" replace />;
   }
 
   return <>{children}</>;

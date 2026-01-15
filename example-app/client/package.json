@@ -12,6 +12,7 @@
   "dependencies": {
     "@downpat/admin-ui": "*",
     "@downpat/core": "*",
+    "@downpat/react": "*",
     "@downpat/ui-components": "*",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

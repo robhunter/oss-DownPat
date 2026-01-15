@@ -2,13 +2,8 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../components/AuthProvider';
 
 /**
- * KEEP IN: example-app
+ * Landing page for the example app.
  * Landing pages are app-specific (branding, marketing copy, demo credentials).
- * This should not be part of DownPat packages.
- *
- * TODO: Update links when routes move to /downpat/* namespace:
- *   /exercises → /downpat/exercises
- *   /admin     → /downpat/admin
  */
 export function Home() {
   const { isAuthenticated, user } = useAuth();
@@ -24,11 +19,11 @@ export function Home() {
         <div style={styles.actions}>
           {isAuthenticated ? (
             <>
-              <Link to="/exercises" style={styles.primaryBtn}>
+              <Link to="/downpat/exercises" style={styles.primaryBtn}>
                 Browse Exercises
               </Link>
               {user?.isAdmin && (
-                <Link to="/admin" style={styles.secondaryBtn}>
+                <Link to="/downpat/admin" style={styles.secondaryBtn}>
                   Admin Dashboard
                 </Link>
               )}

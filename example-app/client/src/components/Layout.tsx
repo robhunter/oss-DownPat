@@ -2,13 +2,8 @@ import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from './AuthProvider';
 
 /**
- * KEEP IN: example-app
- * Layout/navigation is app-specific (branding, nav items, user menu style).
- * This should not be part of DownPat packages.
- *
- * TODO: Update nav links when routes move to /downpat/* namespace:
- *   /exercises → /downpat/exercises
- *   /admin     → /downpat/admin
+ * Layout/navigation for the example app.
+ * Layout is app-specific (branding, nav items, user menu style).
  */
 export function Layout() {
   const { user, isAuthenticated, logout } = useAuth();
@@ -28,10 +23,10 @@ export function Layout() {
             {isAuthenticated && (
               <div style={styles.navLinks}>
                 <Link
-                  to="/exercises"
+                  to="/downpat/exercises"
                   style={{
                     ...styles.navLink,
-                    ...(isActive('/exercises') && !isActive('/exercises/') ? styles.navLinkActive : {}),
+                    ...(isActive('/downpat/exercises') ? styles.navLinkActive : {}),
                   }}
                 >
                   Exercises
@@ -39,10 +34,10 @@ export function Layout() {
 
                 {user?.isAdmin && (
                   <Link
-                    to="/admin"
+                    to="/downpat/admin"
                     style={{
                       ...styles.navLink,
-                      ...(isActive('/admin') ? styles.navLinkActive : {}),
+                      ...(isActive('/downpat/admin') ? styles.navLinkActive : {}),
                     }}
                   >
                     Admin
