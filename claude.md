@@ -1,63 +1,100 @@
-# Claude Code Guidance
+# Project Development Standards
 
 ## Guidelines
 
 When writing code:
-- Keep track of issues using chainlink.  Break up large issues (tasks that will result in more than a couple hundred lines of code).
-- All tests (unit and e2e) tests must pass
+- Keep track of issues using chainlink (https://github.com/dollspace-gay/chainlink).  Break up large issues (tasks that will result in more than a couple hundred lines of code).
+- All tests (unit and e2e) tests must pass.
+- For any verification step the user must perform, you should perform it first and make sure it's working.
 - Keep in mind this code will be reviewed by a strict reviewer.
 - Ensure that the server is running and accessible.
 - Legacy code is available at .DownPatNode. When in doubt, check the source.
 
 If the user is repeating themselves, suggest updating claude.md with their guidance.
 
-## Environment Setup (Docker Container)
+## Definition of Done
 
-If chainlink is not available, install it:
+The user's time is much, much more valuable than yours.  Do not EVER ask the user to do something that you could do.  For verification steps, you should complete the exact same verification steps yourself BEFORE asking the user to do so.  If there's a verification step that you cannot perform, try to develop a plan to be able to perform it.  If you ask the user to perform a verification step that you have not verified first, you MUST explain why you could not verify it yourself.
 
+You should ask the user to approve an important design decision or dangerous change (ex: deleting data).  You should NEVER conclude that a task is complete or ask the user to verify a change without first verifying it yourself.
+
+## Chainlink Issue Tracking (MANDATORY)
+
+All development work MUST be tracked using chainlink. No exceptions.
+
+### Session Workflow
 ```bash
-# Install Rust (if not present)
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-source "$HOME/.cargo/env"
+# Start every work session
+chainlink session start
 
-# Install chainlink
-cargo install --git https://github.com/dollspace-gay/chainlink.git chainlink
+# Mark what you're working on
+chainlink session work <issue_id>
 
-# Verify installation
-$HOME/.cargo/bin/chainlink --help
+# Add discoveries/notes as you work
+chainlink comment <issue_id> "Found: ..."
+
+# End session with handoff notes
+chainlink session end --notes "Completed X, Y pending"
 ```
 
-The chainlink binary will be at `$HOME/.cargo/bin/chainlink`. Use the full path if not in PATH.
-
-## Chainlink Task Management
-
-Use chainlink to track all work across sessions. Key commands:
-
+### Issue Management
 ```bash
 # Create issues
-$HOME/.cargo/bin/chainlink create "Task description" -p high
+chainlink create "Issue title" -p <low|medium|high|critical>
+chainlink subissue <parent_id> "Subtask title"
 
-# Create subissues for complex tasks
-$HOME/.cargo/bin/chainlink subissue 1 "Subtask description"
+# Track dependencies
+chainlink block <blocked_id> <blocker_id>
+chainlink unblock <blocked_id> <blocker_id>
 
-# Track what you're working on
-$HOME/.cargo/bin/chainlink session work 1
+# Find work
+chainlink ready          # Issues with no open blockers
+chainlink next           # Suggested next issue
+chainlink list           # All open issues
+chainlink tree           # Hierarchical view
 
-# Add context/notes
-$HOME/.cargo/bin/chainlink comment 1 "Found X in Y file"
+# Update progress
+chainlink update <id> -s <open|in_progress|review|closed>
+chainlink close <id>
+chainlink comment <id> "Progress update..."
 
-# Close when done
-$HOME/.cargo/bin/chainlink close 1
-
-# List issues
-$HOME/.cargo/bin/chainlink list
-
-# Session management
-$HOME/.cargo/bin/chainlink session start
-$HOME/.cargo/bin/chainlink session end --notes "Summary of work"
+# Milestones
+chainlink milestone create "v1.0"
+chainlink milestone add <milestone_id> <issue_id>
 ```
 
-See `.chainlink/rules/global.md` for full task management guidelines.
+### Rules
+1. **Create issues BEFORE starting work** - No undocumented changes
+2. **Use `session work`** - Always mark current focus
+3. **Add comments** - Document discoveries, blockers, decisions
+4. **Close with notes** - Future you will thank present you
+5. **Large features** - Break into subissues, never exceed 500 lines per file
+
+---
+
+## Test Coverage (MANDATORY)
+
+### Requirements
+- **Minimum 80% line coverage** for all new code
+- **100% coverage** for public API functions
+- **All bug fixes** must include a regression test
+
+### Required Test Types
+1. **Unit tests** - Test individual functions in isolation
+2. **Integration tests** - Test module interactions
+3. **Doc tests** - All public API examples must be tested
+
+---
+
+## Data Collection & Persistence
+
+- NEVER delete data files (*.db, collected samples) without explicit user approval
+
+## When User Expresses Frustration
+
+- STOP and re-read their previous messages
+- Their frustration likely means you missed a requirement
+- Verify understanding before writing more code
 
 ## Milestone Workflow
 

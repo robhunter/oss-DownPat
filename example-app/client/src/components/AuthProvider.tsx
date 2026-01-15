@@ -3,6 +3,29 @@ import type { User } from '@downpat/core';
 import { provideDownPatToken, clearDownPatToken } from '@downpat/ui-components';
 import { initializeAPI, getAPI } from '../lib/api';
 
+/**
+ * =============================================================================
+ * KEEP IN: example-app (authentication is app's responsibility)
+ *
+ * This entire file should stay in the example app. Authentication varies widely
+ * between apps (Firebase Auth, Auth0, Clerk, custom JWT, etc.).
+ *
+ * HOWEVER, note the tight coupling with DownPat:
+ * - provideDownPatToken / clearDownPatToken must be called
+ * - initializeAPI must be called with token getter
+ *
+ * SIMPLIFICATION OPPORTUNITY:
+ * @downpat/react should provide a single initialization function:
+ *
+ *   import { initializeDownpat } from '@downpat/react';
+ *
+ *   // In auth provider, after getting token:
+ *   initializeDownpat({ token });  // Sets token for both API client and Socket.io
+ *
+ * Instead of calling multiple functions (provideDownPatToken + initializeAPI).
+ * =============================================================================
+ */
+
 interface AuthContextType {
   user: User | null;
   token: string | null;

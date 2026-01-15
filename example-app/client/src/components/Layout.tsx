@@ -1,6 +1,15 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from './AuthProvider';
 
+/**
+ * KEEP IN: example-app
+ * Layout/navigation is app-specific (branding, nav items, user menu style).
+ * This should not be part of DownPat packages.
+ *
+ * TODO: Update nav links when routes move to /downpat/* namespace:
+ *   /exercises → /downpat/exercises
+ *   /admin     → /downpat/admin
+ */
 export function Layout() {
   const { user, isAuthenticated, logout } = useAuth();
   const location = useLocation();

@@ -6,8 +6,17 @@ interface ConversationProps {
 }
 
 /**
- * Thin wrapper around ConversationPage from @downpat/ui-components.
- * Handles routing via react-router.
+ * =============================================================================
+ * MOVE TO: @downpat/react (route config handles this entirely)
+ *
+ * This thin wrapper will be eliminated when createDownpatRoutes() is implemented.
+ * The route config will:
+ * - Extract slug from URL params
+ * - Provide correct onBack callback with basePath-aware navigation
+ * - Pass isAdminTest based on which route matched
+ *
+ * TODO: Paths will become /downpat/admin/exercises and /downpat/exercises
+ * =============================================================================
  */
 export function Conversation({ isAdminTest = false }: ConversationProps) {
   const { slug } = useParams<{ slug: string }>();

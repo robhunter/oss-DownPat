@@ -2,6 +2,11 @@ import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../components/AuthProvider';
 
+/**
+ * KEEP IN: example-app
+ * Login pages are app-specific (auth provider, branding, form fields).
+ * This should not be part of DownPat packages.
+ */
 export function Login() {
   const [email, setEmail] = useState('');
   const [error, setError] = useState<string | null>(null);

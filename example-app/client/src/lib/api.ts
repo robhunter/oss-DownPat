@@ -1,15 +1,47 @@
 import type { Exercise, Conversation, User, ExerciseMetadata } from '@downpat/core';
 
+// =============================================================================
+// MOVE TO: @downpat/react
+//
+// This ENTIRE FILE should be provided by DownPat. The API client is DownPat-specific
+// and every integrator will need these exact same methods. Integrators should only
+// need to:
+//
+//   import { createDownpatClient } from '@downpat/react';
+//   const api = createDownpatClient({
+//     baseUrl: '/api/downpat',
+//     getToken: () => myAuthToken,
+//   });
+//
+// The @downpat/react package should export:
+// - DownpatClient class with all exercise/conversation methods
+// - React hooks like useExercises(), usePublishedExercises(), etc.
+// - Types like ExerciseWithMetadata
+// - Route builder (createDownpatRoutes)
+// =============================================================================
+
 export interface ExerciseWithMetadata {
   exercise: Exercise;
   metadata: ExerciseMetadata;
 }
 
+/**
+ * KEEP IN: example-app (or app's responsibility)
+ * LoginResponse type may vary per app's auth implementation.
+ * However, the User type from @downpat/core is standard.
+ */
 export interface LoginResponse {
   token: string;
   user: User;
 }
 
+/**
+ * MOVE TO: @downpat/react
+ *
+ * This entire class is DownPat-specific boilerplate that every app will need.
+ * Methods like getExercises, createExercise, publishExercise are all tied to
+ * DownPat's API routes and should be provided by the library.
+ */
 class DownpatAPI {
   private getToken: () => string | null;
 
@@ -36,6 +68,11 @@ class DownpatAPI {
     return res.json();
   }
 
+  /**
+   * KEEP IN: example-app
+   * The login method is app-specific. Apps will have their own auth flows
+   * (Firebase Auth, Auth0, custom, etc.). This should NOT be in DownPat.
+   */
   // Auth
   async login(email: string): Promise<LoginResponse> {
     return this.fetch<LoginResponse>('/auth/login', {
@@ -43,6 +80,11 @@ class DownpatAPI {
       body: JSON.stringify({ email }),
     });
   }
+
+  // =========================================================================
+  // ALL METHODS BELOW should be in @downpat/client
+  // These directly map to DownPat's API routes and are not app-specific.
+  // =========================================================================
 
   // Exercises - Admin
   async getExercises(): Promise<Exercise[]> {
@@ -113,6 +155,20 @@ class DownpatAPI {
   }
 }
 
+/**
+ * MOVE TO: @downpat/react
+ * The singleton pattern and initialization should be in the package.
+ * Apps should be able to:
+ *
+ *   import { initializeDownpatClient, useDownpatClient } from '@downpat/react';
+ *
+ *   // In app initialization:
+ *   initializeDownpatClient({ getToken: () => myToken });
+ *
+ *   // In components:
+ *   const client = useDownpatClient(); // hook that returns the client
+ *   const exercises = await client.getPublishedExercises();
+ */
 // Singleton instance - will be initialized with token getter
 let apiInstance: DownpatAPI | null = null;
 

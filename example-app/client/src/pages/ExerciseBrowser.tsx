@@ -3,7 +3,28 @@ import { Link } from 'react-router-dom';
 import { getAPI } from '../lib/api';
 import type { Exercise } from '@downpat/core';
 
+/**
+ * =============================================================================
+ * MOVE TO: @downpat/ui-components (page component)
+ *          @downpat/react (hooks, route config)
+ *
+ * This entire page component should be provided by DownPat as <ExerciseBrowserPage />.
+ * The data fetching, loading states, error handling, and grid display are all
+ * DownPat-specific and not customizable per app.
+ *
+ * Page component lives in @downpat/ui-components:
+ *   import { ExerciseBrowserPage } from '@downpat/ui-components';
+ *
+ * But apps won't import it directly - they'll use createDownpatRoutes() from
+ * @downpat/react which wires everything up automatically.
+ * =============================================================================
+ */
 export function ExerciseBrowser() {
+  /**
+   * MOVE TO: @downpat/react (as a React hook)
+   * This loading/error/data pattern should be a hook:
+   *   const { exercises, isLoading, error, refetch } = usePublishedExercises();
+   */
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

@@ -4,7 +4,37 @@ import { ExerciseList } from '@downpat/admin-ui';
 import { getAPI, type ExerciseWithMetadata } from '../../lib/api';
 import type { Exercise } from '@downpat/core';
 
+/**
+ * =============================================================================
+ * MOVE TO: @downpat/admin-ui (page component)
+ *          @downpat/react (hooks, route config)
+ *
+ * This entire page should be provided by DownPat as <ExerciseListPage />.
+ * The data fetching, CRUD handlers (publish/unpublish/delete/restore), and
+ * page layout are all DownPat-specific boilerplate.
+ *
+ * Page component lives in @downpat/admin-ui:
+ *   import { ExerciseListPage } from '@downpat/admin-ui';
+ *
+ * But apps won't import it directly - they'll use createDownpatRoutes() from
+ * @downpat/react which wires everything up automatically.
+ * =============================================================================
+ */
 export function ExerciseListPage() {
+  /**
+   * MOVE TO: @downpat/react (as a React hook)
+   *   const {
+   *     exercises,
+   *     isLoading,
+   *     error,
+   *     publishExercise,
+   *     unpublishExercise,
+   *     deleteExercise,
+   *     restoreExercise,
+   *   } = useExerciseAdmin();
+   *
+   * The hook should handle all the try/catch, loading states, and refetching.
+   */
   const [exercisesWithMetadata, setExercisesWithMetadata] = useState<ExerciseWithMetadata[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -28,6 +58,11 @@ export function ExerciseListPage() {
     }
   };
 
+  /**
+   * MOVE TO: @downpat/react (as part of useExerciseAdmin hook)
+   * These handlers are pure DownPat boilerplate. Every app will have the exact
+   * same publish/unpublish/delete/restore handlers. Should be part of the hook.
+   */
   const handlePublish = async (slug: string) => {
     try {
       const api = getAPI();
@@ -58,6 +93,14 @@ export function ExerciseListPage() {
     }
   };
 
+  /**
+   * MOVE TO: @downpat/react (navigation handled by route config)
+   * When createDownpatRoutes() generates these pages, it will know the
+   * basePath and can wire up navigation automatically. The page components
+   * will receive navigation callbacks that already have correct paths.
+   *
+   * TODO: These paths will become /downpat/admin/exercises/:slug/edit, etc.
+   */
   const handleEdit = (exercise: Exercise) => {
     navigate(`/admin/exercises/${exercise.slug}/edit`);
   };

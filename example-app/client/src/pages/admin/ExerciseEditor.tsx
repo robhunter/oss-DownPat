@@ -4,16 +4,51 @@ import { ExerciseForm } from '@downpat/admin-ui';
 import { getAPI } from '../../lib/api';
 import type { Exercise } from '@downpat/core';
 
+/**
+ * =============================================================================
+ * MOVE TO: @downpat/admin-ui (page component)
+ *          @downpat/react (hooks, route config)
+ *
+ * This entire page should be provided by DownPat as <ExerciseEditorPage />.
+ * The loading, saving, and model list fetching are DownPat-specific.
+ *
+ * Page component lives in @downpat/admin-ui:
+ *   import { ExerciseEditorPage } from '@downpat/admin-ui';
+ *
+ * But apps won't import it directly - they'll use createDownpatRoutes() from
+ * @downpat/react which wires everything up automatically.
+ * =============================================================================
+ */
 export function ExerciseEditor() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const isNew = !slug || slug === 'new';
 
+  /**
+   * MOVE TO: @downpat/react (as a hook)
+   *   const {
+   *     exercise,
+   *     isLoading,
+   *     error,
+   *     saveExercise,
+   *     isSubmitting,
+   *   } = useExerciseEditor(slug);
+   */
   const [exercise, setExercise] = useState<Exercise | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(!isNew);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  /**
+   * MOVE TO: @downpat/ai-adapters (fetch from server)
+   * This should not be hardcoded! The available models should be fetched from
+   * the server (which knows what AI providers are configured).
+   *
+   * Option 1: API endpoint /api/downpat/models that returns available models
+   * Option 2: Hook: const { models } = useAvailableModels();
+   *
+   * The server already has aiRegistry.getAllModels() - expose it via API.
+   */
   // Available models (from AI adapters)
   const availableModels = ['gpt-4', 'gpt-4-turbo', 'gpt-4o', 'gpt-3.5-turbo'];
 
@@ -35,6 +70,10 @@ export function ExerciseEditor() {
     }
   };
 
+  /**
+   * MOVE TO: @downpat/react (as part of useExerciseEditor hook)
+   * The create/update logic should be part of the hook.
+   */
   const handleSubmit = async (data: Exercise) => {
     setIsSubmitting(true);
     setError(null);
@@ -57,6 +96,12 @@ export function ExerciseEditor() {
     }
   };
 
+  /**
+   * MOVE TO: @downpat/react (navigation handled by route config)
+   * Page will receive onCancel callback with correct path already set.
+   *
+   * TODO: Path will become /downpat/admin/exercises
+   */
   const handleCancel = () => {
     navigate('/admin/exercises');
   };

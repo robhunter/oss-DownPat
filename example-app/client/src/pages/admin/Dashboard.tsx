@@ -3,7 +3,29 @@ import { Link } from 'react-router-dom';
 import { getAPI } from '../../lib/api';
 import type { Exercise } from '@downpat/core';
 
+/**
+ * =============================================================================
+ * MOVE TO: @downpat/admin-ui (page component)
+ *          @downpat/react (hooks, route config)
+ *
+ * This dashboard component should be provided by DownPat as <AdminDashboardPage />.
+ * The stats fetching (exercise counts, draft/published) and dashboard layout
+ * are DownPat-specific.
+ *
+ * Page component lives in @downpat/admin-ui:
+ *   import { AdminDashboardPage } from '@downpat/admin-ui';
+ *
+ * But apps won't import it directly - they'll use createDownpatRoutes() from
+ * @downpat/react which wires everything up automatically.
+ * =============================================================================
+ */
 export function AdminDashboard() {
+  /**
+   * MOVE TO: @downpat/react (as a hook)
+   * This should be:
+   *   const { exercises, stats, isLoading } = useExerciseStats();
+   *   // stats = { total, draftCount, publishedCount }
+   */
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -23,6 +45,14 @@ export function AdminDashboard() {
     }
   };
 
+  /**
+   * MOVE TO: @downpat/express (as a stats API endpoint)
+   * This logic for counting published vs draft should be a server-side stats
+   * endpoint. Checking exerciseId for '-published' is an implementation
+   * detail that shouldn't leak to the UI layer.
+   *
+   * API: GET /api/downpat/exercises/stats → { total, draftCount, publishedCount }
+   */
   const publishedCount = exercises.filter(e => e.exerciseId.includes('-published')).length;
   const draftCount = exercises.length - publishedCount;
 
