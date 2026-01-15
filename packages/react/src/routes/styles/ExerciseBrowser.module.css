@@ -1,0 +1,68 @@
+/**
+ * ExerciseBrowser component styles
+ * Uses CSS variables from @downpat/ui-components for consistency
+ */
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--downpat-spacing-lg, 24px);
+}
+
+.title {
+  font-size: 1.875rem;
+  font-weight: 600;
+  margin-bottom: var(--downpat-spacing-lg, 24px);
+  color: var(--downpat-text, #111827);
+}
+
+.loading {
+  text-align: center;
+  padding: var(--downpat-spacing-xl, 48px);
+  color: var(--downpat-text-secondary, #6b7280);
+}
+
+.error {
+  text-align: center;
+  padding: var(--downpat-spacing-xl, 48px);
+  color: var(--downpat-error-600, #dc2626);
+}
+
+.empty {
+  text-align: center;
+  padding: var(--downpat-spacing-xl, 48px);
+  color: var(--downpat-text-secondary, #6b7280);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--downpat-spacing-lg, 24px);
+}
+
+.card {
+  background-color: var(--downpat-background, white);
+  border-radius: var(--downpat-radius-lg, 12px);
+  padding: var(--downpat-spacing-lg, 24px);
+  box-shadow: var(--downpat-shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.1));
+  cursor: pointer;
+  transition: box-shadow 0.2s, transform 0.2s;
+  border: 1px solid var(--downpat-border, #e5e7eb);
+}
+
+.card:hover {
+  box-shadow: var(--downpat-shadow-md, 0 4px 6px -1px rgba(0, 0, 0, 0.1));
+  transform: translateY(-2px);
+}
+
+.card:focus {
+  outline: 2px solid var(--downpat-primary-500, #3b82f6);
+  outline-offset: 2px;
+}
+
+.cardTitle {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: var(--downpat-spacing-sm, 8px);
+  color: var(--downpat-text, #111827);
+}

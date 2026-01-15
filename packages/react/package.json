@@ -15,7 +15,8 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && npm run copy-css",
+    "copy-css": "mkdir -p dist/routes/styles && cp src/routes/styles/*.css dist/routes/styles/",
     "dev": "tsc --watch",
     "test": "vitest run",
     "test:watch": "vitest",

@@ -11,6 +11,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 ### Changed
+- Address code review feedback for @downpat/react (#46)
+- Replace inline styles with CSS module in ExerciseBrowserPage (#50)
+- Replace singleton pattern with React Context for client initialization (#49)
+- Add unit tests for createDownpatRoutes (routing logic, components) (#48)
+- Add unit tests for React hooks module (usePublishedExercises, useExerciseAdmin, etc.) (#47)
 - Extract @downpat/api-client shared package (#39)
 - Verify all tests pass and app works end-to-end (#45)
 - Add unit tests for @downpat/api-client (#44)

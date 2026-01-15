@@ -5,6 +5,7 @@ import { ConversationPage } from '@downpat/ui-components';
 import { ControlledAdminApp } from '@downpat/admin-ui';
 import type { AdminUIConfig } from '@downpat/admin-ui';
 import { usePublishedExercises } from '../hooks/index.js';
+import styles from './styles/ExerciseBrowser.module.css';
 
 /**
  * Configuration for creating DownPat routes
@@ -75,31 +76,31 @@ function ExerciseBrowserPage({ basePath }: { basePath: string }) {
 
   if (isLoading) {
     return (
-      <div style={styles.container}>
-        <div style={styles.loading}>Loading exercises...</div>
+      <div className={styles.container}>
+        <div className={styles.loading}>Loading exercises...</div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div style={styles.container}>
-        <div style={styles.error}>Error: {error}</div>
+      <div className={styles.container}>
+        <div className={styles.error}>Error: {error}</div>
       </div>
     );
   }
 
   return (
-    <div style={styles.container}>
-      <h1 style={styles.title}>Exercises</h1>
+    <div className={styles.container}>
+      <h1 className={styles.title}>Exercises</h1>
       {exercises.length === 0 ? (
-        <p style={styles.empty}>No exercises available.</p>
+        <p className={styles.empty}>No exercises available.</p>
       ) : (
-        <div style={styles.grid}>
+        <div className={styles.grid}>
           {exercises.map((exercise) => (
             <div
               key={exercise.exerciseId}
-              style={styles.card}
+              className={styles.card}
               onClick={() => navigate(`${basePath}/exercises/${exercise.slug}`)}
               role="button"
               tabIndex={0}
@@ -109,7 +110,7 @@ function ExerciseBrowserPage({ basePath }: { basePath: string }) {
                 }
               }}
             >
-              <h2 style={styles.cardTitle}>{exercise.exerciseName}</h2>
+              <h2 className={styles.cardTitle}>{exercise.exerciseName}</h2>
             </div>
           ))}
         </div>
@@ -285,52 +286,3 @@ export function DownpatRoutes(config: DownpatRoutesConfig): React.ReactElement |
 export function createDownpatRoutes(config: DownpatRoutesConfig): RouteObject[] {
   return createDownpatRouteObjects(config);
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  container: {
-    maxWidth: '1200px',
-    margin: '0 auto',
-    padding: '24px',
-  },
-  title: {
-    fontSize: '1.875rem',
-    fontWeight: '600',
-    marginBottom: '24px',
-    color: 'var(--downpat-neutral-900, #111827)',
-  },
-  loading: {
-    textAlign: 'center',
-    padding: '48px',
-    color: 'var(--downpat-neutral-500, #6b7280)',
-  },
-  error: {
-    textAlign: 'center',
-    padding: '48px',
-    color: 'var(--downpat-error-600, #dc2626)',
-  },
-  empty: {
-    textAlign: 'center',
-    padding: '48px',
-    color: 'var(--downpat-neutral-500, #6b7280)',
-  },
-  grid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-    gap: '24px',
-  },
-  card: {
-    backgroundColor: 'white',
-    borderRadius: '12px',
-    padding: '24px',
-    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-    cursor: 'pointer',
-    transition: 'box-shadow 0.2s, transform 0.2s',
-    border: '1px solid var(--downpat-neutral-200, #e5e7eb)',
-  },
-  cardTitle: {
-    fontSize: '1.25rem',
-    fontWeight: '600',
-    marginBottom: '8px',
-    color: 'var(--downpat-neutral-900, #111827)',
-  },
-};

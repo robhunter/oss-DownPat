@@ -12,10 +12,12 @@ export default defineConfig({
       ['**/client/**/*.test.tsx', 'jsdom'],
       ['packages/ui-components/**/*.test.tsx', 'jsdom'],
       ['packages/admin-ui/**/*.test.tsx', 'jsdom'],
+      ['packages/react/**/*.test.tsx', 'jsdom'],
       // Token tests need jsdom for localStorage
       ['packages/ui-components/src/auth/*.test.ts', 'jsdom'],
       // Hook tests need jsdom for renderHook
       ['packages/ui-components/src/hooks/*.test.ts', 'jsdom'],
+      ['packages/react/src/hooks/*.test.ts', 'jsdom'],
       // Server and other tests use node environment
       ['**/*.test.ts', 'node'],
     ],

@@ -25,14 +25,24 @@ export {
   type ExerciseWithMetadata,
 } from './client/DownpatClient.js';
 
-// Initialization
+// Initialization (legacy singleton - prefer DownpatProvider)
 export {
   initializeDownpat,
   getDownpatClient,
   updateDownpatToken,
   clearDownpat,
+  isDownpatInitialized,
   type DownpatInitConfig,
 } from './client/initialization.js';
+
+// Context-based client (recommended)
+export {
+  DownpatProvider,
+  useDownpatClient,
+  useDownpatToken,
+  useHasDownpatContext,
+  type DownpatProviderConfig,
+} from './client/DownpatContext.js';
 
 // Hook exports
 export {
