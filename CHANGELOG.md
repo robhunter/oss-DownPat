@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 ### Changed
+- Fix DownpatProvider stability issues (#57)
+- Fix token thrashing on getToken change (#59)
+- Use ref for getToken to stabilize client identity (#58)
 - Fix async getToken handling in DownpatContext (#56)
 - Fix code review blockers from server-side refactor (#51)
 - Update React hooks to use Context instead of singleton (#55)

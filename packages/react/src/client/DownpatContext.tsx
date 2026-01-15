@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useMemo, useEffect, useCallback, useState } from 'react';
+import React, { createContext, useContext, useMemo, useEffect, useCallback, useState, useRef } from 'react';
 import { provideDownPatToken, clearDownPatToken } from '@downpat/ui-components';
 import { DownpatClient, createDownpatClient } from './DownpatClient.js';
 
@@ -50,16 +50,28 @@ export function DownpatProvider({
   token,
 }: DownpatProviderConfig & { children: React.ReactNode }) {
   // Track internal token state for provider (used for reactive updates)
-  // Initialize with token prop only - async getToken is handled in useEffect
   const [, setCurrentToken] = useState<string | null>(token ?? null);
 
-  // Create client - memoized to avoid recreation
+  // Use ref for getToken to avoid recreating client when function reference changes
+  // This is critical: inline arrow functions like `getToken={() => token}` would
+  // otherwise cause client recreation on every render
+  const getTokenRef = useRef(getToken);
+  useEffect(() => {
+    getTokenRef.current = getToken;
+  }, [getToken]);
+
+  // Stable wrapper that always reads from the ref
+  const stableGetToken = useCallback(() => {
+    return getTokenRef.current();
+  }, []);
+
+  // Create client - memoized and stable because stableGetToken never changes
   const client = useMemo(() => {
     return createDownpatClient({
       baseUrl,
-      getToken,
+      getToken: stableGetToken,
     });
-  }, [baseUrl, getToken]);
+  }, [baseUrl, stableGetToken]);
 
   // Update token callback
   const updateToken = useCallback((newToken: string | null) => {
@@ -78,12 +90,13 @@ export function DownpatProvider({
     }
   }, [token, updateToken]);
 
-  // Initial token setup - handles both sync and async getToken
+  // Initial token setup - runs once on mount, clears only on unmount
+  // Uses ref to access latest getToken without causing effect re-runs
   useEffect(() => {
     let cancelled = false;
 
     const initializeToken = async () => {
-      const result = getToken();
+      const result = getTokenRef.current();
       // Handle both sync and async getToken
       const initialToken = result instanceof Promise ? await result : result;
 
@@ -95,11 +108,12 @@ export function DownpatProvider({
 
     initializeToken();
 
+    // Only clear token on actual unmount, not on re-renders
     return () => {
       cancelled = true;
       clearDownPatToken();
     };
-  }, [getToken]);
+  }, []); // Empty deps - only run on mount/unmount
 
   const value = useMemo(() => ({
     client,

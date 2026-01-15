@@ -75,10 +75,17 @@ describe('DownpatProvider', () => {
       </DownpatProvider>
     );
 
+    // Client should be created with the baseUrl and a getToken function
+    // Note: getToken is wrapped in a stable ref, so we check it's a function
+    // that returns the expected value rather than checking identity
     expect(createDownpatClient).toHaveBeenCalledWith({
       baseUrl: '/custom/api',
-      getToken: mockGetToken,
+      getToken: expect.any(Function),
     });
+
+    // Verify the wrapped getToken returns the expected value
+    const callArgs = (createDownpatClient as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(callArgs.getToken()).toBe('test-token');
   });
 
   it('should provide token to Socket.io on mount', () => {
