@@ -100,7 +100,7 @@ test.describe('Admin Exercise Management', () => {
     await loginAsUser(page);
 
     // Navigate to the published exercise
-    await page.goto(`/exercises/${testSlug}`);
+    await page.goto(`/downpat/exercises/${testSlug}`);
 
     // Wait for conversation to load
     await expect(page.getByPlaceholder('Type your message...')).toBeVisible({ timeout: 10000 });
@@ -127,7 +127,7 @@ test.describe('Admin Exercise Management', () => {
     await loginAsUser(page);
 
     // Try to navigate to the now-unpublished exercise
-    await page.goto(`/exercises/${testSlug}`);
+    await page.goto(`/downpat/exercises/${testSlug}`);
 
     // Wait for either an error message OR confirm conversation never starts
     // (stuck on loading = exercise not accessible)
@@ -150,7 +150,7 @@ test.describe('Admin Exercise Management', () => {
     expect(exists).toBe(false);
 
     // Verify the test route doesn't work - will either show error or hang on loading
-    await page.goto(`/admin/test/${testSlug}`);
+    await page.goto(`/downpat/admin/test/${testSlug}`);
     const errorVisible = await page.getByText(/error|not found/i).isVisible().catch(() => false);
     if (!errorVisible) {
       // If no immediate error, verify conversation never starts (stays stuck on loading)
@@ -232,7 +232,7 @@ test.describe('Exercise with Starters', () => {
     const welcomeMessage = 'Welcome to the exercise!';
 
     // Create exercise with a starter using the new structure
-    await page.goto('/admin/exercises/new');
+    await page.goto('/downpat/admin/exercises/new');
     await expect(page.locator('h2').filter({ hasText: 'Create New Exercise' })).toBeVisible();
 
     // Fill basic info
@@ -260,7 +260,7 @@ test.describe('Exercise with Starters', () => {
 
     // Create the exercise
     await page.getByRole('button', { name: 'Create Exercise' }).click();
-    await expect(page).toHaveURL('/admin/exercises');
+    await expect(page).toHaveURL('/downpat/admin/exercises');
 
     // Test the exercise
     await testExercise(page, starterSlug);

@@ -39,7 +39,9 @@ describe('DownpatClient', () => {
     mockFetch.mockResolvedValueOnce({
       ok: false,
       status: 401,
-      text: () => Promise.resolve('Unauthorized'),
+      statusText: 'Unauthorized',
+      headers: new Headers({ 'content-type': 'application/json' }),
+      json: () => Promise.resolve({ message: 'Unauthorized' }),
     });
 
     await expect(client.getPublishedExercises()).rejects.toThrow('Unauthorized');

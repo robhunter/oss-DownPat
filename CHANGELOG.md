@@ -11,6 +11,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 ### Changed
+- Extract @downpat/api-client shared package (#39)
+- Verify all tests pass and app works end-to-end (#45)
+- Add unit tests for @downpat/api-client (#44)
+- Update @downpat/react to use @downpat/api-client (#43)
+- Update @downpat/admin-ui to use @downpat/api-client (#42)
+- Consolidate DownpatClient + AdminAPIClient into unified implementation (#41)
+- Create @downpat/api-client package structure (#40)
 - Move admin page components to @downpat/admin-ui (#21)
 - Move page components to @downpat/ui-components (#20)
 - Update example-app to use new packages and /downpat/* routes (#22)

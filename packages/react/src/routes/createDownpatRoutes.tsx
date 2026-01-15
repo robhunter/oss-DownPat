@@ -173,8 +173,10 @@ function AdminWrapper({
     availableModels,
     getAuthToken,
     onNavigate: (path: string) => {
-      // Convert admin-relative paths to full paths
-      navigate(`${adminBasePath}${path}`);
+      // AdminApp sends paths like /admin/exercises, /admin/exercises/new
+      // Strip the /admin prefix and use our basePath instead
+      const relativePath = path.startsWith('/admin') ? path.slice(6) : path;
+      navigate(`${adminBasePath}${relativePath}`);
     },
     onTestExercise: (_exerciseId: string, slug: string) => {
       navigate(`${basePath}/admin/test/${slug}`);

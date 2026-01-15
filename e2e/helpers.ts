@@ -30,7 +30,7 @@ export async function loginAsUser(page: Page): Promise<void> {
  * Navigate to admin exercises page
  */
 export async function goToAdminExercises(page: Page): Promise<void> {
-  await page.goto('/admin/exercises');
+  await page.goto('/downpat/admin/exercises');
   // Use exact match to avoid matching "No Exercises Yet"
   await expect(page.getByRole('heading', { name: 'Exercises', exact: true })).toBeVisible();
 }
@@ -49,7 +49,7 @@ export async function createExercise(page: Page, options: {
     prompt: string;
   }>;
 }): Promise<string> {
-  await page.goto('/admin/exercises/new');
+  await page.goto('/downpat/admin/exercises/new');
   // Wait for the form to load - use the h2 inside the form
   await expect(page.locator('h2').filter({ hasText: 'Create New Exercise' })).toBeVisible();
 
@@ -93,7 +93,7 @@ export async function createExercise(page: Page, options: {
   await page.getByRole('button', { name: 'Create Exercise' }).click();
 
   // Wait for redirect back to exercises list
-  await expect(page).toHaveURL('/admin/exercises');
+  await expect(page).toHaveURL('/downpat/admin/exercises');
 
   return expectedSlug;
 }
@@ -214,7 +214,7 @@ export async function testExercise(page: Page, slug: string): Promise<void> {
   await row.getByRole('button', { name: 'Test' }).click();
 
   // Wait for conversation page to load
-  await expect(page).toHaveURL(`/admin/test/${slug}`);
+  await expect(page).toHaveURL(`/downpat/admin/test/${slug}`);
 }
 
 /**
