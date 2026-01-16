@@ -182,6 +182,26 @@ describe('FirebaseUserStateStorage Integration Tests', () => {
       const data = doc.data();
       expect(data?.activeConversations?.['exercise-1']).toBe('conv-2');
     });
+
+    it('handles legacy user missing activeConversations field', async () => {
+      if (!emulatorAvailable || !storage || !db) {
+        console.log('Skipping: emulator not available');
+        return;
+      }
+
+      // Simulate legacy data without activeConversations
+      await db.collection(TEST_COLLECTION).doc('legacy-user-set').set({
+        userId: 'legacy-user-set',
+        // Note: activeConversations is intentionally missing
+      });
+
+      // Should not crash - should initialize activeConversations
+      await storage.setActiveConversation('legacy-user-set', 'exercise-1', 'conv-1');
+
+      const doc = await db.collection(TEST_COLLECTION).doc('legacy-user-set').get();
+      const data = doc.data();
+      expect(data?.activeConversations?.['exercise-1']).toBe('conv-1');
+    });
   });
 
   describe('getActiveConversation', () => {

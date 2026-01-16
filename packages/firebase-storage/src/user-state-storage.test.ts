@@ -68,14 +68,16 @@ describe('FirebaseUserStateStorage', () => {
           throw error;
         }
 
-        // Ensure activeConversations exists for dot notation updates
-        if (!existing.activeConversations) {
-          existing.activeConversations = {};
-        }
-
         const updates = data as Record<string, unknown>;
         for (const [key, value] of Object.entries(updates)) {
           if (key.startsWith('activeConversations.')) {
+            // Strict behavior: update with dot notation on missing parent field should fail
+            // This matches conservative Firestore behavior assumption
+            if (!existing.activeConversations) {
+              const error = new Error('NOT_FOUND: activeConversations field does not exist') as Error & { code: number };
+              error.code = 5;
+              throw error;
+            }
             const exerciseId = key.replace('activeConversations.', '');
             const activeConvs = existing.activeConversations as Record<string, string>;
             // Check for FieldValue.delete()
@@ -208,6 +210,34 @@ describe('FirebaseUserStateStorage', () => {
       const state = mockDocs.get('user-1');
       expect(state?.activeConversations['exercise-1']).toBe('conv-1');
       expect(state?.activeConversations['exercise-2']).toBe('conv-2');
+    });
+
+    it('should handle legacy user missing activeConversations field', async () => {
+      // Simulate legacy data without activeConversations
+      mockDocs.set('legacy-user', {
+        userId: 'legacy-user',
+        // Note: activeConversations is intentionally missing
+      });
+
+      // Should not crash - should use set() instead of update()
+      await storage.setActiveConversation('legacy-user', 'exercise-1', 'conv-1');
+
+      const state = mockDocs.get('legacy-user');
+      expect((state?.activeConversations as Record<string, string>)?.['exercise-1']).toBe('conv-1');
+    });
+
+    it('should handle legacy user with null activeConversations', async () => {
+      // Simulate corrupted data with null activeConversations
+      mockDocs.set('corrupted-user', {
+        userId: 'corrupted-user',
+        activeConversations: null,
+      });
+
+      // Should not crash - should use set() instead of update()
+      await storage.setActiveConversation('corrupted-user', 'exercise-1', 'conv-1');
+
+      const state = mockDocs.get('corrupted-user');
+      expect((state?.activeConversations as Record<string, string>)?.['exercise-1']).toBe('conv-1');
     });
   });
 

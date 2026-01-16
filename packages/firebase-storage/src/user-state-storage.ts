@@ -64,15 +64,21 @@ export class FirebaseUserStateStorage implements UserStateStorage {
     // Use transaction to safely update nested field without overwriting other conversations
     await this.db.runTransaction(async (t: Transaction) => {
       const doc = await t.get(docRef);
-      if (!doc.exists) {
+      const data = doc.data();
+
+      if (!doc.exists || !data?.activeConversations) {
+        // Document doesn't exist OR activeConversations field is missing (legacy data)
+        // Use set to create/initialize the structure
+        const existingConversations = data?.activeConversations ?? {};
         t.set(docRef, {
           userId,
           activeConversations: {
+            ...existingConversations,
             [exerciseId]: conversationId,
           },
         });
       } else {
-        // update() supports dot notation for nested fields
+        // Document exists with activeConversations - safe to use update with dot notation
         t.update(docRef, {
           [`activeConversations.${exerciseId}`]: conversationId,
         });
