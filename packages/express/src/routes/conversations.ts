@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import type { Request, Response, NextFunction } from 'express';
 import { ConversationController } from '@downpat/core';
-import type { ConversationStorage, ExerciseStorage, ServerAuthProvider } from '@downpat/core';
+import type { ConversationStorage, ExerciseStorage, ServerAuthProvider, UserStateStorage } from '@downpat/core';
 import { createAuthMiddleware, requireSubscriber, type AuthenticatedRequest } from '../middleware/auth.js';
 
 /**
@@ -10,7 +10,8 @@ import { createAuthMiddleware, requireSubscriber, type AuthenticatedRequest } fr
 export function createConversationRouter(
   conversationStorage: ConversationStorage,
   exerciseStorage: ExerciseStorage,
-  authProvider: ServerAuthProvider
+  authProvider: ServerAuthProvider,
+  _userStateStorage?: UserStateStorage // TODO: Used in Phase 2 for conversation resumption
 ): Router {
   const router = Router();
   const controller = new ConversationController(conversationStorage, exerciseStorage);

@@ -166,6 +166,7 @@ export function createDownpatServer(
     serverAuth,
     exerciseStorage,
     conversationStorage,
+    userStateStorage,
   });
 
   // Add utility endpoints BEFORE mounting router (to avoid conflicts with subrouters)

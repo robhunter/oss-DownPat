@@ -39,24 +39,28 @@ describe('FirebaseUserStateStorage', () => {
         };
       }),
       set: vi.fn(async (data: unknown, options?: { merge: boolean }) => {
+        const newData = data as Record<string, unknown>;
+        
         if (options?.merge) {
           const existing = mockDocs.get(id) || { userId: id, activeConversations: {} };
-          // Handle dot notation for nested fields
-          const newData = data as Record<string, unknown>;
+          // set with merge: true does shallow merge of top-level fields
+          // It does NOT support dot notation keys for deep merging
           const merged: UserState = { ...existing };
 
           for (const [key, value] of Object.entries(newData)) {
-            if (key.startsWith('activeConversations.')) {
-              const exerciseId = key.replace('activeConversations.', '');
-              merged.activeConversations[exerciseId] = value as string;
+            if (key === 'activeConversations') {
+              // Replace the entire object, do not merge contents
+              merged.activeConversations = value as Record<string, string>;
             } else if (key === 'userId') {
               merged.userId = value as string;
-            } else if (key === 'activeConversations') {
-              merged.activeConversations = value as Record<string, string>;
+            } else {
+               // Other fields
+               (merged as any)[key] = value;
             }
           }
           mockDocs.set(id, merged);
         } else {
+          // Overwrite completely
           mockDocs.set(id, data as UserState);
         }
       }),
@@ -65,19 +69,20 @@ describe('FirebaseUserStateStorage', () => {
         if (!existing) {
           throw new Error('Document does not exist');
         }
-        // Handle FieldValue.delete() mock
+        
         const updates = data as Record<string, unknown>;
         for (const [key, value] of Object.entries(updates)) {
           if (key.startsWith('activeConversations.')) {
             const exerciseId = key.replace('activeConversations.', '');
-            // FieldValue.delete() creates a DeleteTransform object
-            // Check if it's a sentinel value (has constructor name DeleteTransform or similar)
+            // Check for FieldValue.delete()
             const valueStr = String(value?.constructor?.name || '');
-            if (value === null || valueStr.includes('Delete') || valueStr.includes('Transform')) {
+            if (value === null || valueStr.includes('Delete') || valueStr.includes('Transform') || (value as any)?._methodName === 'deleteField') {
               delete existing.activeConversations[exerciseId];
             } else {
               existing.activeConversations[exerciseId] = value as string;
             }
+          } else if (key === 'activeConversations') {
+             existing.activeConversations = value as Record<string, string>;
           }
         }
       }),
@@ -87,7 +92,16 @@ describe('FirebaseUserStateStorage', () => {
       collection: vi.fn((name: string) => ({
         doc: vi.fn((id: string) => createMockDocRef(id)),
       })),
-    } as MockFirestore;
+      runTransaction: vi.fn(async (updateFunction) => {
+        const transaction = {
+          get: async (ref: any) => ref.get(),
+          set: (ref: any, data: any, options: any) => ref.set(data, options),
+          update: (ref: any, data: any) => ref.update(data),
+          delete: (ref: any) => ref.delete(), // Not used but good to have
+        };
+        return updateFunction(transaction);
+      }),
+    } as unknown as MockFirestore;
 
     storage = new FirebaseUserStateStorage(mockDb as unknown as import('firebase-admin/firestore').Firestore);
   });

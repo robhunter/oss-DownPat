@@ -85,7 +85,8 @@ export function createDownpatRouter(config: DownpatConfig): DownpatRouterResult 
     createConversationRouter(
       config.conversationStorage,
       config.exerciseStorage,
-      config.serverAuth
+      config.serverAuth,
+      config.userStateStorage
     )
   );
 
