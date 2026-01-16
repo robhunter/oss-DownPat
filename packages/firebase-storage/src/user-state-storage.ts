@@ -20,19 +20,30 @@ export class FirebaseUserStateStorage implements UserStateStorage {
     this.collection = collection;
   }
 
+  /**
+   * Sanitize raw Firestore data into a valid UserState.
+   * Ensures activeConversations exists even if missing from stored data.
+   */
+  private sanitizeUserState(userId: string, data: FirebaseFirestore.DocumentData | undefined): UserState {
+    return {
+      userId,
+      activeConversations: data?.activeConversations ?? {},
+    };
+  }
+
   async getOrCreateUserState(userId: string): Promise<UserState> {
     const docRef = this.db.collection(this.collection).doc(userId);
     const doc = await docRef.get();
 
     if (doc.exists) {
-      return doc.data() as UserState;
+      return this.sanitizeUserState(userId, doc.data());
     }
 
     // Use transaction to safely create if not exists
     return this.db.runTransaction(async (t: Transaction) => {
       const tDoc = await t.get(docRef);
       if (tDoc.exists) {
-        return tDoc.data() as UserState;
+        return this.sanitizeUserState(userId, tDoc.data());
       }
       const newState: UserState = {
         userId,
@@ -83,8 +94,17 @@ export class FirebaseUserStateStorage implements UserStateStorage {
   ): Promise<void> {
     const docRef = this.db.collection(this.collection).doc(userId);
 
-    await docRef.update({
-      [`activeConversations.${exerciseId}`]: FieldValue.delete(),
-    });
+    try {
+      await docRef.update({
+        [`activeConversations.${exerciseId}`]: FieldValue.delete(),
+      });
+    } catch (error) {
+      // If document doesn't exist, there's nothing to clear - that's fine
+      if ((error as { code?: number }).code === 5) {
+        // Firestore NOT_FOUND error code
+        return;
+      }
+      throw error;
+    }
   }
 }

@@ -12,6 +12,7 @@ type MockDocRef = {
   get: () => Promise<MockDocSnapshot>;
   set: (data: unknown, options?: { merge: boolean }) => Promise<void>;
   update: (data: unknown) => Promise<void>;
+  _id: string;
 };
 
 type MockCollection = {
@@ -25,12 +26,14 @@ type MockFirestore = {
 describe('FirebaseUserStateStorage', () => {
   let mockDb: MockFirestore;
   let storage: FirebaseUserStateStorage;
-  let mockDocs: Map<string, UserState>;
+  // Use Record to allow storing partial/legacy data for testing
+  let mockDocs: Map<string, Record<string, unknown>>;
 
   beforeEach(() => {
     mockDocs = new Map();
 
     const createMockDocRef = (id: string): MockDocRef => ({
+      _id: id,
       get: vi.fn(async () => {
         const data = mockDocs.get(id);
         return {
@@ -40,46 +43,47 @@ describe('FirebaseUserStateStorage', () => {
       }),
       set: vi.fn(async (data: unknown, options?: { merge: boolean }) => {
         const newData = data as Record<string, unknown>;
-        
+
         if (options?.merge) {
           const existing = mockDocs.get(id) || { userId: id, activeConversations: {} };
           // set with merge: true does shallow merge of top-level fields
           // It does NOT support dot notation keys for deep merging
-          const merged: UserState = { ...existing };
+          const merged = { ...existing };
 
           for (const [key, value] of Object.entries(newData)) {
-            if (key === 'activeConversations') {
-              // Replace the entire object, do not merge contents
-              merged.activeConversations = value as Record<string, string>;
-            } else if (key === 'userId') {
-              merged.userId = value as string;
-            } else {
-               // Other fields
-               (merged as any)[key] = value;
-            }
+            merged[key] = value;
           }
           mockDocs.set(id, merged);
         } else {
           // Overwrite completely
-          mockDocs.set(id, data as UserState);
+          mockDocs.set(id, data as Record<string, unknown>);
         }
       }),
       update: vi.fn(async (data: unknown) => {
         const existing = mockDocs.get(id);
         if (!existing) {
-          throw new Error('Document does not exist');
+          // Simulate Firestore NOT_FOUND error (code 5)
+          const error = new Error('NOT_FOUND: Document does not exist') as Error & { code: number };
+          error.code = 5;
+          throw error;
         }
-        
+
+        // Ensure activeConversations exists for dot notation updates
+        if (!existing.activeConversations) {
+          existing.activeConversations = {};
+        }
+
         const updates = data as Record<string, unknown>;
         for (const [key, value] of Object.entries(updates)) {
           if (key.startsWith('activeConversations.')) {
             const exerciseId = key.replace('activeConversations.', '');
+            const activeConvs = existing.activeConversations as Record<string, string>;
             // Check for FieldValue.delete()
             const valueStr = String(value?.constructor?.name || '');
             if (value === null || valueStr.includes('Delete') || valueStr.includes('Transform') || (value as any)?._methodName === 'deleteField') {
-              delete existing.activeConversations[exerciseId];
+              delete activeConvs[exerciseId];
             } else {
-              existing.activeConversations[exerciseId] = value as string;
+              activeConvs[exerciseId] = value as string;
             }
           } else if (key === 'activeConversations') {
              existing.activeConversations = value as Record<string, string>;
@@ -150,6 +154,34 @@ describe('FirebaseUserStateStorage', () => {
       await customStorage.getOrCreateUserState('user-1');
 
       expect(mockDb.collection).toHaveBeenCalledWith('customCollection');
+    });
+
+    it('should sanitize legacy data missing activeConversations field', async () => {
+      // Simulate legacy data without activeConversations
+      mockDocs.set('legacy-user', {
+        userId: 'legacy-user',
+        // Note: activeConversations is intentionally missing
+      });
+
+      const state = await storage.getOrCreateUserState('legacy-user');
+
+      // Should not crash, should return sanitized state with empty activeConversations
+      expect(state.userId).toBe('legacy-user');
+      expect(state.activeConversations).toEqual({});
+    });
+
+    it('should sanitize data with null activeConversations', async () => {
+      // Simulate corrupted data with null activeConversations
+      mockDocs.set('corrupted-user', {
+        userId: 'corrupted-user',
+        activeConversations: null,
+      });
+
+      const state = await storage.getOrCreateUserState('corrupted-user');
+
+      // Should not crash, should return sanitized state with empty activeConversations
+      expect(state.userId).toBe('corrupted-user');
+      expect(state.activeConversations).toEqual({});
     });
   });
 
@@ -231,7 +263,7 @@ describe('FirebaseUserStateStorage', () => {
       await storage.clearActiveConversation('user-1', 'exercise-1');
 
       const state = mockDocs.get('user-1');
-      expect(state?.activeConversations['exercise-1']).toBeUndefined();
+      expect((state?.activeConversations as Record<string, string>)?.['exercise-1']).toBeUndefined();
     });
 
     it('should not affect other exercises', async () => {
@@ -246,8 +278,15 @@ describe('FirebaseUserStateStorage', () => {
       await storage.clearActiveConversation('user-1', 'exercise-1');
 
       const state = mockDocs.get('user-1');
-      expect(state?.activeConversations['exercise-1']).toBeUndefined();
-      expect(state?.activeConversations['exercise-2']).toBe('conv-2');
+      expect((state?.activeConversations as Record<string, string>)['exercise-1']).toBeUndefined();
+      expect((state?.activeConversations as Record<string, string>)['exercise-2']).toBe('conv-2');
+    });
+
+    it('should handle non-existent user gracefully', async () => {
+      // User document doesn't exist - should not throw
+      await expect(
+        storage.clearActiveConversation('non-existent-user', 'exercise-1')
+      ).resolves.not.toThrow();
     });
   });
 });
