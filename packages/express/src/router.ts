@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import type { ExerciseStorage, ConversationStorage, ServerAuthProvider } from '@downpat/core';
+import type { ExerciseStorage, ConversationStorage, UserStateStorage, ServerAuthProvider } from '@downpat/core';
 import { createExerciseRouter } from './routes/exercises.js';
 import { createConversationRouter } from './routes/conversations.js';
 
@@ -13,6 +13,8 @@ export interface DownpatConfig {
   exerciseStorage: ExerciseStorage;
   /** Conversation storage implementation */
   conversationStorage: ConversationStorage;
+  /** User state storage implementation (for conversation resumption) */
+  userStateStorage?: UserStateStorage;
 }
 
 /**

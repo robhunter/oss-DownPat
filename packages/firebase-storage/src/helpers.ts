@@ -1,9 +1,10 @@
 import { initializeApp, cert, getApps, type App } from 'firebase-admin/app';
 import { getFirestore, type Firestore } from 'firebase-admin/firestore';
-import type { ExerciseStorage, ConversationStorage } from '@downpat/core';
+import type { ExerciseStorage, ConversationStorage, UserStateStorage } from '@downpat/core';
 import { createInMemoryStorage } from '@downpat/core';
 import { FirebaseExerciseStorage } from './exercise-storage.js';
 import { FirebaseConversationStorage } from './conversation-storage.js';
+import { FirebaseUserStateStorage } from './user-state-storage.js';
 
 /**
  * Options for initializing Firebase from environment variables.
@@ -111,6 +112,7 @@ export function initializeFirebaseFromEnv(options: InitializeFirebaseOptions = {
 export interface DownpatStorage {
   exerciseStorage: ExerciseStorage;
   conversationStorage: ConversationStorage;
+  userStateStorage: UserStateStorage;
 }
 
 /**
@@ -156,5 +158,6 @@ export function createFirebaseStorage(options: CreateFirebaseStorageOptions = {}
   return {
     exerciseStorage: new FirebaseExerciseStorage(db),
     conversationStorage: new FirebaseConversationStorage(db),
+    userStateStorage: new FirebaseUserStateStorage(db),
   };
 }

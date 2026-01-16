@@ -11,6 +11,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 ### Changed
+- Phase 1: User State Storage (#60)
+- Update example-app to use UserStateStorage (#66)
+- Write unit tests for UserStateStorage implementations (#65)
+- Update DownpatServerConfig to accept userStateStorage (#64)
+- Implement FirebaseUserStateStorage in @downpat/firebase-storage (#63)
+- Implement InMemoryUserStateStorage in @downpat/core (#62)
+- Create UserState type and UserStateStorage interface in @downpat/core (#61)
 - Fix DownpatProvider stability issues (#57)
 - Fix token thrashing on getToken change (#59)
 - Use ref for getToken to stabilize client identity (#58)

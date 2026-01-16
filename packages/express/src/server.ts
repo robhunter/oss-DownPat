@@ -3,6 +3,7 @@ import type { Express, Router } from 'express';
 import type {
   ExerciseStorage,
   ConversationStorage,
+  UserStateStorage,
   ServerAuthProvider,
   AIAdapter,
   ModerationAdapter,
@@ -32,6 +33,13 @@ export interface CreateDownpatServerConfig {
    * Use createFirebaseStorage() from @downpat/firebase-storage for easy setup.
    */
   conversationStorage: ConversationStorage;
+
+  /**
+   * User state storage implementation.
+   * Tracks active conversations per user for resumption.
+   * Use createFirebaseStorage() from @downpat/firebase-storage for easy setup.
+   */
+  userStateStorage?: UserStateStorage;
 
   /**
    * AI adapter for generating responses.
@@ -144,6 +152,7 @@ export function createDownpatServer(
     serverAuth,
     exerciseStorage,
     conversationStorage,
+    userStateStorage,
     aiAdapter,
     moderationAdapter,
     defaultModel,
@@ -195,6 +204,7 @@ export function createDownpatServer(
     serverAuth,
     exerciseStorage,
     conversationStorage,
+    userStateStorage,
     aiAdapter,
     moderationAdapter,
     defaultModel,

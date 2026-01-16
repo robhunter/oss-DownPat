@@ -1,5 +1,6 @@
 import type { Exercise, ExerciseMetadata, Conversation, ConversationMetadata, Message } from '../types/index.js';
-import type { ExerciseStorage, ConversationStorage } from '../interfaces/index.js';
+import type { ExerciseStorage, ConversationStorage, UserStateStorage } from '../interfaces/index.js';
+import { InMemoryUserStateStorage } from './in-memory-user-state.js';
 
 /**
  * Creates in-memory storage implementations for development and testing.
@@ -21,6 +22,7 @@ import type { ExerciseStorage, ConversationStorage } from '../interfaces/index.j
 export function createInMemoryStorage(): {
   exerciseStorage: ExerciseStorage;
   conversationStorage: ConversationStorage;
+  userStateStorage: UserStateStorage;
 } {
   const exercises = new Map<string, Exercise>();
   const exerciseMetadata = new Map<string, ExerciseMetadata>();
@@ -169,5 +171,7 @@ export function createInMemoryStorage(): {
     },
   };
 
-  return { exerciseStorage, conversationStorage };
+  const userStateStorage = new InMemoryUserStateStorage();
+
+  return { exerciseStorage, conversationStorage, userStateStorage };
 }

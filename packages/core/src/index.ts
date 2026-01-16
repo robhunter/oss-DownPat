@@ -8,6 +8,7 @@ export {
 // Types
 export type {
   User,
+  UserState,
   MessageFilter,
   BaseTask,
   ConversationTask,
@@ -38,6 +39,7 @@ export {
 export type {
   ExerciseStorage,
   ConversationStorage,
+  UserStateStorage,
   ClientAuthProvider,
   ServerAuthProvider,
   AIAdapter,
@@ -60,6 +62,7 @@ export { generateId, generateSlug } from './utils/index.js';
 
 // Storage
 export { createInMemoryStorage } from './storage/index.js';
+export { InMemoryUserStateStorage } from './storage/index.js';
 
 // Validation Schemas
 export {

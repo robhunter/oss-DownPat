@@ -31,3 +31,5 @@ export type {
   CreateConversationInput,
   AddMessageInput,
 } from './conversation.js';
+
+export type { UserState } from './user-state.js';

@@ -57,7 +57,7 @@ const mockAuthProvider = createMockAuthProvider();
  */
 async function startServer() {
   // Create storage (auto-detects test mode for in-memory)
-  const { exerciseStorage, conversationStorage } = createFirebaseStorage();
+  const { exerciseStorage, conversationStorage, userStateStorage } = createFirebaseStorage();
 
   // Create AI adapter registry (auto-detects API keys from environment)
   const aiRegistry = await createAdapterRegistryFromEnv();
@@ -79,6 +79,7 @@ async function startServer() {
     serverAuth: mockAuthProvider,
     exerciseStorage,
     conversationStorage,
+    userStateStorage,
     aiAdapter,
     moderationAdapter: moderationAdapter ?? undefined,
     defaultModel: 'gpt-4',

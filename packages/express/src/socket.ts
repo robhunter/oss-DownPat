@@ -1,6 +1,6 @@
 import { Server as SocketServer } from 'socket.io';
 import type { Server as HTTPServer } from 'http';
-import type { ConversationStorage, ExerciseStorage, ServerAuthProvider, User, AIAdapter, AIMessage, Task, ModerationAdapter, Starter, Message } from '@downpat/core';
+import type { ConversationStorage, ExerciseStorage, UserStateStorage, ServerAuthProvider, User, AIAdapter, AIMessage, Task, ModerationAdapter, Starter, Message } from '@downpat/core';
 import { ConversationController, MessageType, isCommentaryTask, generateId } from '@downpat/core';
 
 /**
@@ -124,6 +124,8 @@ export interface SocketConfig {
   conversationStorage: ConversationStorage;
   /** Exercise storage implementation */
   exerciseStorage: ExerciseStorage;
+  /** User state storage implementation (for conversation resumption) */
+  userStateStorage?: UserStateStorage;
   /** AI adapter for generating responses */
   aiAdapter?: AIAdapter;
   /** Moderation adapter for content filtering */
