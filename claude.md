@@ -211,6 +211,14 @@ If `npm test` fails with platform errors (darwin vs linux), reinstall:
 rm -rf node_modules package-lock.json && npm install
 ```
 
+## After Context Compaction
+
+  When a conversation is resumed from a summary:
+  1. **Do NOT automatically continue with "next steps"** mentioned in the summary
+  2. Summaries describe what was *planned*, not what was *approved*
+  3. Before starting any new phase or major work item, confirm with the user
+  4. When in doubt, ask: "The summary mentions X as next. Should I proceed?"
+
 ## Common Pitfalls
 
 - When asked a design question ("What do you need to do...?"), discuss the approach before implementing

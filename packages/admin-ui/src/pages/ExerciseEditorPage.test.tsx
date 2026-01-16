@@ -107,7 +107,7 @@ describe('ExerciseEditorPage', () => {
 
       await waitFor(() => {
         expect(mockFetch).toHaveBeenCalledWith(
-          '/api/test/exercises/test-exercise',
+          '/api/test/exercises/by-slug/test-exercise',
           expect.objectContaining({
             method: 'GET',
             headers: expect.objectContaining({
