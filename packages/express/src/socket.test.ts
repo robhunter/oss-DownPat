@@ -551,6 +551,104 @@ describe('Socket.io attachSocketIO', () => {
 
       expect(error.message).toBe('User message not found');
     });
+
+    it('regenerates AI response after editing a message', async () => {
+      const conversationWithMessages: Conversation = {
+        ...mockConversation,
+        messages: [
+          {
+            messageId: 'msg-1',
+            type: MessageType.WELCOME,
+            role: 'System',
+            content: 'Welcome!',
+            timestamp: new Date().toISOString(),
+          },
+          {
+            messageId: 'msg-2',
+            type: MessageType.USER,
+            role: 'Test User',
+            content: 'Hello',
+            timestamp: new Date().toISOString(),
+          },
+          {
+            messageId: 'msg-3',
+            type: MessageType.CONVERSATION,
+            role: 'AI',
+            content: 'Hi there!',
+            timestamp: new Date().toISOString(),
+          },
+        ],
+        userMessageCount: 1,
+      };
+
+      vi.mocked(mockConversationStorage.getConversationMetadata).mockResolvedValue({
+        conversationId: mockConversation.conversationId,
+        exerciseId: mockConversation.exerciseId,
+        userId: mockConversation.userId,
+        createdAt: mockConversation.createdAt,
+        updatedAt: mockConversation.updatedAt,
+        isComplete: false,
+        userMessageCount: 1,
+      });
+      vi.mocked(mockConversationStorage.getConversation).mockResolvedValue(conversationWithMessages);
+
+      const updatedConversation = {
+        ...conversationWithMessages,
+        messages: [
+          conversationWithMessages.messages[0],
+          { ...conversationWithMessages.messages[1], content: 'Hello edited' },
+        ],
+      };
+      vi.mocked(mockConversationStorage.updateConversation).mockResolvedValue(updatedConversation);
+
+      // Setup AI adapter to stream chunks
+      vi.mocked(mockAIAdapter.complete).mockImplementation(async ({ onChunk }) => {
+        onChunk?.('New ');
+        onChunk?.('response!');
+        return { content: 'New response!' };
+      });
+
+      const { socket } = await connectAndWaitForAuth();
+
+      // Collect events
+      const chunks: string[] = [];
+      let messagesTruncatedReceived = false;
+      let messageCompleteReceived = false;
+
+      socket.on('message-chunk', (data) => {
+        chunks.push(data.chunk);
+      });
+
+      socket.on('messages-truncated', () => {
+        messagesTruncatedReceived = true;
+      });
+
+      const completePromise = new Promise<void>((resolve) => {
+        socket.on('message-complete', () => {
+          messageCompleteReceived = true;
+          resolve();
+        });
+      });
+
+      // Emit edit-message
+      socket.emit('edit-message', {
+        conversationId: 'conv-123',
+        messageId: 'msg-2',
+        content: 'Hello edited',
+      });
+
+      await completePromise;
+
+      // Verify truncation happened
+      expect(messagesTruncatedReceived).toBe(true);
+
+      // Verify AI regenerated a response
+      expect(chunks).toEqual(['New ', 'response!']);
+      expect(messageCompleteReceived).toBe(true);
+
+      // Verify AI adapter was called
+      expect(mockAIAdapter.complete).toHaveBeenCalled();
+    });
   });
 
   describe('finish-conversation', () => {

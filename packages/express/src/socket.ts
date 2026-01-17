@@ -1,7 +1,71 @@
 import { Server as SocketServer } from 'socket.io';
 import type { Server as HTTPServer } from 'http';
-import type { ConversationStorage, ExerciseStorage, UserStateStorage, ServerAuthProvider, User, AIAdapter, AIMessage, Task, ModerationAdapter } from '@downpat/core';
+import type { ConversationStorage, ExerciseStorage, UserStateStorage, ServerAuthProvider, User, AIAdapter, AIMessage, Task, ModerationAdapter, Conversation, Exercise, Message } from '@downpat/core';
 import { ConversationController, MessageType, isCommentaryTask, parseStarterContent } from '@downpat/core';
+
+/**
+ * Build AI messages array from conversation history.
+ * Shared helper to avoid duplicating message transformation logic.
+ */
+function buildAIMessagesFromConversation(
+  conversation: Conversation,
+  exercise: Exercise
+): AIMessage[] {
+  const aiMessages: AIMessage[] = [
+    {
+      role: 'system',
+      content: exercise.guidelines || `You are an AI assistant for the exercise: ${exercise.exerciseName}`,
+    },
+  ];
+
+  for (const msg of conversation.messages) {
+    if (msg.type === MessageType.USER) {
+      aiMessages.push({ role: 'user', content: msg.content });
+    } else if (msg.type === MessageType.CONVERSATION) {
+      aiMessages.push({ role: 'assistant', content: msg.content });
+    } else if (msg.type === MessageType.CONTEXT) {
+      aiMessages.push({ role: 'system', content: `Context: ${msg.content}` });
+    } else if (msg.type === MessageType.STARTER) {
+      const parsed = parseStarterContent(msg.content);
+      if (parsed) {
+        aiMessages.push({ role: 'assistant', content: JSON.stringify(parsed) });
+      }
+    }
+  }
+
+  return aiMessages;
+}
+
+/**
+ * Build AI messages for commentary, including previous commentary messages.
+ */
+function buildCommentaryMessages(
+  messages: Message[],
+  commentaryPrompt: string
+): AIMessage[] {
+  const aiMessages: AIMessage[] = [
+    { role: 'system', content: commentaryPrompt },
+  ];
+
+  for (const msg of messages) {
+    if (msg.type === MessageType.USER) {
+      aiMessages.push({ role: 'user', content: msg.content });
+    } else if (msg.type === MessageType.CONVERSATION) {
+      aiMessages.push({ role: 'assistant', content: msg.content });
+    } else if (msg.type === MessageType.CONTEXT) {
+      aiMessages.push({ role: 'system', content: `Context: ${msg.content}` });
+    } else if (msg.type === MessageType.STARTER) {
+      const parsed = parseStarterContent(msg.content);
+      if (parsed) {
+        aiMessages.push({ role: 'assistant', content: JSON.stringify(parsed) });
+      }
+    } else if (msg.type === MessageType.COMMENTARY) {
+      aiMessages.push({ role: 'assistant', content: `[Previous Commentary]: ${msg.content}` });
+    }
+  }
+
+  return aiMessages;
+}
 
 /**
  * Socket.io configuration options.
@@ -263,33 +327,7 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
         // 3. If we have an AI adapter, generate response
         if (config.aiAdapter) {
           const model = exercise.model || config.defaultModel || 'gpt-4';
-
-          // Build messages for AI
-          const aiMessages: AIMessage[] = [
-            {
-              role: 'system',
-              content: exercise.guidelines || `You are an AI assistant for the exercise: ${exercise.exerciseName}`,
-            },
-          ];
-
-          // Add conversation history
-          for (const msg of conversation.messages) {
-            if (msg.type === MessageType.USER) {
-              aiMessages.push({ role: 'user', content: msg.content });
-            } else if (msg.type === MessageType.CONVERSATION) {
-              aiMessages.push({ role: 'assistant', content: msg.content });
-            } else if (msg.type === MessageType.CONTEXT) {
-              // CONTEXT messages provide scenario context to the AI
-              aiMessages.push({ role: 'system', content: `Context: ${msg.content}` });
-            } else if (msg.type === MessageType.STARTER) {
-              // STARTER messages contain the full starter object as JSON
-              // Parse and include for AI context (includes text, context, and attributes)
-              const parsed = parseStarterContent(msg.content);
-              if (parsed) {
-                aiMessages.push({ role: 'assistant', content: JSON.stringify(parsed) });
-              }
-            }
-          }
+          const aiMessages = buildAIMessagesFromConversation(conversation, exercise);
 
           // 4. Stream AI response
           let fullContent = '';
@@ -331,34 +369,12 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
 
               for (const commentaryTask of commentaryTasks) {
                 try {
-                  // Build messages for commentary AI
-                  const commentaryMessages: AIMessage[] = [
-                    {
-                      role: 'system',
-                      content: commentaryTask.prompt,
-                    },
-                  ];
+                  const commentaryMessages = buildCommentaryMessages(
+                    updatedConversation.messages,
+                    commentaryTask.prompt
+                  );
 
-                  // Add conversation history for commentary context
-                  for (const msg of updatedConversation.messages) {
-                    if (msg.type === MessageType.USER) {
-                      commentaryMessages.push({ role: 'user', content: msg.content });
-                    } else if (msg.type === MessageType.CONVERSATION) {
-                      commentaryMessages.push({ role: 'assistant', content: msg.content });
-                    } else if (msg.type === MessageType.CONTEXT) {
-                      commentaryMessages.push({ role: 'system', content: `Context: ${msg.content}` });
-                    } else if (msg.type === MessageType.STARTER) {
-                      const parsed = parseStarterContent(msg.content);
-                      if (parsed) {
-                        commentaryMessages.push({ role: 'assistant', content: JSON.stringify(parsed) });
-                      }
-                    } else if (msg.type === MessageType.COMMENTARY) {
-                      // Include previous commentary
-                      commentaryMessages.push({ role: 'assistant', content: `[Previous Commentary]: ${msg.content}` });
-                    }
-                  }
-
-                // Stream commentary response
+                  // Stream commentary response
                 let commentaryContent = '';
                 await config.aiAdapter.complete({
                   model,
@@ -527,32 +543,9 @@ Be concise, supportive, and focused on helping them learn.`,
         }
 
         // Regenerate AI response if adapter is available
-        if (config.aiAdapter && exercise.continuationTasks && exercise.continuationTasks.length > 0) {
+        if (config.aiAdapter) {
           const model = exercise.model || config.defaultModel || 'gpt-4';
-
-          // Build messages for AI (same logic as send-message)
-          const aiMessages: AIMessage[] = [
-            {
-              role: 'system',
-              content: exercise.guidelines || `You are an AI assistant for the exercise: ${exercise.exerciseName}`,
-            },
-          ];
-
-          // Add conversation history
-          for (const msg of conversation.messages) {
-            if (msg.type === MessageType.USER) {
-              aiMessages.push({ role: 'user', content: msg.content });
-            } else if (msg.type === MessageType.CONVERSATION) {
-              aiMessages.push({ role: 'assistant', content: msg.content });
-            } else if (msg.type === MessageType.CONTEXT) {
-              aiMessages.push({ role: 'system', content: `Context: ${msg.content}` });
-            } else if (msg.type === MessageType.STARTER) {
-              const parsed = parseStarterContent(msg.content);
-              if (parsed) {
-                aiMessages.push({ role: 'assistant', content: JSON.stringify(parsed) });
-              }
-            }
-          }
+          const aiMessages = buildAIMessagesFromConversation(conversation, exercise);
 
           // Stream AI response
           let fullContent = '';
@@ -619,26 +612,11 @@ Be concise, supportive, and focused on helping them learn.`,
             if (!task.enabled) continue;
 
             try {
-              // Build messages for completion task
-              const completionMessages: AIMessage[] = [
-                { role: 'system', content: task.prompt },
-              ];
-
-              // Add conversation history for context
-              for (const msg of conversation.messages) {
-                if (msg.type === MessageType.USER) {
-                  completionMessages.push({ role: 'user', content: msg.content });
-                } else if (msg.type === MessageType.CONVERSATION) {
-                  completionMessages.push({ role: 'assistant', content: msg.content });
-                } else if (msg.type === MessageType.CONTEXT) {
-                  completionMessages.push({ role: 'system', content: `Context: ${msg.content}` });
-                } else if (msg.type === MessageType.STARTER) {
-                  const parsed = parseStarterContent(msg.content);
-                  if (parsed) {
-                    completionMessages.push({ role: 'assistant', content: JSON.stringify(parsed) });
-                  }
-                }
-              }
+              // Build messages for completion task (uses task.prompt as system message)
+              const completionMessages = buildCommentaryMessages(
+                conversation.messages,
+                task.prompt
+              );
 
               // Stream completion task response
               let completionContent = '';
