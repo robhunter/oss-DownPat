@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 ### Changed
+- Fix code review round 2 blockers (#87)
+- Add MessageType.WELCOME for welcome messages (#90)
+- Add wasCreated flag to getOrStartConversation (#89)
+- Extract exercise resolution to helper function (#88)
 - Fix code review blockers for Phase 2 (#84)
 - Move welcome/starter message generation to controller (#86)
 - Add getOrStartConversation to API client (#85)

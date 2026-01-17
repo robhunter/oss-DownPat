@@ -8,7 +8,9 @@ export enum MessageType {
   CONTEXT = 'CONTEXT',
   /** Content moderation warning */
   MODERATION = 'MODERATION',
-  /** Conversation starter prompt */
+  /** Welcome message shown at start of conversation (plain text) */
+  WELCOME = 'WELCOME',
+  /** Conversation starter prompt (JSON with text, context, attributes) */
   STARTER = 'STARTER',
 
   // User input
@@ -31,6 +33,7 @@ export enum MessageType {
  */
 export const VISIBLE_MESSAGE_TYPES = [
   MessageType.CONTEXT,
+  MessageType.WELCOME,
   MessageType.STARTER,
   MessageType.USER,
   MessageType.CONVERSATION,

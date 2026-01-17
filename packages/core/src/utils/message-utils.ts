@@ -92,11 +92,12 @@ export function starterToMessages(starter: Starter): Message[] {
 
 /**
  * Create a welcome Message.
+ * Uses MessageType.WELCOME to distinguish from JSON-encoded STARTER messages.
  */
 export function createWelcomeMessage(welcomeText: string): Message {
   return {
     messageId: generateId(),
-    type: MessageType.STARTER,
+    type: MessageType.WELCOME,
     role: 'System',
     content: welcomeText,
     timestamp: new Date().toISOString(),

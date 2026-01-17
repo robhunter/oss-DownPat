@@ -117,10 +117,10 @@ describe('message-utils', () => {
   });
 
   describe('createWelcomeMessage', () => {
-    it('creates a STARTER type message with welcome text', () => {
+    it('creates a WELCOME type message with welcome text', () => {
       const message = createWelcomeMessage('Welcome to the exercise!');
 
-      expect(message.type).toBe(MessageType.STARTER);
+      expect(message.type).toBe(MessageType.WELCOME);
       expect(message.role).toBe('System');
       expect(message.content).toBe('Welcome to the exercise!');
       expect(message.messageId).toBeDefined();

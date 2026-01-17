@@ -232,6 +232,11 @@ export class ConversationController {
   }
 
   /**
+   * Result of getOrStartConversation indicating whether a new conversation was created.
+   */
+
+
+  /**
    * Get an existing active conversation or start a new one.
    * This is the primary method for conversation resumption.
    *
@@ -245,14 +250,14 @@ export class ConversationController {
    * @param user - The authenticated user
    * @param userStateStorage - Storage for tracking active conversations
    * @param query - Optional query params for starter selection (only used when creating new)
-   * @returns The active or newly created conversation
+   * @returns Object with conversation and wasCreated flag
    */
   async getOrStartConversation(
     exerciseId: string,
     user: User,
     userStateStorage: UserStateStorage,
     query?: Record<string, string>
-  ): Promise<Conversation> {
+  ): Promise<{ conversation: Conversation; wasCreated: boolean }> {
     if (!canStartConversation(user)) {
       throw new Error('Unauthorized: Only subscribers can start conversations');
     }
@@ -271,7 +276,7 @@ export class ConversationController {
 
       // Resume if exists and not complete
       if (existingConversation && !existingConversation.isComplete) {
-        return existingConversation;
+        return { conversation: existingConversation, wasCreated: false };
       }
 
       // Conversation was completed or deleted - clear the stale reference
@@ -290,6 +295,6 @@ export class ConversationController {
       conversation.conversationId
     );
 
-    return conversation;
+    return { conversation, wasCreated: true };
   }
 }

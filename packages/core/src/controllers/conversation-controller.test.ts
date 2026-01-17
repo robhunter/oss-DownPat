@@ -116,8 +116,9 @@ describe('ConversationController', () => {
       expect(result.userMessageCount).toBe(0);
       // Controller now adds welcome message and starter message
       expect(result.messages.length).toBeGreaterThan(0);
-      // First message should be the welcome message
+      // First message should be the welcome message with WELCOME type
       expect(result.messages[0].content).toBe(testExercise.welcomeMessage);
+      expect(result.messages[0].type).toBe(MessageType.WELCOME);
       expect(mockConversationStorage.createConversation).toHaveBeenCalled();
     });
 
@@ -291,7 +292,7 @@ describe('ConversationController', () => {
       };
     });
 
-    it('returns existing active conversation if not complete', async () => {
+    it('returns existing active conversation with wasCreated=false', async () => {
       // Mock an existing active conversation
       vi.mocked(mockUserStateStorage.getActiveConversation).mockResolvedValue('conv-1');
       vi.mocked(mockConversationStorage.getConversation).mockResolvedValue(testConversation);
@@ -302,7 +303,8 @@ describe('ConversationController', () => {
         mockUserStateStorage
       );
 
-      expect(result).toEqual(testConversation);
+      expect(result.conversation).toEqual(testConversation);
+      expect(result.wasCreated).toBe(false);
       expect(mockUserStateStorage.getActiveConversation).toHaveBeenCalledWith('user-1', 'exercise-1');
       // Should NOT create a new conversation
       expect(mockConversationStorage.createConversation).not.toHaveBeenCalled();
@@ -310,7 +312,7 @@ describe('ConversationController', () => {
       expect(mockUserStateStorage.setActiveConversation).not.toHaveBeenCalled();
     });
 
-    it('creates new conversation when active conversation is complete', async () => {
+    it('creates new conversation with wasCreated=true when active is complete', async () => {
       const completedConversation = { ...testConversation, isComplete: true };
       vi.mocked(mockUserStateStorage.getActiveConversation).mockResolvedValue('conv-1');
       vi.mocked(mockConversationStorage.getConversation).mockResolvedValue(completedConversation);
@@ -330,12 +332,13 @@ describe('ConversationController', () => {
       expect(mockUserStateStorage.setActiveConversation).toHaveBeenCalledWith(
         'user-1',
         'exercise-1',
-        result.conversationId
+        result.conversation.conversationId
       );
-      expect(result.isComplete).toBe(false);
+      expect(result.conversation.isComplete).toBe(false);
+      expect(result.wasCreated).toBe(true);
     });
 
-    it('creates new conversation when no active conversation exists', async () => {
+    it('creates new conversation with wasCreated=true when no active exists', async () => {
       vi.mocked(mockUserStateStorage.getActiveConversation).mockResolvedValue(null);
       vi.mocked(mockExerciseStorage.getExercise).mockResolvedValue(testExercise);
 
@@ -351,11 +354,12 @@ describe('ConversationController', () => {
       expect(mockUserStateStorage.setActiveConversation).toHaveBeenCalledWith(
         'user-1',
         'exercise-1',
-        result.conversationId
+        result.conversation.conversationId
       );
+      expect(result.wasCreated).toBe(true);
     });
 
-    it('creates new conversation when active conversation was deleted', async () => {
+    it('creates new conversation with wasCreated=true when active was deleted', async () => {
       // Active reference exists but conversation was deleted
       vi.mocked(mockUserStateStorage.getActiveConversation).mockResolvedValue('deleted-conv');
       vi.mocked(mockConversationStorage.getConversation).mockResolvedValue(null);
@@ -373,7 +377,8 @@ describe('ConversationController', () => {
       expect(mockConversationStorage.createConversation).toHaveBeenCalled();
       expect(mockUserStateStorage.setActiveConversation).toHaveBeenCalled();
       // Result should be a new conversation
-      expect(result.exerciseId).toBe('exercise-1');
+      expect(result.conversation.exerciseId).toBe('exercise-1');
+      expect(result.wasCreated).toBe(true);
     });
 
     it('prevents non-subscriber from using getOrStartConversation', async () => {
@@ -396,7 +401,8 @@ describe('ConversationController', () => {
         mockUserStateStorage
       );
 
-      expect(result.exerciseId).toBe('exercise-1');
+      expect(result.conversation.exerciseId).toBe('exercise-1');
+      expect(result.wasCreated).toBe(true);
       expect(mockConversationStorage.createConversation).toHaveBeenCalled();
     });
   });

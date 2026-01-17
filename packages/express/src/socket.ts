@@ -114,15 +114,15 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
         // Use getOrStartConversation if userStateStorage is available (enables resumption)
         // The controller now handles adding welcome/starter messages for new conversations
         if (config.userStateStorage) {
-          conversation = await controller.getOrStartConversation(
+          const result = await controller.getOrStartConversation(
             exercise.exerciseId,
             socket.data.user,
             config.userStateStorage,
             data.query
           );
-          // A resumed conversation has user messages (welcome/starter don't count)
-          // New conversations will have messages (welcome/starter) but userMessageCount = 0
-          isResumed = conversation.userMessageCount > 0;
+          conversation = result.conversation;
+          // isResumed is the inverse of wasCreated (resumed = not newly created)
+          isResumed = !result.wasCreated;
         } else {
           // Fall back to always creating new conversation
           conversation = await controller.startConversation(

@@ -1,8 +1,49 @@
 import { Router } from 'express';
 import type { Request, Response, NextFunction } from 'express';
 import { ConversationController } from '@downpat/core';
-import type { ConversationStorage, ExerciseStorage, ServerAuthProvider, UserStateStorage } from '@downpat/core';
+import type { ConversationStorage, ExerciseStorage, ServerAuthProvider, UserStateStorage, User } from '@downpat/core';
 import { createAuthMiddleware, requireSubscriber, type AuthenticatedRequest } from '../middleware/auth.js';
+
+/**
+ * Result of resolving an exercise from ID or slug.
+ */
+interface ExerciseResolutionResult {
+  exerciseId: string;
+}
+
+/**
+ * Resolve exercise ID from either exerciseId or exerciseSlug.
+ * @param exerciseId - Direct exercise ID (takes precedence)
+ * @param exerciseSlug - Exercise slug to look up
+ * @param exerciseStorage - Storage to look up exercise by slug
+ * @param user - User making the request (admins can access unpublished)
+ * @returns Resolved exercise ID
+ * @throws Error with message 'exerciseId or exerciseSlug is required' if neither provided
+ * @throws Error with message 'Exercise not found' if slug lookup fails
+ */
+async function resolveExerciseId(
+  exerciseId: string | undefined,
+  exerciseSlug: string | undefined,
+  exerciseStorage: ExerciseStorage,
+  user: User
+): Promise<ExerciseResolutionResult> {
+  if (exerciseId) {
+    return { exerciseId };
+  }
+
+  if (!exerciseSlug) {
+    throw new Error('exerciseId or exerciseSlug is required');
+  }
+
+  // Look up exercise by slug (published only for non-admins)
+  const publishedOnly = !user.isAdmin;
+  const exercise = await exerciseStorage.getExerciseBySlug(exerciseSlug, publishedOnly);
+  if (!exercise) {
+    throw new Error('Exercise not found');
+  }
+
+  return { exerciseId: exercise.exerciseId };
+}
 
 /**
  * Creates Express router for conversation endpoints.
@@ -67,31 +108,25 @@ export function createConversationRouter(
         const authReq = req as AuthenticatedRequest;
         const { exerciseId, exerciseSlug, query } = req.body;
 
-        // Support both exerciseId and exerciseSlug for flexibility
-        let resolvedExerciseId = exerciseId;
-        if (!resolvedExerciseId && exerciseSlug) {
-          // Look up exercise by slug (published only for subscribers)
-          const exercise = await exerciseStorage.getExerciseBySlug(exerciseSlug, true);
-          if (!exercise) {
-            res.status(404).json({ error: 'Exercise not found' });
-            return;
-          }
-          resolvedExerciseId = exercise.exerciseId;
-        }
-
-        if (!resolvedExerciseId) {
-          res.status(400).json({ error: 'exerciseId or exerciseSlug is required' });
-          return;
-        }
+        const resolved = await resolveExerciseId(
+          exerciseId,
+          exerciseSlug,
+          exerciseStorage,
+          authReq.user
+        );
 
         const conversation = await controller.startConversation(
-          resolvedExerciseId,
+          resolved.exerciseId,
           authReq.user,
           query
         );
         res.status(201).json(conversation);
       } catch (error) {
         if (error instanceof Error) {
+          if (error.message === 'exerciseId or exerciseSlug is required') {
+            res.status(400).json({ error: error.message });
+            return;
+          }
           if (error.message === 'Exercise not found') {
             res.status(404).json({ error: error.message });
             return;
@@ -124,37 +159,30 @@ export function createConversationRouter(
         const authReq = req as AuthenticatedRequest;
         const { exerciseId, exerciseSlug, query } = req.body;
 
-        // Support both exerciseId and exerciseSlug for flexibility
-        let resolvedExerciseId = exerciseId;
-        if (!resolvedExerciseId && exerciseSlug) {
-          // Look up exercise by slug (published only for non-admins)
-          const publishedOnly = !authReq.user.isAdmin;
-          const exercise = await exerciseStorage.getExerciseBySlug(exerciseSlug, publishedOnly);
-          if (!exercise) {
-            res.status(404).json({ error: 'Exercise not found' });
-            return;
-          }
-          resolvedExerciseId = exercise.exerciseId;
-        }
+        const resolved = await resolveExerciseId(
+          exerciseId,
+          exerciseSlug,
+          exerciseStorage,
+          authReq.user
+        );
 
-        if (!resolvedExerciseId) {
-          res.status(400).json({ error: 'exerciseId or exerciseSlug is required' });
-          return;
-        }
-
-        const conversation = await controller.getOrStartConversation(
-          resolvedExerciseId,
+        const result = await controller.getOrStartConversation(
+          resolved.exerciseId,
           authReq.user,
           userStateStorage,
           query
         );
 
-        // isResumed = true when user has sent messages (not just welcome/starter)
-        // New conversations have welcome/starter messages but userMessageCount = 0
-        const isResumed = conversation.userMessageCount > 0;
-        res.json({ ...conversation, isResumed });
+        // Controller returns { conversation, wasCreated }
+        // isResumed is the inverse of wasCreated (resumed = not newly created)
+        const isResumed = !result.wasCreated;
+        res.json({ ...result.conversation, isResumed });
       } catch (error) {
         if (error instanceof Error) {
+          if (error.message === 'exerciseId or exerciseSlug is required') {
+            res.status(400).json({ error: error.message });
+            return;
+          }
           if (error.message === 'Exercise not found') {
             res.status(404).json({ error: error.message });
             return;
