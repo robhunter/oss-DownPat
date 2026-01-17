@@ -649,6 +649,125 @@ describe('Socket.io attachSocketIO', () => {
       // Verify AI adapter was called
       expect(mockAIAdapter.complete).toHaveBeenCalled();
     });
+
+    it('regenerates commentary after editing a message when exercise has commentary tasks', async () => {
+      const exerciseWithCommentary: Exercise = {
+        ...mockExercise,
+        continuationTasks: [
+          {
+            taskId: 'commentary-task-1',
+            name: 'Coach Feedback',
+            responseType: MessageType.COMMENTARY,
+            role: 'Coach',
+            prompt: 'Provide coaching feedback on the conversation.',
+            enabled: true,
+          },
+        ],
+      };
+      vi.mocked(mockExerciseStorage.getExercise).mockResolvedValue(exerciseWithCommentary);
+
+      const conversationWithMessages: Conversation = {
+        ...mockConversation,
+        messages: [
+          {
+            messageId: 'msg-1',
+            type: MessageType.WELCOME,
+            role: 'System',
+            content: 'Welcome!',
+            timestamp: new Date().toISOString(),
+          },
+          {
+            messageId: 'msg-2',
+            type: MessageType.USER,
+            role: 'Test User',
+            content: 'Hello',
+            timestamp: new Date().toISOString(),
+          },
+          {
+            messageId: 'msg-3',
+            type: MessageType.CONVERSATION,
+            role: 'AI',
+            content: 'Hi there!',
+            timestamp: new Date().toISOString(),
+          },
+        ],
+        userMessageCount: 1,
+      };
+
+      vi.mocked(mockConversationStorage.getConversationMetadata).mockResolvedValue({
+        conversationId: mockConversation.conversationId,
+        exerciseId: mockConversation.exerciseId,
+        userId: mockConversation.userId,
+        createdAt: mockConversation.createdAt,
+        updatedAt: mockConversation.updatedAt,
+        isComplete: false,
+        userMessageCount: 1,
+      });
+      vi.mocked(mockConversationStorage.getConversation).mockResolvedValue(conversationWithMessages);
+
+      const updatedConversation = {
+        ...conversationWithMessages,
+        messages: [
+          conversationWithMessages.messages[0],
+          { ...conversationWithMessages.messages[1], content: 'Hello edited' },
+        ],
+      };
+      vi.mocked(mockConversationStorage.updateConversation).mockResolvedValue(updatedConversation);
+
+      // Track which call we're on (first = main AI, second = commentary)
+      let callCount = 0;
+      vi.mocked(mockAIAdapter.complete).mockImplementation(async ({ onChunk }) => {
+        callCount++;
+        if (callCount === 1) {
+          // Main AI response
+          onChunk?.('New ');
+          onChunk?.('response!');
+          return { content: 'New response!' };
+        } else {
+          // Commentary response
+          onChunk?.('Great ');
+          onChunk?.('job!');
+          return { content: 'Great job!' };
+        }
+      });
+
+      const { socket } = await connectAndWaitForAuth();
+
+      // Collect events
+      const commentaryChunks: string[] = [];
+      let commentaryCompleteReceived = false;
+      let commentaryRole = '';
+
+      socket.on('commentary-chunk', (data) => {
+        commentaryChunks.push(data.chunk);
+        commentaryRole = data.role;
+      });
+
+      const commentaryPromise = new Promise<void>((resolve) => {
+        socket.on('commentary-complete', (data) => {
+          commentaryCompleteReceived = true;
+          commentaryRole = data.role;
+          resolve();
+        });
+      });
+
+      // Emit edit-message
+      socket.emit('edit-message', {
+        conversationId: 'conv-123',
+        messageId: 'msg-2',
+        content: 'Hello edited',
+      });
+
+      await commentaryPromise;
+
+      // Verify commentary was regenerated
+      expect(commentaryChunks).toEqual(['Great ', 'job!']);
+      expect(commentaryCompleteReceived).toBe(true);
+      expect(commentaryRole).toBe('Coach');
+
+      // Verify AI adapter was called twice (main + commentary)
+      expect(mockAIAdapter.complete).toHaveBeenCalledTimes(2);
+    });
   });
 
   describe('finish-conversation', () => {

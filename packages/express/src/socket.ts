@@ -575,6 +575,55 @@ Be concise, supportive, and focused on helping them learn.`,
 
             // Emit message complete
             socket.emit('message-complete');
+
+            // Process commentary tasks (same as send-message)
+            const commentaryTasks = (exercise.continuationTasks || []).filter(
+              (task: Task) => task.enabled && isCommentaryTask(task)
+            );
+
+            if (commentaryTasks.length > 0) {
+              // Fetch updated conversation for commentary context
+              const updatedConversation = await controller.getConversation(data.conversationId, socket.data.user!);
+
+              for (const commentaryTask of commentaryTasks) {
+                try {
+                  const commentaryMessages = buildCommentaryMessages(
+                    updatedConversation.messages,
+                    commentaryTask.prompt
+                  );
+
+                  // Stream commentary response
+                  let commentaryContent = '';
+                  await config.aiAdapter.complete({
+                    model,
+                    messages: commentaryMessages,
+                    maxTokens: 512,
+                    temperature: 0.7,
+                    onChunk: (chunk: string) => {
+                      commentaryContent += chunk;
+                      socket.emit('commentary-chunk', { chunk, role: commentaryTask.role });
+                    },
+                  });
+
+                  // Save commentary message
+                  await controller.addAIMessage(
+                    data.conversationId,
+                    {
+                      type: MessageType.COMMENTARY,
+                      role: commentaryTask.role,
+                      content: commentaryContent,
+                    },
+                    socket.data.user!
+                  );
+
+                  // Emit commentary complete
+                  socket.emit('commentary-complete', { role: commentaryTask.role });
+                } catch (commentaryError) {
+                  console.error('[Socket] Commentary error during edit:', commentaryError);
+                  // Don't fail the whole edit if commentary fails
+                }
+              }
+            }
           } catch (aiError) {
             console.error('AI error during edit regeneration:', aiError);
             socket.emit('error', { message: 'Failed to regenerate AI response' });
