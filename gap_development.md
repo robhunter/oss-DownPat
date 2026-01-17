@@ -215,6 +215,19 @@ export interface DownpatServerConfig {
 - Unit tests for `FirebaseUserStateStorage` (with mocked Firestore)
 - Integration test: set/get/clear active conversation flow
 
+### Phase 1 Completion Notes
+
+**Status:** ✅ Complete (commits #60-66, #82-83)
+
+**Implementation details:**
+- `UserState` type and `UserStateStorage` interface created in `@downpat/core`
+- `InMemoryUserStateStorage` implemented for testing
+- `FirebaseUserStateStorage` implemented with proper handling of legacy users missing `activeConversations` field
+- `DownpatServerConfig` updated to accept optional `userStateStorage`
+- Unit tests: 14 tests for InMemoryUserStateStorage
+- Integration tests: 12 tests for FirebaseUserStateStorage (skip when emulator unavailable)
+- Example-app updated with InMemoryUserStateStorage for development
+
 ---
 
 ## Phase 2: Conversation Persistence & Resumption
@@ -488,6 +501,30 @@ export function useConversation({
 - Integration test: Full flow with socket events
 - E2E test: Navigate away and back, conversation persists
 
+### Phase 2 Completion Notes
+
+**Status:** ✅ Complete (commits #75-91)
+
+**Implementation details:**
+- `getOrStartConversation` added to `ConversationController` with `{ conversation, wasCreated }` return type
+- Welcome/starter message generation moved from socket.ts to controller (DRY principle)
+- Added `MessageType.WELCOME` to distinguish plain-text welcome messages from JSON-encoded starters
+- `POST /conversations/get-or-start` endpoint with `isResumed` flag in response
+- `POST /conversations` endpoint now tracks active conversation if `userStateStorage` available
+- Socket `start-conversation` event updated to use `getOrStartConversation` when storage available
+- Socket `join-conversation` event added for resuming real-time updates
+- `getOrStartConversation` added to API client
+- Unit tests: 8 tests for getOrStartConversation in controller
+- Integration tests: 6 tests for join-conversation socket event
+- Helper functions extracted: `resolveExerciseId`, `selectStarter`, `starterToMessages`, `createWelcomeMessage`
+
+**Code review rounds:** 3 rounds of review addressed blockers around:
+- API client method signature (slug-only vs ID support)
+- Semantic `isResumed` flag (changed to `wasCreated` internally)
+- MessageType overloading (added WELCOME type)
+- Dangling documentation comments
+- Active conversation tracking consistency across all creation paths
+
 ---
 
 ## Phase 3: Socket.io Edit & Finish Events
@@ -758,25 +795,25 @@ return {
 
 ## Summary Checklist
 
-### Phase 1: User State Storage
-- [ ] Create `UserState` type in `@downpat/core`
-- [ ] Create `UserStateStorage` interface in `@downpat/core`
-- [ ] Implement `InMemoryUserStateStorage` in `@downpat/core`
-- [ ] Implement `FirebaseUserStateStorage` in `@downpat/firebase-storage`
-- [ ] Update `DownpatServerConfig` to include `userStateStorage`
-- [ ] Write unit tests
-- [ ] Update example-app to use new storage
+### Phase 1: User State Storage ✅ COMPLETE
+- [x] Create `UserState` type in `@downpat/core`
+- [x] Create `UserStateStorage` interface in `@downpat/core`
+- [x] Implement `InMemoryUserStateStorage` in `@downpat/core`
+- [x] Implement `FirebaseUserStateStorage` in `@downpat/firebase-storage`
+- [x] Update `DownpatServerConfig` to include `userStateStorage`
+- [x] Write unit tests
+- [x] Update example-app to use new storage
 
-### Phase 2: Conversation Persistence
-- [ ] Add `getOrStartConversation` to `ConversationController`
-- [ ] Add `POST /conversations/get-or-start` endpoint
-- [ ] Update `start-conversation` socket event to use new logic
-- [ ] Add `join-conversation` socket event
-- [ ] Update `DownpatClient` with new method
-- [ ] Update `useConversation` hook for resumption
-- [ ] Write unit tests
-- [ ] Write integration tests
-- [ ] Write E2E test for persistence flow
+### Phase 2: Conversation Persistence ✅ COMPLETE
+- [x] Add `getOrStartConversation` to `ConversationController`
+- [x] Add `POST /conversations/get-or-start` endpoint
+- [x] Update `start-conversation` socket event to use new logic
+- [x] Add `join-conversation` socket event
+- [x] Update `DownpatClient` with new method
+- [x] Update `useConversation` hook for resumption
+- [x] Write unit tests
+- [x] Write integration tests
+- [ ] Write E2E test for persistence flow (deferred - requires browser automation)
 
 ### Phase 3: Edit & Finish Events
 - [ ] Add `editMessage` to `ConversationController`
