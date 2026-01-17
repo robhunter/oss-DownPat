@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ConversationController } from './conversation-controller.js';
-import { Conversation, User, Exercise, Message } from '../types/index.js';
+import { Conversation, User, Exercise } from '../types/index.js';
 import { ConversationStorage, ExerciseStorage, UserStateStorage } from '../interfaces/index.js';
 import { MessageType } from '../constants/index.js';
 
@@ -105,7 +105,7 @@ describe('ConversationController', () => {
   });
 
   describe('startConversation', () => {
-    it('creates a new conversation for subscriber', async () => {
+    it('creates a new conversation for subscriber with welcome and starter messages', async () => {
       vi.mocked(mockExerciseStorage.getExercise).mockResolvedValue(testExercise);
 
       const result = await controller.startConversation('exercise-1', subscriberUser);
@@ -114,9 +114,10 @@ describe('ConversationController', () => {
       expect(result.userId).toBe('user-1');
       expect(result.isComplete).toBe(false);
       expect(result.userMessageCount).toBe(0);
-      // Note: First message (starter or welcome) is now added by socket.ts to support
-      // starter selection based on query params
-      expect(result.messages).toHaveLength(0);
+      // Controller now adds welcome message and starter message
+      expect(result.messages.length).toBeGreaterThan(0);
+      // First message should be the welcome message
+      expect(result.messages[0].content).toBe(testExercise.welcomeMessage);
       expect(mockConversationStorage.createConversation).toHaveBeenCalled();
     });
 
@@ -371,6 +372,8 @@ describe('ConversationController', () => {
       // Should create a new conversation
       expect(mockConversationStorage.createConversation).toHaveBeenCalled();
       expect(mockUserStateStorage.setActiveConversation).toHaveBeenCalled();
+      // Result should be a new conversation
+      expect(result.exerciseId).toBe('exercise-1');
     });
 
     it('prevents non-subscriber from using getOrStartConversation', async () => {

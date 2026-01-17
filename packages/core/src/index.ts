@@ -58,7 +58,14 @@ export { ExerciseController } from './controllers/index.js';
 export { ConversationController } from './controllers/index.js';
 
 // Utilities
-export { generateId, generateSlug } from './utils/index.js';
+export {
+  generateId,
+  generateSlug,
+  selectStarter,
+  starterToMessages,
+  createWelcomeMessage,
+  parseStarterContent,
+} from './utils/index.js';
 
 // Storage
 export { createInMemoryStorage } from './storage/index.js';

@@ -1,118 +1,7 @@
 import { Server as SocketServer } from 'socket.io';
 import type { Server as HTTPServer } from 'http';
-import type { ConversationStorage, ExerciseStorage, UserStateStorage, ServerAuthProvider, User, AIAdapter, AIMessage, Task, ModerationAdapter, Starter, Message } from '@downpat/core';
-import { ConversationController, MessageType, isCommentaryTask, generateId } from '@downpat/core';
-
-/**
- * Select a starter from the available starters based on query params.
- * If query params match starter attributes, filters to matching starters.
- * Only checks query params that exist in the starter's attributes (ignores
- * unrelated params like UTM tracking codes).
- * Returns a randomly selected starter from the filtered (or full) list.
- */
-function selectStarter(starters: Starter[], query: Record<string, string> = {}): Starter | null {
-  if (!starters || starters.length === 0) {
-    return null;
-  }
-
-  // If query params are provided, filter starters by matching attributes
-  if (Object.keys(query).length > 0) {
-    const filtered = starters.filter((starter) => {
-      // Only check query params that exist in this starter's attributes
-      // This allows unrelated params (UTM, tracking, etc.) to be ignored
-      for (const key in starter.attributes) {
-        if (key in query) {
-          const queryValue = query[key]?.toLowerCase();
-          const attrValue = starter.attributes[key]?.toLowerCase();
-          if (queryValue !== attrValue) {
-            return false;
-          }
-        }
-      }
-      return true;
-    });
-
-    if (filtered.length > 0) {
-      return filtered[Math.floor(Math.random() * filtered.length)];
-    }
-    // If no matches, fall back to random from all starters
-  }
-
-  return starters[Math.floor(Math.random() * starters.length)];
-}
-
-/**
- * Create Messages from a Starter.
- * Returns an array of messages:
- * - If context exists, a CONTEXT message is created first (for AI context, not displayed to user)
- * - Then a STARTER message with the full starter object as JSON content
- *
- * The JSON format allows passing all starter data (text, context, attributes) to the AI.
- * The UI should parse the JSON and display only the 'text' field.
- */
-function starterToMessages(starter: Starter): Message[] {
-  const messages: Message[] = [];
-  const timestamp = new Date().toISOString();
-
-  // If context exists, create a CONTEXT message first
-  // This provides scenario context to the AI but is filtered from user display
-  if (starter.context && starter.context.trim()) {
-    messages.push({
-      messageId: generateId(),
-      type: MessageType.CONTEXT,
-      role: 'System',
-      content: starter.context,
-      timestamp,
-    });
-  }
-
-  // Create the STARTER message with full starter object as JSON
-  // This includes text, context, and all attributes for the AI
-  const starterContent = JSON.stringify({
-    text: starter.text,
-    context: starter.context || '',
-    ...starter.attributes,
-  });
-
-  // Get role from attributes if 'name' is provided, otherwise default to 'Assistant'
-  const role = starter.attributes?.name || 'Assistant';
-
-  messages.push({
-    messageId: generateId(),
-    type: MessageType.STARTER,
-    role,
-    content: starterContent,
-    timestamp,
-  });
-
-  return messages;
-}
-
-/**
- * Parse starter content from a STARTER message.
- * Returns the parsed object or null if parsing fails.
- */
-function parseStarterContent(content: string): { text: string; context?: string; [key: string]: unknown } | null {
-  try {
-    return JSON.parse(content) as { text: string; context?: string; [key: string]: unknown };
-  } catch {
-    // If not valid JSON, treat content as plain text (backwards compatibility)
-    return { text: content };
-  }
-}
-
-/**
- * Create a welcome Message.
- */
-function createWelcomeMessage(welcomeText: string): Message {
-  return {
-    messageId: generateId(),
-    type: MessageType.STARTER,
-    role: 'System',
-    content: welcomeText,
-    timestamp: new Date().toISOString(),
-  };
-}
+import type { ConversationStorage, ExerciseStorage, UserStateStorage, ServerAuthProvider, User, AIAdapter, AIMessage, Task, ModerationAdapter } from '@downpat/core';
+import { ConversationController, MessageType, isCommentaryTask, parseStarterContent } from '@downpat/core';
 
 /**
  * Socket.io configuration options.
@@ -223,46 +112,25 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
         let isResumed = false;
 
         // Use getOrStartConversation if userStateStorage is available (enables resumption)
+        // The controller now handles adding welcome/starter messages for new conversations
         if (config.userStateStorage) {
           conversation = await controller.getOrStartConversation(
             exercise.exerciseId,
             socket.data.user,
-            config.userStateStorage
+            config.userStateStorage,
+            data.query
           );
-          // Check if this is a resumed conversation (has messages already)
-          isResumed = conversation.messages.length > 0;
+          // A resumed conversation has user messages (welcome/starter don't count)
+          // New conversations will have messages (welcome/starter) but userMessageCount = 0
+          isResumed = conversation.userMessageCount > 0;
         } else {
           // Fall back to always creating new conversation
-          conversation = await controller.startConversation(exercise.exerciseId, socket.data.user);
+          conversation = await controller.startConversation(
+            exercise.exerciseId,
+            socket.data.user,
+            data.query
+          );
         }
-
-        // Only add welcome/starter messages for new conversations
-        if (!isResumed) {
-          // Add the first message(s): welcome message first, then starter if defined
-          // Note: addMessage modifies conversation.messages in-place for in-memory storage,
-          // so we don't need to push separately
-
-          // Always add welcome message first if it exists
-          if (exercise.welcomeMessage) {
-            const welcomeMessage = createWelcomeMessage(exercise.welcomeMessage);
-            await config.conversationStorage.addMessage(conversation.conversationId, welcomeMessage);
-          }
-
-          // Then add starter messages if starters are defined
-          if (exercise.starters && exercise.starters.length > 0) {
-            const selectedStarter = selectStarter(exercise.starters, data.query);
-            if (selectedStarter) {
-              // starterToMessages returns array: [CONTEXT message (if context exists), STARTER message]
-              const starterMessages = starterToMessages(selectedStarter);
-              for (const msg of starterMessages) {
-                await config.conversationStorage.addMessage(conversation.conversationId, msg);
-              }
-            }
-          }
-        }
-
-        // Fetch updated conversation to get messages (storage may have added them)
-        const updatedConversation = await config.conversationStorage.getConversation(conversation.conversationId);
 
         // Join the conversation room
         socket.join(`conversation:${conversation.conversationId}`);
@@ -270,7 +138,7 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
         // Emit conversation started with messages and exercise settings
         socket.emit('conversation-started', {
           conversationId: conversation.conversationId,
-          messages: updatedConversation?.messages || [],
+          messages: conversation.messages,
           talkToCoachEnabled: exercise.talkToCoachEnabled ?? false,
           isResumed,
         });

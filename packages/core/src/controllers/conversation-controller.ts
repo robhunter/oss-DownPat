@@ -1,7 +1,12 @@
 import { Conversation, ConversationMetadata, Message, User } from '../types/index.js';
 import { MessageType } from '../constants/index.js';
 import { ConversationStorage, ExerciseStorage, UserStateStorage } from '../interfaces/index.js';
-import { generateId } from '../utils/index.js';
+import {
+  generateId,
+  selectStarter,
+  starterToMessages,
+  createWelcomeMessage,
+} from '../utils/index.js';
 
 /**
  * Check if a user can start conversations.
@@ -25,10 +30,15 @@ export class ConversationController {
    * Start a new conversation.
    * @param exerciseId - The exercise to start a conversation for
    * @param user - The authenticated user
+   * @param query - Optional query params for starter selection
    * @throws if user is not a subscriber or demo user
    * @throws if exercise is not found
    */
-  async startConversation(exerciseId: string, user: User): Promise<Conversation> {
+  async startConversation(
+    exerciseId: string,
+    user: User,
+    query?: Record<string, string>
+  ): Promise<Conversation> {
     if (!canStartConversation(user)) {
       throw new Error('Unauthorized: Only subscribers can start conversations');
     }
@@ -38,20 +48,34 @@ export class ConversationController {
       throw new Error('Exercise not found');
     }
 
+    // Build initial messages array with welcome and starter messages
+    const messages: Message[] = [];
+
+    // Add welcome message if it exists
+    if (exercise.welcomeMessage) {
+      messages.push(createWelcomeMessage(exercise.welcomeMessage));
+    }
+
+    // Add starter messages if starters are defined
+    if (exercise.starters && exercise.starters.length > 0) {
+      const selectedStarter = selectStarter(exercise.starters, query);
+      if (selectedStarter) {
+        // starterToMessages returns array: [CONTEXT message (if context exists), STARTER message]
+        messages.push(...starterToMessages(selectedStarter));
+      }
+    }
+
     const now = new Date().toISOString();
     const conversation: Conversation = {
       conversationId: generateId(),
       exerciseId,
       userId: user.userId,
-      messages: [],
+      messages,
       createdAt: now,
       updatedAt: now,
       isComplete: false,
       userMessageCount: 0,
     };
-
-    // Note: The first message (starter or welcome) is added by socket.ts
-    // to support starter selection logic based on query params
 
     await this.conversationStorage.createConversation(conversation);
     return conversation;
@@ -220,12 +244,14 @@ export class ConversationController {
    * @param exerciseId - The exercise ID
    * @param user - The authenticated user
    * @param userStateStorage - Storage for tracking active conversations
+   * @param query - Optional query params for starter selection (only used when creating new)
    * @returns The active or newly created conversation
    */
   async getOrStartConversation(
     exerciseId: string,
     user: User,
-    userStateStorage: UserStateStorage
+    userStateStorage: UserStateStorage,
+    query?: Record<string, string>
   ): Promise<Conversation> {
     if (!canStartConversation(user)) {
       throw new Error('Unauthorized: Only subscribers can start conversations');
@@ -254,8 +280,8 @@ export class ConversationController {
       }
     }
 
-    // Create new conversation
-    const conversation = await this.startConversation(exerciseId, user);
+    // Create new conversation (with welcome/starter messages)
+    const conversation = await this.startConversation(exerciseId, user, query);
 
     // Update active conversation tracking
     await userStateStorage.setActiveConversation(

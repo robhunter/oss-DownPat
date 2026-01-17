@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 ### Changed
+- Fix code review blockers for Phase 2 (#84)
+- Move welcome/starter message generation to controller (#86)
+- Add getOrStartConversation to API client (#85)
 - Phase 2: Conversation Persistence & Resumption (#75)
 - Write unit and integration tests (#81)
 - Update useConversation hook for resumption (#80)

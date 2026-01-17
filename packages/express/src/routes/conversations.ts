@@ -65,7 +65,7 @@ export function createConversationRouter(
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const authReq = req as AuthenticatedRequest;
-        const { exerciseId, exerciseSlug } = req.body;
+        const { exerciseId, exerciseSlug, query } = req.body;
 
         // Support both exerciseId and exerciseSlug for flexibility
         let resolvedExerciseId = exerciseId;
@@ -84,7 +84,11 @@ export function createConversationRouter(
           return;
         }
 
-        const conversation = await controller.startConversation(resolvedExerciseId, authReq.user);
+        const conversation = await controller.startConversation(
+          resolvedExerciseId,
+          authReq.user,
+          query
+        );
         res.status(201).json(conversation);
       } catch (error) {
         if (error instanceof Error) {
@@ -118,7 +122,7 @@ export function createConversationRouter(
         }
 
         const authReq = req as AuthenticatedRequest;
-        const { exerciseId, exerciseSlug } = req.body;
+        const { exerciseId, exerciseSlug, query } = req.body;
 
         // Support both exerciseId and exerciseSlug for flexibility
         let resolvedExerciseId = exerciseId;
@@ -141,11 +145,13 @@ export function createConversationRouter(
         const conversation = await controller.getOrStartConversation(
           resolvedExerciseId,
           authReq.user,
-          userStateStorage
+          userStateStorage,
+          query
         );
 
-        // Include isResumed flag so client knows if this is an existing conversation
-        const isResumed = conversation.messages.length > 0;
+        // isResumed = true when user has sent messages (not just welcome/starter)
+        // New conversations have welcome/starter messages but userMessageCount = 0
+        const isResumed = conversation.userMessageCount > 0;
         res.json({ ...conversation, isResumed });
       } catch (error) {
         if (error instanceof Error) {

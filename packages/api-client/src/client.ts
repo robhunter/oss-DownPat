@@ -277,6 +277,25 @@ export class DownpatClient {
   }
 
   /**
+   * Get an existing active conversation or start a new one.
+   * This is the primary method for conversation resumption.
+   *
+   * @param exerciseSlug - The exercise slug to get/start conversation for
+   * @param query - Optional query params for starter selection (e.g., { difficulty: 'hard' })
+   * @returns The conversation with isResumed flag indicating if it's an existing conversation
+   */
+  async getOrStartConversation(
+    exerciseSlug: string,
+    query?: Record<string, string>
+  ): Promise<Conversation & { isResumed: boolean }> {
+    return this.request<Conversation & { isResumed: boolean }>(
+      'POST',
+      '/conversations/get-or-start',
+      { exerciseSlug, query }
+    );
+  }
+
+  /**
    * Get a conversation by ID.
    */
   async getConversation(conversationId: string): Promise<Conversation> {
