@@ -406,4 +406,222 @@ describe('ConversationController', () => {
       expect(mockConversationStorage.createConversation).toHaveBeenCalled();
     });
   });
+
+  describe('editMessage', () => {
+    const conversationWithMessages: Conversation = {
+      ...testConversation,
+      messages: [
+        {
+          messageId: 'msg-1',
+          type: MessageType.WELCOME,
+          role: 'System',
+          content: 'Welcome!',
+          timestamp: '2024-01-01T00:00:00.000Z',
+        },
+        {
+          messageId: 'msg-2',
+          type: MessageType.USER,
+          role: 'Test User',
+          content: 'Hello',
+          timestamp: '2024-01-01T00:01:00.000Z',
+        },
+        {
+          messageId: 'msg-3',
+          type: MessageType.CONVERSATION,
+          role: 'AI',
+          content: 'Hi there!',
+          timestamp: '2024-01-01T00:02:00.000Z',
+        },
+        {
+          messageId: 'msg-4',
+          type: MessageType.USER,
+          role: 'Test User',
+          content: 'How are you?',
+          timestamp: '2024-01-01T00:03:00.000Z',
+        },
+      ],
+      userMessageCount: 2,
+    };
+
+    it('edits a user message and truncates messages after it', async () => {
+      vi.mocked(mockConversationStorage.getConversationMetadata).mockResolvedValue({
+        ...testConversationMetadata,
+        userMessageCount: 2,
+      });
+      vi.mocked(mockConversationStorage.getConversation).mockResolvedValue(conversationWithMessages);
+
+      const updatedConversation = {
+        ...conversationWithMessages,
+        messages: [
+          conversationWithMessages.messages[0],
+          { ...conversationWithMessages.messages[1], content: 'Hello edited' },
+        ],
+        userMessageCount: 1,
+      };
+      vi.mocked(mockConversationStorage.updateConversation).mockResolvedValue(updatedConversation);
+
+      const result = await controller.editMessage(
+        'conv-1',
+        'msg-2',
+        'Hello edited',
+        subscriberUser
+      );
+
+      expect(result.editedMessageIndex).toBe(1);
+      expect(result.conversation.messages).toHaveLength(2);
+      expect(mockConversationStorage.updateConversation).toHaveBeenCalledWith(
+        'conv-1',
+        expect.objectContaining({
+          userMessageCount: 1,
+        })
+      );
+    });
+
+    it('throws when message is not a USER message', async () => {
+      vi.mocked(mockConversationStorage.getConversationMetadata).mockResolvedValue(testConversationMetadata);
+      vi.mocked(mockConversationStorage.getConversation).mockResolvedValue(conversationWithMessages);
+
+      await expect(
+        controller.editMessage('conv-1', 'msg-3', 'New content', subscriberUser)
+      ).rejects.toThrow('User message not found');
+    });
+
+    it('throws when message is not found', async () => {
+      vi.mocked(mockConversationStorage.getConversationMetadata).mockResolvedValue(testConversationMetadata);
+      vi.mocked(mockConversationStorage.getConversation).mockResolvedValue(conversationWithMessages);
+
+      await expect(
+        controller.editMessage('conv-1', 'non-existent', 'New content', subscriberUser)
+      ).rejects.toThrow('User message not found');
+    });
+
+    it('throws when conversation is complete', async () => {
+      vi.mocked(mockConversationStorage.getConversationMetadata).mockResolvedValue({
+        ...testConversationMetadata,
+        isComplete: true,
+      });
+
+      await expect(
+        controller.editMessage('conv-1', 'msg-2', 'New content', subscriberUser)
+      ).rejects.toThrow('Cannot edit a completed conversation');
+    });
+
+    it('throws when user does not own conversation', async () => {
+      const otherUser: User = { ...subscriberUser, userId: 'other-user' };
+      vi.mocked(mockConversationStorage.getConversationMetadata).mockResolvedValue(testConversationMetadata);
+
+      await expect(
+        controller.editMessage('conv-1', 'msg-2', 'New content', otherUser)
+      ).rejects.toThrow('Unauthorized');
+    });
+
+    it('allows admin to edit any conversation', async () => {
+      vi.mocked(mockConversationStorage.getConversationMetadata).mockResolvedValue(testConversationMetadata);
+      vi.mocked(mockConversationStorage.getConversation).mockResolvedValue(conversationWithMessages);
+      vi.mocked(mockConversationStorage.updateConversation).mockResolvedValue({
+        ...conversationWithMessages,
+        messages: [
+          conversationWithMessages.messages[0],
+          { ...conversationWithMessages.messages[1], content: 'Admin edit' },
+        ],
+      });
+
+      const result = await controller.editMessage(
+        'conv-1',
+        'msg-2',
+        'Admin edit',
+        adminUser
+      );
+
+      expect(result.editedMessageIndex).toBe(1);
+    });
+  });
+
+  describe('finishConversation', () => {
+    let mockUserStateStorage: UserStateStorage;
+
+    beforeEach(() => {
+      mockUserStateStorage = {
+        getOrCreateUserState: vi.fn(),
+        setActiveConversation: vi.fn(),
+        getActiveConversation: vi.fn(),
+        clearActiveConversation: vi.fn(),
+      };
+    });
+
+    it('marks conversation as complete', async () => {
+      vi.mocked(mockConversationStorage.getConversationMetadata).mockResolvedValue(testConversationMetadata);
+      vi.mocked(mockConversationStorage.updateConversation).mockResolvedValue({
+        ...testConversation,
+        isComplete: true,
+      });
+
+      const result = await controller.finishConversation('conv-1', subscriberUser);
+
+      expect(result.isComplete).toBe(true);
+      expect(mockConversationStorage.updateConversation).toHaveBeenCalledWith(
+        'conv-1',
+        expect.objectContaining({ isComplete: true })
+      );
+    });
+
+    it('clears active conversation when userStateStorage is provided', async () => {
+      vi.mocked(mockConversationStorage.getConversationMetadata).mockResolvedValue(testConversationMetadata);
+      vi.mocked(mockConversationStorage.updateConversation).mockResolvedValue({
+        ...testConversation,
+        isComplete: true,
+      });
+
+      await controller.finishConversation('conv-1', subscriberUser, mockUserStateStorage);
+
+      expect(mockUserStateStorage.clearActiveConversation).toHaveBeenCalledWith(
+        'user-1',
+        'exercise-1'
+      );
+    });
+
+    it('does not clear active conversation when userStateStorage is not provided', async () => {
+      vi.mocked(mockConversationStorage.getConversationMetadata).mockResolvedValue(testConversationMetadata);
+      vi.mocked(mockConversationStorage.updateConversation).mockResolvedValue({
+        ...testConversation,
+        isComplete: true,
+      });
+
+      await controller.finishConversation('conv-1', subscriberUser);
+
+      expect(mockUserStateStorage.clearActiveConversation).not.toHaveBeenCalled();
+    });
+
+    it('throws when conversation is already complete', async () => {
+      vi.mocked(mockConversationStorage.getConversationMetadata).mockResolvedValue({
+        ...testConversationMetadata,
+        isComplete: true,
+      });
+
+      await expect(
+        controller.finishConversation('conv-1', subscriberUser)
+      ).rejects.toThrow('Conversation is already complete');
+    });
+
+    it('throws when user does not own conversation', async () => {
+      const otherUser: User = { ...subscriberUser, userId: 'other-user' };
+      vi.mocked(mockConversationStorage.getConversationMetadata).mockResolvedValue(testConversationMetadata);
+
+      await expect(
+        controller.finishConversation('conv-1', otherUser)
+      ).rejects.toThrow('Unauthorized');
+    });
+
+    it('allows admin to finish any conversation', async () => {
+      vi.mocked(mockConversationStorage.getConversationMetadata).mockResolvedValue(testConversationMetadata);
+      vi.mocked(mockConversationStorage.updateConversation).mockResolvedValue({
+        ...testConversation,
+        isComplete: true,
+      });
+
+      const result = await controller.finishConversation('conv-1', adminUser);
+
+      expect(result.isComplete).toBe(true);
+    });
+  });
 });

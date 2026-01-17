@@ -791,6 +791,21 @@ return {
 - Integration test: Edit message → AI regenerates response
 - Integration test: Finish conversation → completion tasks run
 
+### Phase 3 Completion Notes
+
+**Status:** ✅ Complete
+
+**Implementation details:**
+- `editMessage` added to `ConversationController` - truncates messages after edited message, recalculates user message count
+- `finishConversation` added to `ConversationController` - marks conversation complete and clears active conversation tracking
+- `ConversationStorage.updateConversation` interface extended to support `messages` field for bulk message updates
+- Socket `edit-message` event: emits `messages-truncated` with updated messages and editedMessageIndex, then regenerates AI response
+- Socket `finish-conversation` event: runs completion tasks if defined, broadcasts `conversation-finished` to all connected clients
+- `useConversation` hook updated with `editMessage` and `finishConversation` methods
+- New socket events added: `messages-truncated`, `conversation-finished`, `completion-chunk`, `completion-complete`
+- Unit tests: 12 tests for editMessage and finishConversation in controller
+- Integration tests: 7 tests for edit-message and finish-conversation socket events
+
 ---
 
 ## Summary Checklist
@@ -815,11 +830,11 @@ return {
 - [x] Write integration tests
 - [ ] Write E2E test for persistence flow (deferred - requires browser automation)
 
-### Phase 3: Edit & Finish Events
-- [ ] Add `editMessage` to `ConversationController`
-- [ ] Add `finishConversation` to `ConversationController`
-- [ ] Add `edit-message` socket event
-- [ ] Add `finish-conversation` socket event
-- [ ] Update `useConversation` hook with new methods
-- [ ] Write unit tests
-- [ ] Write integration tests
+### Phase 3: Edit & Finish Events ✅ COMPLETE
+- [x] Add `editMessage` to `ConversationController`
+- [x] Add `finishConversation` to `ConversationController`
+- [x] Add `edit-message` socket event
+- [x] Add `finish-conversation` socket event
+- [x] Update `useConversation` hook with new methods
+- [x] Write unit tests
+- [x] Write integration tests

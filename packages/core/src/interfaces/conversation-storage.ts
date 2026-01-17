@@ -35,14 +35,14 @@ export interface ConversationStorage {
   addMessage(conversationId: string, message: Message): Promise<void>;
 
   /**
-   * Update conversation metadata (e.g., isComplete, userMessageCount).
+   * Update conversation fields.
    * @param conversationId - The conversation ID
-   * @param updates - Fields to update
+   * @param updates - Fields to update (metadata and/or messages)
    * @returns The updated conversation
    */
   updateConversation(
     conversationId: string,
-    updates: Partial<Pick<Conversation, 'isComplete' | 'userMessageCount' | 'updatedAt'>>
+    updates: Partial<Pick<Conversation, 'isComplete' | 'userMessageCount' | 'updatedAt' | 'messages'>>
   ): Promise<Conversation>;
 
   /**

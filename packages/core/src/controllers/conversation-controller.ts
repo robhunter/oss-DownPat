@@ -292,4 +292,109 @@ export class ConversationController {
 
     return { conversation, wasCreated: true };
   }
+
+  /**
+   * Edit a user message in a conversation.
+   * All messages after the edited message are discarded (AI responses will be regenerated).
+   *
+   * @param conversationId - The conversation ID
+   * @param messageId - The ID of the message to edit
+   * @param newContent - The new content for the message
+   * @param user - The authenticated user
+   * @returns The updated conversation and the index of the edited message
+   */
+  async editMessage(
+    conversationId: string,
+    messageId: string,
+    newContent: string,
+    user: User
+  ): Promise<{ conversation: Conversation; editedMessageIndex: number }> {
+    // Verify access and get metadata
+    const metadata = await this.verifyAccess(conversationId, user);
+
+    if (metadata.isComplete) {
+      throw new Error('Cannot edit a completed conversation');
+    }
+
+    // Fetch full conversation to get messages
+    const conversation = await this.conversationStorage.getConversation(conversationId);
+    if (!conversation) {
+      throw new Error('Conversation not found');
+    }
+
+    // Find the message to edit - must be a USER message
+    const messageIndex = conversation.messages.findIndex(
+      (m) => m.messageId === messageId && m.type === MessageType.USER
+    );
+
+    if (messageIndex === -1) {
+      throw new Error('User message not found');
+    }
+
+    // Keep messages up to (not including) the edited message
+    const messagesBeforeEdit = conversation.messages.slice(0, messageIndex);
+
+    // Create the edited message with new content and timestamp
+    const editedMessage: Message = {
+      ...conversation.messages[messageIndex],
+      content: newContent,
+      timestamp: new Date().toISOString(),
+    };
+
+    // New messages array: everything before + edited message (discards everything after)
+    const newMessages = [...messagesBeforeEdit, editedMessage];
+
+    // Recalculate user message count from the new messages array
+    const newUserMessageCount = newMessages.filter((m) => m.type === MessageType.USER).length;
+
+    // Update conversation with truncated messages
+    const updatedConversation = await this.conversationStorage.updateConversation(
+      conversationId,
+      {
+        messages: newMessages,
+        userMessageCount: newUserMessageCount,
+        updatedAt: new Date().toISOString(),
+      }
+    );
+
+    return { conversation: updatedConversation, editedMessageIndex: messageIndex };
+  }
+
+  /**
+   * Explicitly finish a conversation, marking it as complete.
+   * This clears the active conversation tracking if userStateStorage is provided.
+   *
+   * @param conversationId - The conversation ID
+   * @param user - The authenticated user
+   * @param userStateStorage - Optional storage for clearing active conversation tracking
+   * @returns The updated conversation
+   */
+  async finishConversation(
+    conversationId: string,
+    user: User,
+    userStateStorage?: UserStateStorage
+  ): Promise<Conversation> {
+    // Verify access and get metadata
+    const metadata = await this.verifyAccess(conversationId, user);
+
+    if (metadata.isComplete) {
+      throw new Error('Conversation is already complete');
+    }
+
+    // Mark as complete
+    const updatedConversation = await this.conversationStorage.updateConversation(
+      conversationId,
+      {
+        isComplete: true,
+        updatedAt: new Date().toISOString(),
+      }
+    );
+
+    // Clear active conversation tracking if storage is provided
+    if (userStateStorage) {
+      await userStateStorage.clearActiveConversation(user.userId, metadata.exerciseId);
+    }
+
+    return updatedConversation;
+  }
 }

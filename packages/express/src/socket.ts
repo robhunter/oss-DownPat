@@ -492,6 +492,204 @@ Be concise, supportive, and focused on helping them learn.`,
       }
     });
 
+    // Edit a previous user message (truncates all messages after it)
+    socket.on('edit-message', async (data: {
+      conversationId: string;
+      messageId: string;
+      content: string;
+    }) => {
+      if (!socket.data.user) {
+        socket.emit('error', { message: 'Not authenticated' });
+        return;
+      }
+
+      try {
+        // Edit the message (truncates everything after it)
+        const { conversation, editedMessageIndex } = await controller.editMessage(
+          data.conversationId,
+          data.messageId,
+          data.content,
+          socket.data.user
+        );
+
+        // Notify client that messages were truncated
+        socket.emit('messages-truncated', {
+          conversationId: data.conversationId,
+          messages: conversation.messages,
+          editedMessageIndex,
+        });
+
+        // Get exercise for AI regeneration
+        const exercise = await config.exerciseStorage.getExercise(conversation.exerciseId);
+        if (!exercise) {
+          socket.emit('error', { message: 'Exercise not found' });
+          return;
+        }
+
+        // Regenerate AI response if adapter is available
+        if (config.aiAdapter && exercise.continuationTasks && exercise.continuationTasks.length > 0) {
+          const model = exercise.model || config.defaultModel || 'gpt-4';
+
+          // Build messages for AI (same logic as send-message)
+          const aiMessages: AIMessage[] = [
+            {
+              role: 'system',
+              content: exercise.guidelines || `You are an AI assistant for the exercise: ${exercise.exerciseName}`,
+            },
+          ];
+
+          // Add conversation history
+          for (const msg of conversation.messages) {
+            if (msg.type === MessageType.USER) {
+              aiMessages.push({ role: 'user', content: msg.content });
+            } else if (msg.type === MessageType.CONVERSATION) {
+              aiMessages.push({ role: 'assistant', content: msg.content });
+            } else if (msg.type === MessageType.CONTEXT) {
+              aiMessages.push({ role: 'system', content: `Context: ${msg.content}` });
+            } else if (msg.type === MessageType.STARTER) {
+              const parsed = parseStarterContent(msg.content);
+              if (parsed) {
+                aiMessages.push({ role: 'assistant', content: JSON.stringify(parsed) });
+              }
+            }
+          }
+
+          // Stream AI response
+          let fullContent = '';
+
+          try {
+            await config.aiAdapter.complete({
+              model,
+              messages: aiMessages,
+              maxTokens: 1024,
+              temperature: 0.7,
+              onChunk: (chunk: string) => {
+                fullContent += chunk;
+                socket.emit('message-chunk', { chunk });
+              },
+            });
+
+            // Save AI message
+            await controller.addAIMessage(
+              data.conversationId,
+              {
+                type: MessageType.CONVERSATION,
+                role: 'AI',
+                content: fullContent,
+              },
+              socket.data.user!
+            );
+
+            // Emit message complete
+            socket.emit('message-complete');
+          } catch (aiError) {
+            console.error('AI error during edit regeneration:', aiError);
+            socket.emit('error', { message: 'Failed to regenerate AI response' });
+          }
+        }
+      } catch (error) {
+        socket.emit('error', {
+          message: error instanceof Error ? error.message : 'Failed to edit message',
+        });
+      }
+    });
+
+    // Explicitly finish a conversation
+    socket.on('finish-conversation', async (data: { conversationId: string }) => {
+      if (!socket.data.user) {
+        socket.emit('error', { message: 'Not authenticated' });
+        return;
+      }
+
+      try {
+        const conversation = await controller.finishConversation(
+          data.conversationId,
+          socket.data.user,
+          config.userStateStorage
+        );
+
+        // Get exercise for completion tasks
+        const exercise = await config.exerciseStorage.getExercise(conversation.exerciseId);
+
+        // Run completion tasks if defined and AI adapter is available
+        if (config.aiAdapter && exercise?.completionTasks && exercise.completionTasks.length > 0) {
+          const model = exercise.model || config.defaultModel || 'gpt-4';
+
+          for (const task of exercise.completionTasks) {
+            if (!task.enabled) continue;
+
+            try {
+              // Build messages for completion task
+              const completionMessages: AIMessage[] = [
+                { role: 'system', content: task.prompt },
+              ];
+
+              // Add conversation history for context
+              for (const msg of conversation.messages) {
+                if (msg.type === MessageType.USER) {
+                  completionMessages.push({ role: 'user', content: msg.content });
+                } else if (msg.type === MessageType.CONVERSATION) {
+                  completionMessages.push({ role: 'assistant', content: msg.content });
+                } else if (msg.type === MessageType.CONTEXT) {
+                  completionMessages.push({ role: 'system', content: `Context: ${msg.content}` });
+                } else if (msg.type === MessageType.STARTER) {
+                  const parsed = parseStarterContent(msg.content);
+                  if (parsed) {
+                    completionMessages.push({ role: 'assistant', content: JSON.stringify(parsed) });
+                  }
+                }
+              }
+
+              // Stream completion task response
+              let completionContent = '';
+              await config.aiAdapter.complete({
+                model,
+                messages: completionMessages,
+                maxTokens: 1024,
+                temperature: 0.7,
+                onChunk: (chunk: string) => {
+                  completionContent += chunk;
+                  socket.emit('completion-chunk', { chunk, role: task.role });
+                },
+              });
+
+              // Save completion message
+              await controller.addAIMessage(
+                data.conversationId,
+                {
+                  type: task.responseType,
+                  role: task.role,
+                  content: completionContent,
+                },
+                socket.data.user!
+              );
+
+              socket.emit('completion-complete', { role: task.role });
+            } catch (taskError) {
+              console.error('[Socket] Completion task error:', taskError);
+              // Don't fail the whole finish if one task fails
+            }
+          }
+        }
+
+        // Notify completion
+        socket.emit('conversation-finished', {
+          conversationId: data.conversationId,
+          isComplete: true,
+        });
+
+        // Broadcast to room (for any other connected clients)
+        socket.to(`conversation:${data.conversationId}`).emit('conversation-finished', {
+          conversationId: data.conversationId,
+          isComplete: true,
+        });
+      } catch (error) {
+        socket.emit('error', {
+          message: error instanceof Error ? error.message : 'Failed to finish conversation',
+        });
+      }
+    });
+
     socket.on('disconnect', () => {
       console.log('Socket disconnected:', socket.id);
     });
@@ -510,6 +708,8 @@ interface ClientToServerEvents {
   'leave-conversation': (conversationId: string) => void;
   'send-message': (data: { conversationId: string; content: string }) => void;
   'send-coach-message': (data: { conversationId: string; content: string }) => void;
+  'edit-message': (data: { conversationId: string; messageId: string; content: string }) => void;
+  'finish-conversation': (data: { conversationId: string }) => void;
 }
 
 /**
@@ -541,5 +741,13 @@ interface ServerToClientEvents {
   'coach-message-chunk': (data: { chunk: string }) => void;
   'coach-message-complete': (data: { content: string }) => void;
   'message-moderated': (data: { flagged: boolean; categories: string[]; message: string; isComplete: boolean }) => void;
+  'messages-truncated': (data: {
+    conversationId: string;
+    messages: import('@downpat/core').Message[];
+    editedMessageIndex: number;
+  }) => void;
+  'conversation-finished': (data: { conversationId: string; isComplete: boolean }) => void;
+  'completion-chunk': (data: { chunk: string; role: string }) => void;
+  'completion-complete': (data: { role: string }) => void;
   error: (data: { message: string }) => void;
 }

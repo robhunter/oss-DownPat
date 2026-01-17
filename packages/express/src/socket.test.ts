@@ -425,6 +425,216 @@ describe('Socket.io attachSocketIO', () => {
       expect(error.message).toBe('Unauthorized: Cannot access this conversation');
     });
   });
+
+  describe('edit-message', () => {
+    it('emits messages-truncated with updated messages and editedMessageIndex', async () => {
+      const conversationWithMessages: Conversation = {
+        ...mockConversation,
+        messages: [
+          {
+            messageId: 'msg-1',
+            type: MessageType.WELCOME,
+            role: 'System',
+            content: 'Welcome!',
+            timestamp: new Date().toISOString(),
+          },
+          {
+            messageId: 'msg-2',
+            type: MessageType.USER,
+            role: 'Test User',
+            content: 'Hello',
+            timestamp: new Date().toISOString(),
+          },
+          {
+            messageId: 'msg-3',
+            type: MessageType.CONVERSATION,
+            role: 'AI',
+            content: 'Hi there!',
+            timestamp: new Date().toISOString(),
+          },
+        ],
+        userMessageCount: 1,
+      };
+
+      vi.mocked(mockConversationStorage.getConversationMetadata).mockResolvedValue({
+        conversationId: mockConversation.conversationId,
+        exerciseId: mockConversation.exerciseId,
+        userId: mockConversation.userId,
+        createdAt: mockConversation.createdAt,
+        updatedAt: mockConversation.updatedAt,
+        isComplete: false,
+        userMessageCount: 1,
+      });
+      vi.mocked(mockConversationStorage.getConversation).mockResolvedValue(conversationWithMessages);
+
+      const updatedConversation = {
+        ...conversationWithMessages,
+        messages: [
+          conversationWithMessages.messages[0],
+          { ...conversationWithMessages.messages[1], content: 'Hello edited' },
+        ],
+      };
+      vi.mocked(mockConversationStorage.updateConversation).mockResolvedValue(updatedConversation);
+
+      const { socket } = await connectAndWaitForAuth();
+
+      const result = await new Promise<{
+        conversationId: string;
+        messages: Message[];
+        editedMessageIndex: number;
+      }>((resolve) => {
+        socket.on('messages-truncated', resolve);
+        socket.emit('edit-message', {
+          conversationId: 'conv-123',
+          messageId: 'msg-2',
+          content: 'Hello edited',
+        });
+      });
+
+      expect(result.conversationId).toBe('conv-123');
+      expect(result.editedMessageIndex).toBe(1);
+      expect(result.messages).toHaveLength(2);
+    });
+
+    it('emits error when not authenticated', async () => {
+      vi.mocked(mockAuthProvider.validateToken).mockRejectedValue(new Error('Invalid'));
+
+      const { socket } = await connectAndWaitForAuth();
+
+      const error = await new Promise<{ message: string }>((resolve) => {
+        socket.on('error', resolve);
+        socket.emit('edit-message', {
+          conversationId: 'conv-123',
+          messageId: 'msg-2',
+          content: 'New content',
+        });
+      });
+
+      expect(error.message).toBe('Not authenticated');
+    });
+
+    it('emits error when message not found', async () => {
+      const conversationWithMessages: Conversation = {
+        ...mockConversation,
+        messages: [
+          {
+            messageId: 'msg-1',
+            type: MessageType.WELCOME,
+            role: 'System',
+            content: 'Welcome!',
+            timestamp: new Date().toISOString(),
+          },
+        ],
+      };
+
+      vi.mocked(mockConversationStorage.getConversationMetadata).mockResolvedValue({
+        conversationId: mockConversation.conversationId,
+        exerciseId: mockConversation.exerciseId,
+        userId: mockConversation.userId,
+        createdAt: mockConversation.createdAt,
+        updatedAt: mockConversation.updatedAt,
+        isComplete: false,
+        userMessageCount: 0,
+      });
+      vi.mocked(mockConversationStorage.getConversation).mockResolvedValue(conversationWithMessages);
+
+      const { socket } = await connectAndWaitForAuth();
+
+      const error = await new Promise<{ message: string }>((resolve) => {
+        socket.on('error', resolve);
+        socket.emit('edit-message', {
+          conversationId: 'conv-123',
+          messageId: 'non-existent',
+          content: 'New content',
+        });
+      });
+
+      expect(error.message).toBe('User message not found');
+    });
+  });
+
+  describe('finish-conversation', () => {
+    it('emits conversation-finished when successful', async () => {
+      vi.mocked(mockConversationStorage.getConversationMetadata).mockResolvedValue({
+        conversationId: mockConversation.conversationId,
+        exerciseId: mockConversation.exerciseId,
+        userId: mockConversation.userId,
+        createdAt: mockConversation.createdAt,
+        updatedAt: mockConversation.updatedAt,
+        isComplete: false,
+        userMessageCount: 0,
+      });
+      vi.mocked(mockConversationStorage.updateConversation).mockResolvedValue({
+        ...mockConversation,
+        isComplete: true,
+      });
+
+      const { socket } = await connectAndWaitForAuth();
+
+      const result = await new Promise<{ conversationId: string; isComplete: boolean }>((resolve) => {
+        socket.on('conversation-finished', resolve);
+        socket.emit('finish-conversation', { conversationId: 'conv-123' });
+      });
+
+      expect(result.conversationId).toBe('conv-123');
+      expect(result.isComplete).toBe(true);
+    });
+
+    it('emits error when not authenticated', async () => {
+      vi.mocked(mockAuthProvider.validateToken).mockRejectedValue(new Error('Invalid'));
+
+      const { socket } = await connectAndWaitForAuth();
+
+      const error = await new Promise<{ message: string }>((resolve) => {
+        socket.on('error', resolve);
+        socket.emit('finish-conversation', { conversationId: 'conv-123' });
+      });
+
+      expect(error.message).toBe('Not authenticated');
+    });
+
+    it('emits error when conversation is already complete', async () => {
+      vi.mocked(mockConversationStorage.getConversationMetadata).mockResolvedValue({
+        conversationId: mockConversation.conversationId,
+        exerciseId: mockConversation.exerciseId,
+        userId: mockConversation.userId,
+        createdAt: mockConversation.createdAt,
+        updatedAt: mockConversation.updatedAt,
+        isComplete: true,
+        userMessageCount: 0,
+      });
+
+      const { socket } = await connectAndWaitForAuth();
+
+      const error = await new Promise<{ message: string }>((resolve) => {
+        socket.on('error', resolve);
+        socket.emit('finish-conversation', { conversationId: 'conv-123' });
+      });
+
+      expect(error.message).toBe('Conversation is already complete');
+    });
+
+    it('emits error when user does not own conversation', async () => {
+      vi.mocked(mockConversationStorage.getConversationMetadata).mockResolvedValue({
+        conversationId: mockConversation.conversationId,
+        exerciseId: mockConversation.exerciseId,
+        userId: 'other-user-id',
+        createdAt: mockConversation.createdAt,
+        updatedAt: mockConversation.updatedAt,
+        isComplete: false,
+        userMessageCount: 0,
+      });
+
+      const { socket } = await connectAndWaitForAuth();
+
+      const error = await new Promise<{ message: string }>((resolve) => {
+        socket.on('error', resolve);
+        socket.emit('finish-conversation', { conversationId: 'conv-123' });
+      });
+
+      expect(error.message).toBe('Unauthorized: Cannot access this conversation');
+    });
+  });
 });
 
 /**

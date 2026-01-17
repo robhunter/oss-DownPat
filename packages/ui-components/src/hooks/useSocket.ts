@@ -142,6 +142,10 @@ export interface UseConversationReturn {
   sendMessage: (text: string) => void;
   sendCoachMessage: (text: string) => void;
   startNewConversation: () => void;
+  /** Edit a previous user message (truncates all messages after it and regenerates AI response) */
+  editMessage: (messageId: string, newContent: string) => void;
+  /** Explicitly finish the conversation */
+  finishConversation: () => void;
 }
 
 /**
@@ -348,6 +352,35 @@ export function useConversation({ slug, conversationId, socketUrl }: UseConversa
       });
     });
 
+    // Handle messages truncated (after edit-message)
+    socket.on('messages-truncated', (data: {
+      conversationId: string;
+      messages: MessageData[];
+      editedMessageIndex: number;
+    }) => {
+      setMessages(data.messages);
+      // Add streaming placeholder for AI regeneration
+      setMessages((prev) => [
+        ...prev,
+        {
+          messageId: 'streaming',
+          type: 'CONVERSATION' as MessageData['type'],
+          role: 'AI',
+          content: '',
+          timestamp: new Date().toISOString(),
+        },
+      ]);
+      setIsStreaming(true);
+      streamingMessageRef.current = '';
+    });
+
+    // Handle conversation finished
+    socket.on('conversation-finished', (data: { conversationId: string; isComplete: boolean }) => {
+      if (data.isComplete) {
+        setIsComplete(true);
+      }
+    });
+
     return () => {
       socket.off('conversation-started');
       socket.off('conversation-joined');
@@ -360,6 +393,8 @@ export function useConversation({ slug, conversationId, socketUrl }: UseConversa
       socket.off('message-moderated');
       socket.off('coach-message-chunk');
       socket.off('coach-message-complete');
+      socket.off('messages-truncated');
+      socket.off('conversation-finished');
     };
   }, [socket, isConnected, slug, conversationId]);
 
@@ -452,6 +487,29 @@ export function useConversation({ slug, conversationId, socketUrl }: UseConversa
     socket.emit('start-conversation', { slug });
   }, [socket, isConnected, slug]);
 
+  const editMessage = useCallback(
+    (messageId: string, newContent: string) => {
+      if (!socket || !isConnected || !conversation) return;
+
+      // Emit edit-message event
+      socket.emit('edit-message', {
+        conversationId: conversation.conversationId,
+        messageId,
+        content: newContent,
+      });
+    },
+    [socket, isConnected, conversation]
+  );
+
+  const finishConversation = useCallback(() => {
+    if (!socket || !isConnected || !conversation) return;
+
+    // Emit finish-conversation event
+    socket.emit('finish-conversation', {
+      conversationId: conversation.conversationId,
+    });
+  }, [socket, isConnected, conversation]);
+
   return {
     conversation,
     messages,
@@ -466,5 +524,7 @@ export function useConversation({ slug, conversationId, socketUrl }: UseConversa
     sendMessage,
     sendCoachMessage,
     startNewConversation,
+    editMessage,
+    finishConversation,
   };
 }
