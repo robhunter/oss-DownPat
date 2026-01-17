@@ -120,6 +120,16 @@ export function createConversationRouter(
           authReq.user,
           query
         );
+
+        // Track this conversation as active if userStateStorage is available
+        if (userStateStorage) {
+          await userStateStorage.setActiveConversation(
+            authReq.user.userId,
+            resolved.exerciseId,
+            conversation.conversationId
+          );
+        }
+
         res.status(201).json(conversation);
       } catch (error) {
         if (error instanceof Error) {

@@ -232,11 +232,6 @@ export class ConversationController {
   }
 
   /**
-   * Result of getOrStartConversation indicating whether a new conversation was created.
-   */
-
-
-  /**
    * Get an existing active conversation or start a new one.
    * This is the primary method for conversation resumption.
    *

@@ -302,6 +302,129 @@ describe('Socket.io attachSocketIO', () => {
 
   // Note: Testing without AI adapter requires separate server setup
   // The critical regression test (message-complete with no args) is covered above
+
+  describe('join-conversation', () => {
+    it('joins conversation and emits conversation-joined with expected payload', async () => {
+      const conversationWithMessages: Conversation = {
+        ...mockConversation,
+        messages: [
+          {
+            messageId: 'msg-1',
+            type: MessageType.WELCOME,
+            role: 'System',
+            content: 'Welcome!',
+            timestamp: new Date().toISOString(),
+          },
+        ],
+      };
+      vi.mocked(mockConversationStorage.getConversation).mockResolvedValue(conversationWithMessages);
+
+      const { socket } = await connectAndWaitForAuth();
+
+      const result = await new Promise<{
+        conversationId: string;
+        messages: Message[];
+        isComplete: boolean;
+        talkToCoachEnabled: boolean;
+      }>((resolve) => {
+        socket.on('conversation-joined', resolve);
+        socket.emit('join-conversation', { conversationId: 'conv-123' });
+      });
+
+      expect(result.conversationId).toBe('conv-123');
+      expect(result.messages).toEqual(conversationWithMessages.messages);
+      expect(result.isComplete).toBe(false);
+      expect(result.talkToCoachEnabled).toBe(false);
+    });
+
+    it('includes talkToCoachEnabled=true when exercise has it enabled', async () => {
+      const exerciseWithCoach = { ...mockExercise, talkToCoachEnabled: true };
+      vi.mocked(mockExerciseStorage.getExercise).mockResolvedValue(exerciseWithCoach);
+
+      const { socket } = await connectAndWaitForAuth();
+
+      const result = await new Promise<{
+        conversationId: string;
+        talkToCoachEnabled: boolean;
+      }>((resolve) => {
+        socket.on('conversation-joined', resolve);
+        socket.emit('join-conversation', { conversationId: 'conv-123' });
+      });
+
+      expect(result.talkToCoachEnabled).toBe(true);
+    });
+
+    it('returns isComplete=true for completed conversations', async () => {
+      const completedConversation: Conversation = {
+        ...mockConversation,
+        isComplete: true,
+      };
+      vi.mocked(mockConversationStorage.getConversation).mockResolvedValue(completedConversation);
+
+      const { socket } = await connectAndWaitForAuth();
+
+      const result = await new Promise<{
+        conversationId: string;
+        isComplete: boolean;
+      }>((resolve) => {
+        socket.on('conversation-joined', resolve);
+        socket.emit('join-conversation', { conversationId: 'conv-123' });
+      });
+
+      expect(result.isComplete).toBe(true);
+    });
+
+    it('emits error when not authenticated', async () => {
+      vi.mocked(mockAuthProvider.validateToken).mockRejectedValue(new Error('Invalid'));
+
+      const { socket } = await connectAndWaitForAuth();
+
+      const error = await new Promise<{ message: string }>((resolve) => {
+        socket.on('error', resolve);
+        socket.emit('join-conversation', { conversationId: 'conv-123' });
+      });
+
+      expect(error.message).toBe('Not authenticated');
+    });
+
+    it('emits error when conversation not found', async () => {
+      vi.mocked(mockConversationStorage.getConversationMetadata).mockResolvedValue(null);
+
+      const { socket } = await connectAndWaitForAuth();
+
+      const error = await new Promise<{ message: string }>((resolve) => {
+        socket.on('error', resolve);
+        socket.emit('join-conversation', { conversationId: 'non-existent' });
+      });
+
+      expect(error.message).toBe('Conversation not found');
+    });
+
+    it('emits error when user does not own conversation', async () => {
+      const otherUserConversation = {
+        ...mockConversation,
+        userId: 'other-user-id',
+      };
+      vi.mocked(mockConversationStorage.getConversationMetadata).mockResolvedValue({
+        conversationId: otherUserConversation.conversationId,
+        exerciseId: otherUserConversation.exerciseId,
+        userId: otherUserConversation.userId,
+        createdAt: otherUserConversation.createdAt,
+        updatedAt: otherUserConversation.updatedAt,
+        isComplete: otherUserConversation.isComplete,
+        userMessageCount: 0,
+      });
+
+      const { socket } = await connectAndWaitForAuth();
+
+      const error = await new Promise<{ message: string }>((resolve) => {
+        socket.on('error', resolve);
+        socket.emit('join-conversation', { conversationId: 'conv-123' });
+      });
+
+      expect(error.message).toBe('Unauthorized: Cannot access this conversation');
+    });
+  });
 });
 
 /**

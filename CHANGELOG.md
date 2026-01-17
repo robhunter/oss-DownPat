@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 ### Changed
+- Fix code review round 3 blockers (#91)
 - Fix code review round 2 blockers (#87)
 - Add MessageType.WELCOME for welcome messages (#90)
 - Add wasCreated flag to getOrStartConversation (#89)
