@@ -253,6 +253,16 @@ export function useConversation({ slug, conversationId, socketUrl }: UseConversa
     socket.on('error', (data: { message: string }) => {
       setError(data.message);
       setIsStreaming(false);
+      setIsCoachStreaming(false);
+      // Remove any streaming placeholders to avoid ghost messages
+      setMessages((prev) => prev.filter((m) =>
+        m.messageId !== 'streaming' && m.messageId !== 'streaming-commentary'
+      ));
+      setCoachMessages((prev) => prev.filter((m) => m.messageId !== 'streaming-coach'));
+      // Reset streaming refs
+      streamingMessageRef.current = '';
+      streamingCommentaryRef.current = '';
+      streamingCoachRef.current = '';
     });
 
     // Handle commentary chunks (coaching feedback)

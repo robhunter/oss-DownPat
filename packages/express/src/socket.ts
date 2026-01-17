@@ -520,6 +520,26 @@ Be concise, supportive, and focused on helping them learn.`,
       }
 
       try {
+        // Check moderation on the edited content (same as send-message)
+        if (config.moderationAdapter) {
+          try {
+            const moderationResult = await config.moderationAdapter.checkContent(data.content);
+            if (moderationResult.flagged) {
+              const flaggedCategories = Object.entries(moderationResult.categories)
+                .filter(([, flagged]) => flagged)
+                .map(([category]) => category);
+
+              socket.emit('error', {
+                message: `Edit rejected: content flagged for ${flaggedCategories.join(', ')}`,
+              });
+              return; // Don't apply the edit
+            }
+          } catch (moderationError) {
+            console.error('Moderation check failed during edit:', moderationError);
+            // Continue with edit if moderation check fails
+          }
+        }
+
         // Edit the message (truncates everything after it)
         const { conversation, editedMessageIndex } = await controller.editMessage(
           data.conversationId,
@@ -628,6 +648,10 @@ Be concise, supportive, and focused on helping them learn.`,
             console.error('AI error during edit regeneration:', aiError);
             socket.emit('error', { message: 'Failed to regenerate AI response' });
           }
+        } else {
+          // No AI adapter - signal completion so client doesn't hang waiting
+          // Client adds a streaming placeholder on messages-truncated, so we need to signal it's done
+          socket.emit('message-complete');
         }
       } catch (error) {
         socket.emit('error', {
