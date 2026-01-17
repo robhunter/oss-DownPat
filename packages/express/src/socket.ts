@@ -125,6 +125,36 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
     console.log('Socket connected:', socket.id);
     socket.data.user = null;
 
+    // Track active AI stream controllers per conversation to prevent race conditions
+    // When a new stream starts, abort any existing stream for the same conversation
+    const activeStreams = new Map<string, AbortController>();
+
+    /**
+     * Get or create an AbortController for a conversation's AI stream.
+     * Aborts any existing stream for the same conversation first.
+     */
+    const getStreamController = (conversationId: string): AbortController => {
+      // Abort any existing stream for this conversation
+      const existing = activeStreams.get(conversationId);
+      if (existing) {
+        existing.abort();
+      }
+      // Create and store new controller
+      const controller = new AbortController();
+      activeStreams.set(conversationId, controller);
+      return controller;
+    };
+
+    /**
+     * Clean up the stream controller after completion.
+     */
+    const clearStreamController = (conversationId: string, controller: AbortController): void => {
+      // Only clear if this is still the active controller (wasn't replaced by a newer one)
+      if (activeStreams.get(conversationId) === controller) {
+        activeStreams.delete(conversationId);
+      }
+    };
+
     // Try to authenticate from handshake auth token
     const handshakeToken = socket.handshake.auth?.token;
     if (handshakeToken) {
@@ -329,6 +359,9 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
           const model = exercise.model || config.defaultModel || 'gpt-4';
           const aiMessages = buildAIMessagesFromConversation(conversation, exercise);
 
+          // Get stream controller (aborts any existing stream for this conversation)
+          const streamController = getStreamController(data.conversationId);
+
           // 4. Stream AI response
           let fullContent = '';
 
@@ -338,6 +371,7 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
               messages: aiMessages,
               maxTokens: 1024,
               temperature: 0.7,
+              signal: streamController.signal,
               onChunk: (chunk: string) => {
                 fullContent += chunk;
                 socket.emit('message-chunk', { chunk });
@@ -381,6 +415,7 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
                   messages: commentaryMessages,
                   maxTokens: 512,
                   temperature: 0.7,
+                  signal: streamController.signal,
                   onChunk: (chunk: string) => {
                     commentaryContent += chunk;
                     socket.emit('commentary-chunk', { chunk, role: commentaryTask.role });
@@ -406,7 +441,19 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
               }
               }
             }
+
+            // Clean up stream controller after successful completion
+            clearStreamController(data.conversationId, streamController);
           } catch (aiError) {
+            // Clean up stream controller on error
+            clearStreamController(data.conversationId, streamController);
+
+            // Don't emit error if this was an intentional abort (new stream started)
+            if (aiError instanceof Error && aiError.name === 'AbortError') {
+              console.log('[Socket] AI stream aborted for conversation:', data.conversationId);
+              return;
+            }
+
             console.error('AI error:', aiError);
             socket.emit('error', {
               message: 'Failed to generate AI response',
@@ -567,6 +614,9 @@ Be concise, supportive, and focused on helping them learn.`,
           const model = exercise.model || config.defaultModel || 'gpt-4';
           const aiMessages = buildAIMessagesFromConversation(conversation, exercise);
 
+          // Get stream controller (aborts any existing stream for this conversation)
+          const streamController = getStreamController(data.conversationId);
+
           // Stream AI response
           let fullContent = '';
 
@@ -576,6 +626,7 @@ Be concise, supportive, and focused on helping them learn.`,
               messages: aiMessages,
               maxTokens: 1024,
               temperature: 0.7,
+              signal: streamController.signal,
               onChunk: (chunk: string) => {
                 fullContent += chunk;
                 socket.emit('message-chunk', { chunk });
@@ -619,6 +670,7 @@ Be concise, supportive, and focused on helping them learn.`,
                     messages: commentaryMessages,
                     maxTokens: 512,
                     temperature: 0.7,
+                    signal: streamController.signal,
                     onChunk: (chunk: string) => {
                       commentaryContent += chunk;
                       socket.emit('commentary-chunk', { chunk, role: commentaryTask.role });
@@ -644,7 +696,19 @@ Be concise, supportive, and focused on helping them learn.`,
                 }
               }
             }
+
+            // Clean up stream controller after successful completion
+            clearStreamController(data.conversationId, streamController);
           } catch (aiError) {
+            // Clean up stream controller on error
+            clearStreamController(data.conversationId, streamController);
+
+            // Don't emit error if this was an intentional abort (new stream started)
+            if (aiError instanceof Error && aiError.name === 'AbortError') {
+              console.log('[Socket] AI stream aborted during edit for conversation:', data.conversationId);
+              return;
+            }
+
             console.error('AI error during edit regeneration:', aiError);
             socket.emit('error', { message: 'Failed to regenerate AI response' });
           }
@@ -743,6 +807,11 @@ Be concise, supportive, and focused on helping them learn.`,
 
     socket.on('disconnect', () => {
       console.log('Socket disconnected:', socket.id);
+      // Abort any active AI streams for this socket
+      for (const controller of activeStreams.values()) {
+        controller.abort();
+      }
+      activeStreams.clear();
     });
   });
 
