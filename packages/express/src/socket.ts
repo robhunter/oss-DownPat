@@ -4,6 +4,12 @@ import type { ConversationStorage, ExerciseStorage, UserStateStorage, ServerAuth
 import { ConversationController, MessageType, isCommentaryTask, parseStarterContent } from '@downpat/core';
 
 /**
+ * Default model to use when neither exercise.model nor config.defaultModel is set.
+ * Centralized here to avoid hardcoding in multiple places.
+ */
+const DEFAULT_MODEL = 'gpt-4';
+
+/**
  * Build AI messages array from conversation history.
  * Shared helper to avoid duplicating message transformation logic.
  */
@@ -356,7 +362,7 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
 
         // 3. If we have an AI adapter, generate response
         if (config.aiAdapter) {
-          const model = exercise.model || config.defaultModel || 'gpt-4';
+          const model = exercise.model || config.defaultModel || DEFAULT_MODEL;
           const aiMessages = buildAIMessagesFromConversation(conversation, exercise);
 
           // Get stream controller (aborts any existing stream for this conversation)
@@ -493,7 +499,7 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
 
         // If we have an AI adapter, generate coach response
         if (config.aiAdapter) {
-          const model = exercise.model || config.defaultModel || 'gpt-4';
+          const model = exercise.model || config.defaultModel || DEFAULT_MODEL;
 
           // Build messages for coach AI
           const coachMessages: AIMessage[] = [
@@ -611,7 +617,7 @@ Be concise, supportive, and focused on helping them learn.`,
 
         // Regenerate AI response if adapter is available
         if (config.aiAdapter) {
-          const model = exercise.model || config.defaultModel || 'gpt-4';
+          const model = exercise.model || config.defaultModel || DEFAULT_MODEL;
           const aiMessages = buildAIMessagesFromConversation(conversation, exercise);
 
           // Get stream controller (aborts any existing stream for this conversation)
@@ -732,18 +738,21 @@ Be concise, supportive, and focused on helping them learn.`,
       }
 
       try {
-        const conversation = await controller.finishConversation(
-          data.conversationId,
-          socket.data.user,
-          config.userStateStorage
-        );
+        // 1. Verify access and get conversation (without marking complete yet)
+        const conversation = await controller.getConversation(data.conversationId, socket.data.user);
 
-        // Get exercise for completion tasks
+        if (conversation.isComplete) {
+          socket.emit('error', { message: 'Conversation is already complete' });
+          return;
+        }
+
+        // 2. Get exercise for completion tasks
         const exercise = await config.exerciseStorage.getExercise(conversation.exerciseId);
 
-        // Run completion tasks if defined and AI adapter is available
+        // 3. Run completion tasks BEFORE marking complete
+        // This ensures tasks run even if server crashes - conversation won't be falsely marked done
         if (config.aiAdapter && exercise?.completionTasks && exercise.completionTasks.length > 0) {
-          const model = exercise.model || config.defaultModel || 'gpt-4';
+          const model = exercise.model || config.defaultModel || DEFAULT_MODEL;
 
           for (const task of exercise.completionTasks) {
             if (!task.enabled) continue;
@@ -782,12 +791,23 @@ Be concise, supportive, and focused on helping them learn.`,
               socket.emit('completion-complete', { role: task.role });
             } catch (taskError) {
               console.error('[Socket] Completion task error:', taskError);
-              // Don't fail the whole finish if one task fails
+              // Notify client that this task failed (don't fail the whole finish)
+              socket.emit('completion-task-error', {
+                role: task.role,
+                error: taskError instanceof Error ? taskError.message : 'Completion task failed',
+              });
             }
           }
         }
 
-        // Notify completion
+        // 4. NOW mark conversation as complete (after tasks have run)
+        await controller.finishConversation(
+          data.conversationId,
+          socket.data.user,
+          config.userStateStorage
+        );
+
+        // 5. Notify completion
         socket.emit('conversation-finished', {
           conversationId: data.conversationId,
           isComplete: true,
