@@ -11,6 +11,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 ### Changed
+- Phase 2: Conversation Persistence & Resumption (#75)
+- Write unit and integration tests (#81)
+- Update useConversation hook for resumption (#80)
+- Add join-conversation socket event (#79)
+- Update start-conversation socket event (#78)
+- Add POST /conversations/get-or-start endpoint (#77)
+- Add getOrStartConversation to ConversationController (#76)
+- Fix setActiveConversation for legacy users (#83)
 - Fix UserStateStorage blockers and add integration tests (#82)
 - Phase 1: User State Storage (#60)
 - Update example-app to use UserStateStorage (#66)

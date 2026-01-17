@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ConversationController } from './conversation-controller.js';
 import { Conversation, User, Exercise, Message } from '../types/index.js';
-import { ConversationStorage, ExerciseStorage } from '../interfaces/index.js';
+import { ConversationStorage, ExerciseStorage, UserStateStorage } from '../interfaces/index.js';
 import { MessageType } from '../constants/index.js';
 
 // Test fixtures
@@ -275,6 +275,126 @@ describe('ConversationController', () => {
       await controller.deleteConversation('conv-1', adminUser);
 
       expect(mockConversationStorage.deleteConversation).toHaveBeenCalledWith('conv-1');
+    });
+  });
+
+  describe('getOrStartConversation', () => {
+    let mockUserStateStorage: UserStateStorage;
+
+    beforeEach(() => {
+      mockUserStateStorage = {
+        getOrCreateUserState: vi.fn(),
+        setActiveConversation: vi.fn(),
+        getActiveConversation: vi.fn(),
+        clearActiveConversation: vi.fn(),
+      };
+    });
+
+    it('returns existing active conversation if not complete', async () => {
+      // Mock an existing active conversation
+      vi.mocked(mockUserStateStorage.getActiveConversation).mockResolvedValue('conv-1');
+      vi.mocked(mockConversationStorage.getConversation).mockResolvedValue(testConversation);
+
+      const result = await controller.getOrStartConversation(
+        'exercise-1',
+        subscriberUser,
+        mockUserStateStorage
+      );
+
+      expect(result).toEqual(testConversation);
+      expect(mockUserStateStorage.getActiveConversation).toHaveBeenCalledWith('user-1', 'exercise-1');
+      // Should NOT create a new conversation
+      expect(mockConversationStorage.createConversation).not.toHaveBeenCalled();
+      // Should NOT update active conversation (it's already set)
+      expect(mockUserStateStorage.setActiveConversation).not.toHaveBeenCalled();
+    });
+
+    it('creates new conversation when active conversation is complete', async () => {
+      const completedConversation = { ...testConversation, isComplete: true };
+      vi.mocked(mockUserStateStorage.getActiveConversation).mockResolvedValue('conv-1');
+      vi.mocked(mockConversationStorage.getConversation).mockResolvedValue(completedConversation);
+      vi.mocked(mockExerciseStorage.getExercise).mockResolvedValue(testExercise);
+
+      const result = await controller.getOrStartConversation(
+        'exercise-1',
+        subscriberUser,
+        mockUserStateStorage
+      );
+
+      // Should clear the stale reference
+      expect(mockUserStateStorage.clearActiveConversation).toHaveBeenCalledWith('user-1', 'exercise-1');
+      // Should create a new conversation
+      expect(mockConversationStorage.createConversation).toHaveBeenCalled();
+      // Should set the new active conversation
+      expect(mockUserStateStorage.setActiveConversation).toHaveBeenCalledWith(
+        'user-1',
+        'exercise-1',
+        result.conversationId
+      );
+      expect(result.isComplete).toBe(false);
+    });
+
+    it('creates new conversation when no active conversation exists', async () => {
+      vi.mocked(mockUserStateStorage.getActiveConversation).mockResolvedValue(null);
+      vi.mocked(mockExerciseStorage.getExercise).mockResolvedValue(testExercise);
+
+      const result = await controller.getOrStartConversation(
+        'exercise-1',
+        subscriberUser,
+        mockUserStateStorage
+      );
+
+      // Should create a new conversation
+      expect(mockConversationStorage.createConversation).toHaveBeenCalled();
+      // Should set the new active conversation
+      expect(mockUserStateStorage.setActiveConversation).toHaveBeenCalledWith(
+        'user-1',
+        'exercise-1',
+        result.conversationId
+      );
+    });
+
+    it('creates new conversation when active conversation was deleted', async () => {
+      // Active reference exists but conversation was deleted
+      vi.mocked(mockUserStateStorage.getActiveConversation).mockResolvedValue('deleted-conv');
+      vi.mocked(mockConversationStorage.getConversation).mockResolvedValue(null);
+      vi.mocked(mockExerciseStorage.getExercise).mockResolvedValue(testExercise);
+
+      const result = await controller.getOrStartConversation(
+        'exercise-1',
+        subscriberUser,
+        mockUserStateStorage
+      );
+
+      // Should clear the stale reference
+      expect(mockUserStateStorage.clearActiveConversation).toHaveBeenCalledWith('user-1', 'exercise-1');
+      // Should create a new conversation
+      expect(mockConversationStorage.createConversation).toHaveBeenCalled();
+      expect(mockUserStateStorage.setActiveConversation).toHaveBeenCalled();
+    });
+
+    it('prevents non-subscriber from using getOrStartConversation', async () => {
+      await expect(
+        controller.getOrStartConversation('exercise-1', nonSubscriberUser, mockUserStateStorage)
+      ).rejects.toThrow('Unauthorized');
+
+      expect(mockUserStateStorage.getActiveConversation).not.toHaveBeenCalled();
+      expect(mockConversationStorage.createConversation).not.toHaveBeenCalled();
+    });
+
+    it('allows demo user to use getOrStartConversation', async () => {
+      const demoUser: User = { ...nonSubscriberUser, isDemo: true };
+      vi.mocked(mockUserStateStorage.getActiveConversation).mockResolvedValue(null);
+      vi.mocked(mockExerciseStorage.getExercise).mockResolvedValue(testExercise);
+
+      const result = await controller.getOrStartConversation(
+        'exercise-1',
+        demoUser,
+        mockUserStateStorage
+      );
+
+      expect(result.exerciseId).toBe('exercise-1');
+      expect(mockConversationStorage.createConversation).toHaveBeenCalled();
     });
   });
 });

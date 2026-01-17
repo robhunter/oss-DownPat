@@ -203,7 +203,7 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
       }
     });
 
-    // Start a new conversation by exercise slug
+    // Start a new conversation by exercise slug (or resume existing if userStateStorage is configured)
     socket.on('start-conversation', async (data: { slug: string; query?: Record<string, string> }) => {
       if (!socket.data.user) {
         socket.emit('error', { message: 'Not authenticated' });
@@ -219,27 +219,44 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
           return;
         }
 
-        // Create the conversation
-        const conversation = await controller.startConversation(exercise.exerciseId, socket.data.user);
+        let conversation;
+        let isResumed = false;
 
-        // Add the first message(s): welcome message first, then starter if defined
-        // Note: addMessage modifies conversation.messages in-place for in-memory storage,
-        // so we don't need to push separately
-
-        // Always add welcome message first if it exists
-        if (exercise.welcomeMessage) {
-          const welcomeMessage = createWelcomeMessage(exercise.welcomeMessage);
-          await config.conversationStorage.addMessage(conversation.conversationId, welcomeMessage);
+        // Use getOrStartConversation if userStateStorage is available (enables resumption)
+        if (config.userStateStorage) {
+          conversation = await controller.getOrStartConversation(
+            exercise.exerciseId,
+            socket.data.user,
+            config.userStateStorage
+          );
+          // Check if this is a resumed conversation (has messages already)
+          isResumed = conversation.messages.length > 0;
+        } else {
+          // Fall back to always creating new conversation
+          conversation = await controller.startConversation(exercise.exerciseId, socket.data.user);
         }
 
-        // Then add starter messages if starters are defined
-        if (exercise.starters && exercise.starters.length > 0) {
-          const selectedStarter = selectStarter(exercise.starters, data.query);
-          if (selectedStarter) {
-            // starterToMessages returns array: [CONTEXT message (if context exists), STARTER message]
-            const starterMessages = starterToMessages(selectedStarter);
-            for (const msg of starterMessages) {
-              await config.conversationStorage.addMessage(conversation.conversationId, msg);
+        // Only add welcome/starter messages for new conversations
+        if (!isResumed) {
+          // Add the first message(s): welcome message first, then starter if defined
+          // Note: addMessage modifies conversation.messages in-place for in-memory storage,
+          // so we don't need to push separately
+
+          // Always add welcome message first if it exists
+          if (exercise.welcomeMessage) {
+            const welcomeMessage = createWelcomeMessage(exercise.welcomeMessage);
+            await config.conversationStorage.addMessage(conversation.conversationId, welcomeMessage);
+          }
+
+          // Then add starter messages if starters are defined
+          if (exercise.starters && exercise.starters.length > 0) {
+            const selectedStarter = selectStarter(exercise.starters, data.query);
+            if (selectedStarter) {
+              // starterToMessages returns array: [CONTEXT message (if context exists), STARTER message]
+              const starterMessages = starterToMessages(selectedStarter);
+              for (const msg of starterMessages) {
+                await config.conversationStorage.addMessage(conversation.conversationId, msg);
+              }
             }
           }
         }
@@ -255,6 +272,7 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
           conversationId: conversation.conversationId,
           messages: updatedConversation?.messages || [],
           talkToCoachEnabled: exercise.talkToCoachEnabled ?? false,
+          isResumed,
         });
       } catch (error) {
         socket.emit('error', {
@@ -263,18 +281,30 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
       }
     });
 
-    // Join a conversation room for updates
-    socket.on('join-conversation', async (conversationId: string) => {
+    // Join a conversation room for updates (used for resuming real-time updates on existing conversation)
+    socket.on('join-conversation', async (data: { conversationId: string }) => {
       if (!socket.data.user) {
         socket.emit('error', { message: 'Not authenticated' });
         return;
       }
 
       try {
-        // Verify user has access to this conversation
-        await controller.getConversation(conversationId, socket.data.user);
-        socket.join(`conversation:${conversationId}`);
-        socket.emit('joined-conversation', { conversationId });
+        // Verify user has access and get full conversation
+        const conversation = await controller.getConversation(data.conversationId, socket.data.user);
+
+        // Get exercise for talkToCoachEnabled flag
+        const exercise = await config.exerciseStorage.getExercise(conversation.exerciseId);
+
+        // Join the room for real-time updates
+        socket.join(`conversation:${data.conversationId}`);
+
+        // Emit full conversation data (similar to conversation-started but for resumption)
+        socket.emit('conversation-joined', {
+          conversationId: conversation.conversationId,
+          messages: conversation.messages,
+          isComplete: conversation.isComplete,
+          talkToCoachEnabled: exercise?.talkToCoachEnabled ?? false,
+        });
       } catch (error) {
         socket.emit('error', {
           message: error instanceof Error ? error.message : 'Failed to join conversation',
@@ -608,7 +638,7 @@ Be concise, supportive, and focused on helping them learn.`,
 interface ClientToServerEvents {
   authenticate: (token: string) => void;
   'start-conversation': (data: { slug: string; query?: Record<string, string> }) => void;
-  'join-conversation': (conversationId: string) => void;
+  'join-conversation': (data: { conversationId: string }) => void;
   'leave-conversation': (conversationId: string) => void;
   'send-message': (data: { conversationId: string; content: string }) => void;
   'send-coach-message': (data: { conversationId: string; content: string }) => void;
@@ -619,8 +649,18 @@ interface ClientToServerEvents {
  */
 interface ServerToClientEvents {
   authenticated: (result: { success: boolean; user?: User; error?: string }) => void;
-  'conversation-started': (data: { conversationId: string; messages: import('@downpat/core').Message[]; talkToCoachEnabled: boolean }) => void;
-  'joined-conversation': (data: { conversationId: string }) => void;
+  'conversation-started': (data: {
+    conversationId: string;
+    messages: import('@downpat/core').Message[];
+    talkToCoachEnabled: boolean;
+    isResumed: boolean;
+  }) => void;
+  'conversation-joined': (data: {
+    conversationId: string;
+    messages: import('@downpat/core').Message[];
+    isComplete: boolean;
+    talkToCoachEnabled: boolean;
+  }) => void;
   'message-added': (data: {
     conversationId: string;
     conversation: import('@downpat/core').Conversation;

@@ -119,7 +119,11 @@ export function useSocket(options: UseSocketOptions = {}): UseSocketReturn {
 
 // Hook for managing a conversation session
 interface UseConversationOptions {
+  /** Exercise slug to start/resume conversation for */
   slug: string;
+  /** Optional conversation ID for resuming an existing conversation */
+  conversationId?: string;
+  /** Socket URL override (defaults to window.location.origin) */
   socketUrl?: string;
 }
 
@@ -131,6 +135,8 @@ export interface UseConversationReturn {
   isStreaming: boolean;
   isCoachStreaming: boolean;
   isComplete: boolean;
+  /** Whether this conversation was resumed (had existing messages) */
+  isResumed: boolean;
   error: string | null;
   talkToCoachEnabled: boolean;
   sendMessage: (text: string) => void;
@@ -141,8 +147,12 @@ export interface UseConversationReturn {
 /**
  * Hook for managing a full conversation session.
  * Handles starting conversations, streaming messages, commentary, and moderation.
+ *
+ * If `conversationId` is provided, joins an existing conversation.
+ * Otherwise, uses `start-conversation` which will resume an existing active
+ * conversation (if userStateStorage is configured on server) or create a new one.
  */
-export function useConversation({ slug, socketUrl }: UseConversationOptions): UseConversationReturn {
+export function useConversation({ slug, conversationId, socketUrl }: UseConversationOptions): UseConversationReturn {
   const { socket, isConnected } = useSocket({ url: socketUrl });
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<MessageData[]>([]);
@@ -151,24 +161,51 @@ export function useConversation({ slug, socketUrl }: UseConversationOptions): Us
   const [isStreaming, setIsStreaming] = useState(false);
   const [isCoachStreaming, setIsCoachStreaming] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
+  const [isResumed, setIsResumed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [talkToCoachEnabled, setTalkToCoachEnabled] = useState(false);
   const streamingMessageRef = useRef<string>('');
   const streamingCommentaryRef = useRef<string>('');
   const streamingCoachRef = useRef<string>('');
 
-  // Start conversation when socket connects
+  // Start or join conversation when socket connects
   useEffect(() => {
     if (!socket || !isConnected) return;
 
-    // Request to start conversation
-    socket.emit('start-conversation', { slug });
+    // If conversationId provided, join existing conversation
+    // Otherwise, use start-conversation (server will resume if active conversation exists)
+    if (conversationId) {
+      socket.emit('join-conversation', { conversationId });
+    } else {
+      socket.emit('start-conversation', { slug });
+    }
 
-    // Handle conversation started
-    socket.on('conversation-started', (data: { conversationId: string; messages: MessageData[]; talkToCoachEnabled: boolean }) => {
+    // Handle conversation started (new or resumed via start-conversation)
+    socket.on('conversation-started', (data: {
+      conversationId: string;
+      messages: MessageData[];
+      talkToCoachEnabled: boolean;
+      isResumed?: boolean;
+    }) => {
       setConversation({ conversationId: data.conversationId, messages: data.messages } as Conversation);
       setMessages(data.messages);
       setTalkToCoachEnabled(data.talkToCoachEnabled ?? false);
+      setIsResumed(data.isResumed ?? false);
+      setIsLoading(false);
+    });
+
+    // Handle conversation joined (explicit join to existing conversation)
+    socket.on('conversation-joined', (data: {
+      conversationId: string;
+      messages: MessageData[];
+      isComplete: boolean;
+      talkToCoachEnabled: boolean;
+    }) => {
+      setConversation({ conversationId: data.conversationId, messages: data.messages } as Conversation);
+      setMessages(data.messages);
+      setTalkToCoachEnabled(data.talkToCoachEnabled ?? false);
+      setIsComplete(data.isComplete);
+      setIsResumed(true);
       setIsLoading(false);
     });
 
@@ -313,6 +350,7 @@ export function useConversation({ slug, socketUrl }: UseConversationOptions): Us
 
     return () => {
       socket.off('conversation-started');
+      socket.off('conversation-joined');
       socket.off('message-chunk');
       socket.off('message-complete');
       socket.off('message-added');
@@ -323,7 +361,7 @@ export function useConversation({ slug, socketUrl }: UseConversationOptions): Us
       socket.off('coach-message-chunk');
       socket.off('coach-message-complete');
     };
-  }, [socket, isConnected, slug]);
+  }, [socket, isConnected, slug, conversationId]);
 
   const sendMessage = useCallback(
     (text: string) => {
@@ -401,6 +439,7 @@ export function useConversation({ slug, socketUrl }: UseConversationOptions): Us
     setCoachMessages([]);
     setConversation(null);
     setIsComplete(false);
+    setIsResumed(false);
     setError(null);
     setIsLoading(true);
     setIsStreaming(false);
@@ -421,6 +460,7 @@ export function useConversation({ slug, socketUrl }: UseConversationOptions): Us
     isStreaming,
     isCoachStreaming,
     isComplete,
+    isResumed,
     error,
     talkToCoachEnabled,
     sendMessage,

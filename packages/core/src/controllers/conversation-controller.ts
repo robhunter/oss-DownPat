@@ -1,6 +1,6 @@
 import { Conversation, ConversationMetadata, Message, User } from '../types/index.js';
 import { MessageType } from '../constants/index.js';
-import { ConversationStorage, ExerciseStorage } from '../interfaces/index.js';
+import { ConversationStorage, ExerciseStorage, UserStateStorage } from '../interfaces/index.js';
 import { generateId } from '../utils/index.js';
 
 /**
@@ -205,5 +205,65 @@ export class ConversationController {
     await this.verifyAccess(conversationId, user);
 
     await this.conversationStorage.deleteConversation(conversationId);
+  }
+
+  /**
+   * Get an existing active conversation or start a new one.
+   * This is the primary method for conversation resumption.
+   *
+   * Logic:
+   * 1. Check userStateStorage for activeConversations[exerciseId]
+   * 2. If found, fetch the conversation
+   * 3. If conversation exists and is NOT complete, return it
+   * 4. Otherwise, create new conversation and update activeConversations
+   *
+   * @param exerciseId - The exercise ID
+   * @param user - The authenticated user
+   * @param userStateStorage - Storage for tracking active conversations
+   * @returns The active or newly created conversation
+   */
+  async getOrStartConversation(
+    exerciseId: string,
+    user: User,
+    userStateStorage: UserStateStorage
+  ): Promise<Conversation> {
+    if (!canStartConversation(user)) {
+      throw new Error('Unauthorized: Only subscribers can start conversations');
+    }
+
+    // Check for existing active conversation
+    const activeConversationId = await userStateStorage.getActiveConversation(
+      user.userId,
+      exerciseId
+    );
+
+    if (activeConversationId) {
+      // Try to fetch the existing conversation
+      const existingConversation = await this.conversationStorage.getConversation(
+        activeConversationId
+      );
+
+      // Resume if exists and not complete
+      if (existingConversation && !existingConversation.isComplete) {
+        return existingConversation;
+      }
+
+      // Conversation was completed or deleted - clear the stale reference
+      if (!existingConversation || existingConversation.isComplete) {
+        await userStateStorage.clearActiveConversation(user.userId, exerciseId);
+      }
+    }
+
+    // Create new conversation
+    const conversation = await this.startConversation(exerciseId, user);
+
+    // Update active conversation tracking
+    await userStateStorage.setActiveConversation(
+      user.userId,
+      exerciseId,
+      conversation.conversationId
+    );
+
+    return conversation;
   }
 }

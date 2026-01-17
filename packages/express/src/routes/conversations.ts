@@ -11,7 +11,7 @@ export function createConversationRouter(
   conversationStorage: ConversationStorage,
   exerciseStorage: ExerciseStorage,
   authProvider: ServerAuthProvider,
-  _userStateStorage?: UserStateStorage // TODO: Used in Phase 2 for conversation resumption
+  userStateStorage?: UserStateStorage
 ): Router {
   const router = Router();
   const controller = new ConversationController(conversationStorage, exerciseStorage);
@@ -86,6 +86,67 @@ export function createConversationRouter(
 
         const conversation = await controller.startConversation(resolvedExerciseId, authReq.user);
         res.status(201).json(conversation);
+      } catch (error) {
+        if (error instanceof Error) {
+          if (error.message === 'Exercise not found') {
+            res.status(404).json({ error: error.message });
+            return;
+          }
+          if (error.message.includes('Unauthorized')) {
+            res.status(403).json({ error: error.message });
+            return;
+          }
+        }
+        next(error);
+      }
+    }
+  );
+
+  // POST /conversations/get-or-start - Get existing active conversation or start new
+  // This is the primary endpoint for conversation resumption
+  router.post(
+    '/get-or-start',
+    authMiddleware,
+    requireSubscriber,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        if (!userStateStorage) {
+          res.status(501).json({
+            error: 'Conversation resumption not configured. userStateStorage is required.'
+          });
+          return;
+        }
+
+        const authReq = req as AuthenticatedRequest;
+        const { exerciseId, exerciseSlug } = req.body;
+
+        // Support both exerciseId and exerciseSlug for flexibility
+        let resolvedExerciseId = exerciseId;
+        if (!resolvedExerciseId && exerciseSlug) {
+          // Look up exercise by slug (published only for non-admins)
+          const publishedOnly = !authReq.user.isAdmin;
+          const exercise = await exerciseStorage.getExerciseBySlug(exerciseSlug, publishedOnly);
+          if (!exercise) {
+            res.status(404).json({ error: 'Exercise not found' });
+            return;
+          }
+          resolvedExerciseId = exercise.exerciseId;
+        }
+
+        if (!resolvedExerciseId) {
+          res.status(400).json({ error: 'exerciseId or exerciseSlug is required' });
+          return;
+        }
+
+        const conversation = await controller.getOrStartConversation(
+          resolvedExerciseId,
+          authReq.user,
+          userStateStorage
+        );
+
+        // Include isResumed flag so client knows if this is an existing conversation
+        const isResumed = conversation.messages.length > 0;
+        res.json({ ...conversation, isResumed });
       } catch (error) {
         if (error instanceof Error) {
           if (error.message === 'Exercise not found') {
