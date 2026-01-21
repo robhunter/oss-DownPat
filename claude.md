@@ -72,6 +72,14 @@ chainlink milestone add <milestone_id> <issue_id>
 
 ---
 
+## Git Usage (MANDATORY)
+
+You should commit changes as you progress.  Each commit should ideally address only a single chainlink task/subtask - try to make smaller, more easily reviewable commits.
+
+CRITICAL: DO NOT EDIT GIT HISTORY WITHOUT EXPLICIT USER PERMISSION. EVERY GIT HISTORY EDIT NEEDS NEW, EXPLICIT PERMISSION.
+
+---
+
 ## Test Coverage (MANDATORY)
 
 ### Requirements
