@@ -72,6 +72,10 @@
   margin-bottom: var(--downpat-spacing-xl, 32px);
 }
 
+.downpat-add-section {
+  margin-bottom: var(--downpat-spacing-md, 16px);
+}
+
 .downpat-section-title {
   font-size: 18px;
   font-weight: 600;
