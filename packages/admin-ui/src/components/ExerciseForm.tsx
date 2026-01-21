@@ -1,11 +1,32 @@
 import React, { useState, useCallback } from 'react';
-import type { Exercise, Task, BaseTask, Starter } from '@downpat/core';
+import type {
+  Exercise,
+  Starter,
+  ConversationTask,
+  CommentaryTask,
+  SummaryTask,
+} from '@downpat/core';
 import { MessageType } from '@downpat/core';
-import { generateId, generateSlug, createConversationTask } from '@downpat/core';
+import {
+  generateId,
+  generateSlug,
+  createConversationTask,
+  createCommentaryTask,
+  createSummaryTask,
+} from '@downpat/core';
 
 /** Create an empty starter with default values */
 function createEmptyStarter(): Starter {
   return { text: '', context: '', attributes: {} };
+}
+
+/** Omit specified keys from an object */
+function omitKeys<T extends Record<string, unknown>>(obj: T, keys: string[]): Partial<T> {
+  const result = { ...obj };
+  for (const key of keys) {
+    delete result[key as keyof T];
+  }
+  return result;
 }
 
 export interface ExerciseFormProps {
@@ -24,6 +45,63 @@ export interface ExerciseFormProps {
   availableModels: string[];
 }
 
+/** State for Conversation task fields */
+interface ConversationFields {
+  role: string;
+  prompt: string;
+  responseDescription: string;
+}
+
+/** State for Commentary task fields */
+interface CommentaryFields {
+  role: string;
+  prompt: string;
+  commentaryDescription: string;
+  gradeDescription: string;
+}
+
+/** State for Summary task fields */
+interface SummaryFields {
+  role: string;
+  prompt: string;
+  summaryDescription: string;
+  gradeDescription: string;
+}
+
+/** Extract conversation task fields from existing tasks */
+function extractConversationFields(tasks: ConversationTask[]): ConversationFields {
+  const task = tasks.find((t) => t.responseType === MessageType.CONVERSATION);
+  return {
+    role: task?.role || '',
+    prompt: task?.prompt || '',
+    responseDescription: task?.responseSchema?.conversation || '',
+  };
+}
+
+/** Extract commentary task fields from existing tasks */
+function extractCommentaryFields(tasks: CommentaryTask[]): CommentaryFields | null {
+  const task = tasks.find((t) => t.responseType === MessageType.COMMENTARY) as CommentaryTask | undefined;
+  if (!task) return null;
+  return {
+    role: task.role,
+    prompt: task.prompt,
+    commentaryDescription: task.responseSchema?.commentary || '',
+    gradeDescription: task.responseSchema?.grade || '',
+  };
+}
+
+/** Extract summary task fields from existing tasks */
+function extractSummaryFields(tasks: SummaryTask[]): SummaryFields | null {
+  const task = tasks.find((t) => t.responseType === MessageType.SUMMARY) as SummaryTask | undefined;
+  if (!task) return null;
+  return {
+    role: task.role,
+    prompt: task.prompt,
+    summaryDescription: task.responseSchema?.summary || '',
+    gradeDescription: task.responseSchema?.grade || '',
+  };
+}
+
 /**
  * Form for creating and editing exercises.
  *
@@ -38,20 +116,37 @@ export function ExerciseForm({
 }: ExerciseFormProps): React.JSX.Element {
   const hasModels = availableModels.length > 0;
 
-  // All hooks must be called before any conditional returns
-  const [formData, setFormData] = useState<Partial<Exercise>>(() => ({
+  // Basic exercise fields
+  const [formData, setFormData] = useState(() => ({
     exerciseId: exercise?.exerciseId || generateId(),
     exerciseName: exercise?.exerciseName || '',
     slug: exercise?.slug || '',
     maxUserMessages: exercise?.maxUserMessages || 10,
     model: exercise?.model || (hasModels ? availableModels[0] : ''),
     talkToCoachEnabled: exercise?.talkToCoachEnabled || false,
-    continuationTasks: exercise?.continuationTasks || [],
-    completionTasks: exercise?.completionTasks || [],
     welcomeMessage: exercise?.welcomeMessage || '',
     guidelines: exercise?.guidelines || '',
     starters: exercise?.starters || [createEmptyStarter()],
   }));
+
+  // Conversation task fields (always visible, required)
+  const [conversationFields, setConversationFields] = useState<ConversationFields>(() =>
+    extractConversationFields((exercise?.continuationTasks || []) as ConversationTask[])
+  );
+
+  // Commentary task fields (optional, hidden by default)
+  const existingCommentary = extractCommentaryFields((exercise?.continuationTasks || []) as CommentaryTask[]);
+  const [showCommentary, setShowCommentary] = useState(existingCommentary !== null);
+  const [commentaryFields, setCommentaryFields] = useState<CommentaryFields>(
+    existingCommentary || { role: '', prompt: '', commentaryDescription: '', gradeDescription: '' }
+  );
+
+  // Summary task fields (optional, hidden by default)
+  const existingSummary = extractSummaryFields((exercise?.completionTasks || []) as SummaryTask[]);
+  const [showSummary, setShowSummary] = useState(existingSummary !== null);
+  const [summaryFields, setSummaryFields] = useState<SummaryFields>(
+    existingSummary || { role: '', prompt: '', summaryDescription: '', gradeDescription: '' }
+  );
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
@@ -76,42 +171,114 @@ export function ExerciseForm({
           return 'Welcome message is required';
         }
         break;
-      case 'guidelines':
+      // Conversation task validation
+      case 'conversationRole':
         if (!value || (typeof value === 'string' && !value.trim())) {
-          return 'Guidelines are required';
+          return 'Conversation role is required';
+        }
+        break;
+      case 'conversationPrompt':
+        if (!value || (typeof value === 'string' && !value.trim())) {
+          return 'Conversation prompt is required';
+        }
+        break;
+      case 'conversationResponseDescription':
+        if (!value || (typeof value === 'string' && !value.trim())) {
+          return 'Conversation response description is required';
         }
         break;
     }
     return null;
   }, []);
 
-  const handleBlur = useCallback((field: string) => {
+  const handleBlur = useCallback((field: string, value: unknown) => {
     setTouched((prev) => ({ ...prev, [field]: true }));
-    const error = validateField(field, formData[field as keyof Exercise]);
+    const error = validateField(field, value);
     setErrors((prev) => ({ ...prev, [field]: error || '' }));
-  }, [formData, validateField]);
+  }, [validateField]);
 
   const validateForm = useCallback((): boolean => {
-    const requiredFields = ['exerciseName', 'slug', 'welcomeMessage', 'guidelines'];
     const newErrors: Record<string, string> = {};
     let isValid = true;
 
-    for (const field of requiredFields) {
-      const error = validateField(field, formData[field as keyof Exercise]);
+    // Basic fields
+    const basicFields: [string, unknown][] = [
+      ['exerciseName', formData.exerciseName],
+      ['slug', formData.slug],
+      ['welcomeMessage', formData.welcomeMessage],
+    ];
+
+    for (const [field, value] of basicFields) {
+      const error = validateField(field, value);
       if (error) {
         newErrors[field] = error;
         isValid = false;
       }
     }
 
-    setErrors(newErrors);
-    setTouched(Object.fromEntries(requiredFields.map((f) => [f, true])));
-    return isValid;
-  }, [formData, validateField]);
+    // Conversation task fields (always required)
+    const conversationValidations: [string, unknown][] = [
+      ['conversationRole', conversationFields.role],
+      ['conversationPrompt', conversationFields.prompt],
+      ['conversationResponseDescription', conversationFields.responseDescription],
+    ];
 
-  const updateField = useCallback(<K extends keyof Exercise>(
+    for (const [field, value] of conversationValidations) {
+      const error = validateField(field, value);
+      if (error) {
+        newErrors[field] = error;
+        isValid = false;
+      }
+    }
+
+    // Commentary task fields (all-or-nothing if shown)
+    if (showCommentary) {
+      if (!commentaryFields.role.trim()) {
+        newErrors['commentaryRole'] = 'Commentary role is required';
+        isValid = false;
+      }
+      if (!commentaryFields.prompt.trim()) {
+        newErrors['commentaryPrompt'] = 'Commentary prompt is required';
+        isValid = false;
+      }
+      if (!commentaryFields.commentaryDescription.trim()) {
+        newErrors['commentaryDescription'] = 'Commentary description is required';
+        isValid = false;
+      }
+      if (!commentaryFields.gradeDescription.trim()) {
+        newErrors['commentaryGradeDescription'] = 'Commentary grade description is required';
+        isValid = false;
+      }
+    }
+
+    // Summary task fields (all-or-nothing if shown)
+    if (showSummary) {
+      if (!summaryFields.role.trim()) {
+        newErrors['summaryRole'] = 'Summary role is required';
+        isValid = false;
+      }
+      if (!summaryFields.prompt.trim()) {
+        newErrors['summaryPrompt'] = 'Summary prompt is required';
+        isValid = false;
+      }
+      if (!summaryFields.summaryDescription.trim()) {
+        newErrors['summaryDescription'] = 'Summary description is required';
+        isValid = false;
+      }
+      if (!summaryFields.gradeDescription.trim()) {
+        newErrors['summaryGradeDescription'] = 'Summary grade description is required';
+        isValid = false;
+      }
+    }
+
+    setErrors(newErrors);
+    setTouched(Object.fromEntries(Object.keys(newErrors).map((f) => [f, true])));
+    return isValid;
+  }, [formData, conversationFields, commentaryFields, summaryFields, showCommentary, showSummary, validateField]);
+
+  const updateField = useCallback(<K extends keyof typeof formData>(
     field: K,
-    value: Exercise[K]
+    value: (typeof formData)[K]
   ) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   }, []);
@@ -120,7 +287,6 @@ export function ExerciseForm({
   const handleNameChange = useCallback((name: string) => {
     updateField('exerciseName', name);
     if (!exercise) {
-      // Only auto-generate slug for new exercises
       updateField('slug', generateSlug(name));
     }
   }, [exercise, updateField]);
@@ -132,47 +298,102 @@ export function ExerciseForm({
       return;
     }
 
+    // Build continuation tasks
+    const continuationTasks = [];
+
+    // Always include conversation task
+    continuationTasks.push(
+      createConversationTask(
+        generateId(),
+        conversationFields.role,
+        conversationFields.prompt,
+        conversationFields.responseDescription,
+      )
+    );
+
+    // Include commentary task if shown
+    if (showCommentary) {
+      continuationTasks.push(
+        createCommentaryTask(
+          generateId(),
+          commentaryFields.role,
+          commentaryFields.prompt,
+          commentaryFields.commentaryDescription,
+          commentaryFields.gradeDescription,
+        )
+      );
+    }
+
+    // Build completion tasks
+    const completionTasks = [];
+
+    // Include summary task if shown
+    if (showSummary) {
+      completionTasks.push(
+        createSummaryTask(
+          generateId(),
+          summaryFields.role,
+          summaryFields.prompt,
+          summaryFields.summaryDescription,
+          summaryFields.gradeDescription,
+        )
+      );
+    }
+
     const finalExercise: Exercise = {
-      exerciseId: formData.exerciseId!,
-      exerciseName: formData.exerciseName!,
-      slug: formData.slug!,
-      maxUserMessages: formData.maxUserMessages!,
-      model: formData.model!,
-      talkToCoachEnabled: formData.talkToCoachEnabled!,
-      continuationTasks: formData.continuationTasks!,
-      completionTasks: formData.completionTasks!,
-      welcomeMessage: formData.welcomeMessage!,
-      guidelines: formData.guidelines!,
-      // Filter out starters with empty text
-      starters: formData.starters!.filter((s) => s.text.trim()),
+      exerciseId: formData.exerciseId,
+      exerciseName: formData.exerciseName,
+      slug: formData.slug,
+      maxUserMessages: formData.maxUserMessages,
+      model: formData.model,
+      talkToCoachEnabled: formData.talkToCoachEnabled,
+      continuationTasks,
+      completionTasks,
+      welcomeMessage: formData.welcomeMessage,
+      guidelines: formData.guidelines,
+      starters: formData.starters.filter((s) => s.text.trim()),
     };
 
     onSubmit(finalExercise);
   };
 
   const addStarter = () => {
-    updateField('starters', [...(formData.starters || []), createEmptyStarter()]);
+    updateField('starters', [...formData.starters, createEmptyStarter()]);
   };
 
   const updateStarter = (index: number, updates: Partial<Starter>) => {
-    const newStarters = [...(formData.starters || [])];
+    const newStarters = [...formData.starters];
     newStarters[index] = { ...newStarters[index], ...updates };
     updateField('starters', newStarters);
   };
 
   const removeStarter = (index: number) => {
-    const newStarters = (formData.starters || []).filter((_, i) => i !== index);
+    const newStarters = formData.starters.filter((_, i) => i !== index);
     updateField('starters', newStarters.length > 0 ? newStarters : [createEmptyStarter()]);
   };
 
-  const addContinuationTask = () => {
-    const newTask = createConversationTask(
-      generateId(),
-      'Assistant',
-      '',
-      'Respond naturally in conversation.',
-    );
-    updateField('continuationTasks', [...(formData.continuationTasks || []), newTask]);
+  const handleAddCommentary = () => {
+    setShowCommentary(true);
+    setCommentaryFields({ role: 'Coach', prompt: '', commentaryDescription: '', gradeDescription: '' });
+  };
+
+  const handleRemoveCommentary = () => {
+    setShowCommentary(false);
+    setCommentaryFields({ role: '', prompt: '', commentaryDescription: '', gradeDescription: '' });
+    // Clear any commentary-related errors
+    setErrors((prev) => omitKeys(prev, ['commentaryRole', 'commentaryPrompt', 'commentaryDescription', 'commentaryGradeDescription']) as Record<string, string>);
+  };
+
+  const handleAddSummary = () => {
+    setShowSummary(true);
+    setSummaryFields({ role: 'Coach', prompt: '', summaryDescription: '', gradeDescription: '' });
+  };
+
+  const handleRemoveSummary = () => {
+    setShowSummary(false);
+    setSummaryFields({ role: '', prompt: '', summaryDescription: '', gradeDescription: '' });
+    // Clear any summary-related errors
+    setErrors((prev) => omitKeys(prev, ['summaryRole', 'summaryPrompt', 'summaryDescription', 'summaryGradeDescription']) as Record<string, string>);
   };
 
   // Show blocking alert if no models are configured (after all hooks)
@@ -218,7 +439,7 @@ export function ExerciseForm({
             type="text"
             value={formData.exerciseName}
             onChange={(e) => handleNameChange(e.target.value)}
-            onBlur={() => handleBlur('exerciseName')}
+            onBlur={() => handleBlur('exerciseName', formData.exerciseName)}
             placeholder="Enter exercise name"
             required
             className={`downpat-input ${touched.exerciseName && errors.exerciseName ? 'downpat-input--error' : ''}`}
@@ -233,7 +454,7 @@ export function ExerciseForm({
           <input
             type="text"
             value={formData.slug}
-            onBlur={() => !exercise && handleBlur('slug')}
+            onBlur={() => !exercise && handleBlur('slug', formData.slug)}
             onChange={(e) => !exercise && updateField('slug', e.target.value)}
             placeholder="exercise-slug"
             required
@@ -293,7 +514,7 @@ export function ExerciseForm({
           <textarea
             value={formData.welcomeMessage}
             onChange={(e) => updateField('welcomeMessage', e.target.value)}
-            onBlur={() => handleBlur('welcomeMessage')}
+            onBlur={() => handleBlur('welcomeMessage', formData.welcomeMessage)}
             placeholder="Message shown when conversation starts..."
             rows={3}
             className={`downpat-textarea ${touched.welcomeMessage && errors.welcomeMessage ? 'downpat-textarea--error' : ''}`}
@@ -304,33 +525,18 @@ export function ExerciseForm({
         </div>
 
         <div className="downpat-field">
-          <label className="downpat-label">Guidelines *</label>
-          <textarea
-            value={formData.guidelines}
-            onChange={(e) => updateField('guidelines', e.target.value)}
-            onBlur={() => handleBlur('guidelines')}
-            placeholder="Guidelines for the AI..."
-            rows={4}
-            className={`downpat-textarea ${touched.guidelines && errors.guidelines ? 'downpat-textarea--error' : ''}`}
-          />
-          {touched.guidelines && errors.guidelines && (
-            <small className="downpat-field-error-text">{errors.guidelines}</small>
-          )}
-        </div>
-
-        <div className="downpat-field">
           <label className="downpat-label">Conversation Starters</label>
           <small className="downpat-help-text">
             Opening scenario messages shown to users. A random starter is selected when the conversation begins.
           </small>
-          {formData.starters?.map((starter, index) => (
+          {formData.starters.map((starter, index) => (
             <StarterEditor
               key={index}
               starter={starter}
               index={index}
               onChange={(updates) => updateStarter(index, updates)}
               onRemove={() => removeStarter(index)}
-              canRemove={formData.starters!.length > 1}
+              canRemove={formData.starters.length > 1}
             />
           ))}
           <button type="button" onClick={addStarter} className="downpat-btn downpat-btn--add">
@@ -339,39 +545,239 @@ export function ExerciseForm({
         </div>
       </section>
 
-      {/* Tasks */}
+      {/* Shared Instructions */}
       <section className="downpat-form-section">
-        <h3 className="downpat-section-title">Continuation Tasks</h3>
-        <small className="downpat-help-text">
-          Tasks that run after each user message
+        <h3 className="downpat-section-title">Shared Instructions</h3>
+        <small className="downpat-help-text downpat-section-description">
+          Guidelines that are shared with Commentary, Summary, and Talk to Coach tasks (but not the Conversation task).
         </small>
 
-        {formData.continuationTasks?.length === 0 ? (
-          <p className="downpat-empty-state">No tasks configured</p>
-        ) : (
-          formData.continuationTasks?.map((task, index) => (
-            <TaskEditor
-              key={task.taskId}
-              task={task as BaseTask}
-              onChange={(updated) => {
-                const newTasks = [...(formData.continuationTasks || [])] as Task[];
-                newTasks[index] = updated as Task;
-                updateField('continuationTasks', newTasks);
-              }}
-              onRemove={() => {
-                updateField(
-                  'continuationTasks',
-                  (formData.continuationTasks || []).filter((_, i) => i !== index)
-                );
-              }}
-            />
-          ))
-        )}
-
-        <button type="button" onClick={addContinuationTask} className="downpat-btn downpat-btn--add">
-          + Add Task
-        </button>
+        <div className="downpat-field">
+          <label className="downpat-label">Guidelines</label>
+          <textarea
+            value={formData.guidelines}
+            onChange={(e) => updateField('guidelines', e.target.value)}
+            placeholder="Shared guidelines for coaching tasks..."
+            rows={6}
+            className="downpat-textarea"
+          />
+        </div>
       </section>
+
+      {/* Conversation Task (Always Visible) */}
+      <section className="downpat-form-section">
+        <h3 className="downpat-section-title">Conversation Task</h3>
+        <small className="downpat-help-text downpat-section-description">
+          Configure how the AI engages in conversation with users.
+        </small>
+
+        <div className="downpat-field">
+          <label className="downpat-label">Role *</label>
+          <input
+            type="text"
+            value={conversationFields.role}
+            onChange={(e) => setConversationFields((prev) => ({ ...prev, role: e.target.value }))}
+            onBlur={() => handleBlur('conversationRole', conversationFields.role)}
+            placeholder="Who is the user talking to?"
+            className={`downpat-input ${touched.conversationRole && errors.conversationRole ? 'downpat-input--error' : ''}`}
+          />
+          {touched.conversationRole && errors.conversationRole && (
+            <small className="downpat-field-error-text">{errors.conversationRole}</small>
+          )}
+        </div>
+
+        <div className="downpat-field">
+          <label className="downpat-label">Prompt *</label>
+          <textarea
+            value={conversationFields.prompt}
+            onChange={(e) => setConversationFields((prev) => ({ ...prev, prompt: e.target.value }))}
+            onBlur={() => handleBlur('conversationPrompt', conversationFields.prompt)}
+            placeholder="Instructions for the AI during conversation..."
+            rows={12}
+            className={`downpat-textarea ${touched.conversationPrompt && errors.conversationPrompt ? 'downpat-textarea--error' : ''}`}
+          />
+          {touched.conversationPrompt && errors.conversationPrompt && (
+            <small className="downpat-field-error-text">{errors.conversationPrompt}</small>
+          )}
+        </div>
+
+        <div className="downpat-field">
+          <label className="downpat-label">Response Description *</label>
+          <textarea
+            value={conversationFields.responseDescription}
+            onChange={(e) => setConversationFields((prev) => ({ ...prev, responseDescription: e.target.value }))}
+            onBlur={() => handleBlur('conversationResponseDescription', conversationFields.responseDescription)}
+            placeholder="Description of expected conversation response for AI tool call..."
+            rows={4}
+            className={`downpat-textarea ${touched.conversationResponseDescription && errors.conversationResponseDescription ? 'downpat-textarea--error' : ''}`}
+          />
+          {touched.conversationResponseDescription && errors.conversationResponseDescription && (
+            <small className="downpat-field-error-text">{errors.conversationResponseDescription}</small>
+          )}
+        </div>
+      </section>
+
+      {/* Commentary Task (Optional) */}
+      {showCommentary ? (
+        <section className="downpat-form-section">
+          <div className="downpat-section-header">
+            <h3 className="downpat-section-title">Commentary Task</h3>
+            <button
+              type="button"
+              onClick={handleRemoveCommentary}
+              className="downpat-btn downpat-btn--remove downpat-btn--small"
+            >
+              Remove Commentary
+            </button>
+          </div>
+          <small className="downpat-help-text downpat-section-description">
+            Provides real-time feedback and grading after each user message.
+          </small>
+
+          <div className="downpat-field">
+            <label className="downpat-label">Role *</label>
+            <input
+              type="text"
+              value={commentaryFields.role}
+              onChange={(e) => setCommentaryFields((prev) => ({ ...prev, role: e.target.value }))}
+              placeholder="Who is providing commentary? Ex: Coach"
+              className={`downpat-input ${errors.commentaryRole ? 'downpat-input--error' : ''}`}
+            />
+            {errors.commentaryRole && (
+              <small className="downpat-field-error-text">{errors.commentaryRole}</small>
+            )}
+          </div>
+
+          <div className="downpat-field">
+            <label className="downpat-label">Prompt *</label>
+            <textarea
+              value={commentaryFields.prompt}
+              onChange={(e) => setCommentaryFields((prev) => ({ ...prev, prompt: e.target.value }))}
+              placeholder="Instructions for generating commentary..."
+              rows={12}
+              className={`downpat-textarea ${errors.commentaryPrompt ? 'downpat-textarea--error' : ''}`}
+            />
+            {errors.commentaryPrompt && (
+              <small className="downpat-field-error-text">{errors.commentaryPrompt}</small>
+            )}
+          </div>
+
+          <div className="downpat-field">
+            <label className="downpat-label">Commentary Description *</label>
+            <textarea
+              value={commentaryFields.commentaryDescription}
+              onChange={(e) => setCommentaryFields((prev) => ({ ...prev, commentaryDescription: e.target.value }))}
+              placeholder="Description of expected commentary response..."
+              rows={4}
+              className={`downpat-textarea ${errors.commentaryDescription ? 'downpat-textarea--error' : ''}`}
+            />
+            {errors.commentaryDescription && (
+              <small className="downpat-field-error-text">{errors.commentaryDescription}</small>
+            )}
+          </div>
+
+          <div className="downpat-field">
+            <label className="downpat-label">Grade Description *</label>
+            <textarea
+              value={commentaryFields.gradeDescription}
+              onChange={(e) => setCommentaryFields((prev) => ({ ...prev, gradeDescription: e.target.value }))}
+              placeholder="Description of how to grade performance..."
+              rows={4}
+              className={`downpat-textarea ${errors.commentaryGradeDescription ? 'downpat-textarea--error' : ''}`}
+            />
+            {errors.commentaryGradeDescription && (
+              <small className="downpat-field-error-text">{errors.commentaryGradeDescription}</small>
+            )}
+          </div>
+        </section>
+      ) : (
+        <div className="downpat-add-section">
+          <button type="button" onClick={handleAddCommentary} className="downpat-btn downpat-btn--add">
+            + Add Commentary Task
+          </button>
+        </div>
+      )}
+
+      {/* Summary Task (Optional) */}
+      {showSummary ? (
+        <section className="downpat-form-section">
+          <div className="downpat-section-header">
+            <h3 className="downpat-section-title">Summary Task</h3>
+            <button
+              type="button"
+              onClick={handleRemoveSummary}
+              className="downpat-btn downpat-btn--remove downpat-btn--small"
+            >
+              Remove Summary
+            </button>
+          </div>
+          <small className="downpat-help-text downpat-section-description">
+            Provides a final assessment when the conversation ends.
+          </small>
+
+          <div className="downpat-field">
+            <label className="downpat-label">Role *</label>
+            <input
+              type="text"
+              value={summaryFields.role}
+              onChange={(e) => setSummaryFields((prev) => ({ ...prev, role: e.target.value }))}
+              placeholder="Who is providing the summary? Ex: Coach"
+              className={`downpat-input ${errors.summaryRole ? 'downpat-input--error' : ''}`}
+            />
+            {errors.summaryRole && (
+              <small className="downpat-field-error-text">{errors.summaryRole}</small>
+            )}
+          </div>
+
+          <div className="downpat-field">
+            <label className="downpat-label">Prompt *</label>
+            <textarea
+              value={summaryFields.prompt}
+              onChange={(e) => setSummaryFields((prev) => ({ ...prev, prompt: e.target.value }))}
+              placeholder="Instructions for generating summary..."
+              rows={12}
+              className={`downpat-textarea ${errors.summaryPrompt ? 'downpat-textarea--error' : ''}`}
+            />
+            {errors.summaryPrompt && (
+              <small className="downpat-field-error-text">{errors.summaryPrompt}</small>
+            )}
+          </div>
+
+          <div className="downpat-field">
+            <label className="downpat-label">Summary Description *</label>
+            <textarea
+              value={summaryFields.summaryDescription}
+              onChange={(e) => setSummaryFields((prev) => ({ ...prev, summaryDescription: e.target.value }))}
+              placeholder="Description of expected summary response..."
+              rows={4}
+              className={`downpat-textarea ${errors.summaryDescription ? 'downpat-textarea--error' : ''}`}
+            />
+            {errors.summaryDescription && (
+              <small className="downpat-field-error-text">{errors.summaryDescription}</small>
+            )}
+          </div>
+
+          <div className="downpat-field">
+            <label className="downpat-label">Grade Description *</label>
+            <textarea
+              value={summaryFields.gradeDescription}
+              onChange={(e) => setSummaryFields((prev) => ({ ...prev, gradeDescription: e.target.value }))}
+              placeholder="Description of how to grade overall performance..."
+              rows={4}
+              className={`downpat-textarea ${errors.summaryGradeDescription ? 'downpat-textarea--error' : ''}`}
+            />
+            {errors.summaryGradeDescription && (
+              <small className="downpat-field-error-text">{errors.summaryGradeDescription}</small>
+            )}
+          </div>
+        </section>
+      ) : (
+        <div className="downpat-add-section">
+          <button type="button" onClick={handleAddSummary} className="downpat-btn downpat-btn--add">
+            + Add Summary Task
+          </button>
+        </div>
+      )}
 
       {/* Settings */}
       <section className="downpat-form-section">
@@ -479,7 +885,7 @@ function StarterEditor({ starter, index, onChange, onRemove, canRemove }: Starte
         context: parsed.context || '',
         attributes: typeof parsed.attributes === 'object' ? parsed.attributes : {},
       });
-    } catch (e) {
+    } catch {
       setJsonError('Invalid JSON syntax');
     }
   };
@@ -646,147 +1052,6 @@ function AttributesEditor({ attributes, onChange }: AttributesEditorProps): Reac
       >
         + Add Attribute
       </button>
-    </div>
-  );
-}
-
-// Task Editor sub-component
-interface TaskEditorProps {
-  task: BaseTask;
-  onChange: (task: BaseTask) => void;
-  onRemove: () => void;
-}
-
-function TaskEditor({ task, onChange, onRemove }: TaskEditorProps): React.JSX.Element {
-  return (
-    <div className="downpat-task-editor">
-      <div className="downpat-task-header">
-        <div className="downpat-task-header-left">
-          <input
-            type="checkbox"
-            checked={task.enabled}
-            onChange={(e) => onChange({ ...task, enabled: e.target.checked })}
-            className="downpat-checkbox"
-          />
-          <input
-            type="text"
-            value={task.name}
-            onChange={(e) => onChange({ ...task, name: e.target.value })}
-            className="downpat-input downpat-input--medium"
-            placeholder="Task name"
-          />
-        </div>
-        <button type="button" onClick={onRemove} className="downpat-btn downpat-btn--remove">
-          Remove
-        </button>
-      </div>
-
-      <div className="downpat-task-grid">
-        <div>
-          <label className="downpat-label downpat-label--small">Response Type</label>
-          <select
-            value={task.responseType}
-            onChange={(e) => onChange({ ...task, responseType: e.target.value as MessageType })}
-            className="downpat-select"
-          >
-            <option value={MessageType.CONVERSATION}>Conversation</option>
-            <option value={MessageType.COMMENTARY}>Commentary</option>
-            <option value={MessageType.SUMMARY}>Summary</option>
-            <option value={MessageType.SIMPLE}>Simple (Coach)</option>
-          </select>
-        </div>
-        <div>
-          <label className="downpat-label downpat-label--small">Role</label>
-          <input
-            type="text"
-            value={task.role}
-            onChange={(e) => onChange({ ...task, role: e.target.value })}
-            className="downpat-input"
-            placeholder="Assistant"
-          />
-        </div>
-      </div>
-
-      <div>
-        <label className="downpat-label downpat-label--small">Prompt</label>
-        <textarea
-          value={task.prompt}
-          onChange={(e) => onChange({ ...task, prompt: e.target.value })}
-          rows={3}
-          className="downpat-textarea"
-          placeholder="AI prompt for this task..."
-        />
-      </div>
-
-      {/* Message Filter Section */}
-      <div className="downpat-task-filter-section">
-        <label className="downpat-label downpat-label--small">
-          Message Filter (Context Window)
-        </label>
-
-        <div className="downpat-task-grid downpat-task-grid--three">
-          <div>
-            <label className="downpat-label downpat-label--tiny">Max Messages</label>
-            <input
-              type="number"
-              value={task.messageFilter?.maxMessages ?? ''}
-              onChange={(e) => {
-                const val = e.target.value ? parseInt(e.target.value, 10) : undefined;
-                onChange({
-                  ...task,
-                  messageFilter: { ...task.messageFilter, maxMessages: val },
-                });
-              }}
-              className="downpat-input downpat-input--small"
-              placeholder="All"
-              min={1}
-            />
-          </div>
-
-          <div>
-            <label className="downpat-label downpat-label--tiny">Include Types</label>
-            <select
-              multiple
-              value={task.messageFilter?.includeTypes ?? []}
-              onChange={(e) => {
-                const selected = Array.from(e.target.selectedOptions, (opt) => opt.value as MessageType);
-                onChange({
-                  ...task,
-                  messageFilter: { ...task.messageFilter, includeTypes: selected.length > 0 ? selected : undefined },
-                });
-              }}
-              className="downpat-select downpat-select--multi"
-            >
-              {Object.values(MessageType).map((type) => (
-                <option key={type} value={type}>{type}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="downpat-label downpat-label--tiny">Exclude Types</label>
-            <select
-              multiple
-              value={task.messageFilter?.excludeTypes ?? []}
-              onChange={(e) => {
-                const selected = Array.from(e.target.selectedOptions, (opt) => opt.value as MessageType);
-                onChange({
-                  ...task,
-                  messageFilter: { ...task.messageFilter, excludeTypes: selected.length > 0 ? selected : undefined },
-                });
-              }}
-              className="downpat-select downpat-select--multi"
-            >
-              {Object.values(MessageType).map((type) => (
-                <option key={type} value={type}>{type}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <small className="downpat-help-text">
-          Configure which messages are included in AI context. Hold Ctrl/Cmd to select multiple types.
-        </small>
-      </div>
     </div>
   );
 }

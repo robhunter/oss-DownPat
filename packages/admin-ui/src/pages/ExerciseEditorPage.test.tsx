@@ -5,6 +5,7 @@ import { ExerciseEditorPage } from './ExerciseEditorPage.js';
 import { AdminProvider } from '../AdminContext.js';
 import type { AdminUIConfig } from '../config.js';
 import type { Exercise } from '@downpat/core';
+import { MessageType } from '@downpat/core';
 
 // Mock fetch
 const mockFetch = vi.fn();
@@ -20,7 +21,15 @@ const mockExercise: Exercise = {
   welcomeMessage: 'Welcome to the test!',
   guidelines: 'Be helpful and concise.',
   starters: [{ text: 'Hello', context: '', attributes: {} }, { text: 'Hi there', context: '', attributes: {} }],
-  continuationTasks: [],
+  continuationTasks: [{
+    taskId: 'conv-1',
+    name: 'Conversation',
+    responseType: MessageType.CONVERSATION,
+    role: 'Assistant',
+    prompt: 'You are a helpful assistant.',
+    responseSchema: { conversation: 'Respond naturally.' },
+    enabled: true,
+  }],
   completionTasks: [],
 };
 
@@ -174,8 +183,15 @@ describe('ExerciseEditorPage', () => {
       fireEvent.change(screen.getByPlaceholderText('Message shown when conversation starts...'), {
         target: { value: 'Welcome!' },
       });
-      fireEvent.change(screen.getByPlaceholderText('Guidelines for the AI...'), {
+      // Fill conversation task fields (required)
+      fireEvent.change(screen.getByPlaceholderText('Who is the user talking to?'), {
+        target: { value: 'Customer' },
+      });
+      fireEvent.change(screen.getByPlaceholderText('Instructions for the AI during conversation...'), {
         target: { value: 'Be helpful.' },
+      });
+      fireEvent.change(screen.getByPlaceholderText('Description of expected conversation response for AI tool call...'), {
+        target: { value: 'Respond naturally.' },
       });
 
       // Submit the form
@@ -223,8 +239,15 @@ describe('ExerciseEditorPage', () => {
       fireEvent.change(screen.getByPlaceholderText('Message shown when conversation starts...'), {
         target: { value: 'Welcome!' },
       });
-      fireEvent.change(screen.getByPlaceholderText('Guidelines for the AI...'), {
+      // Fill conversation task fields (required)
+      fireEvent.change(screen.getByPlaceholderText('Who is the user talking to?'), {
+        target: { value: 'Customer' },
+      });
+      fireEvent.change(screen.getByPlaceholderText('Instructions for the AI during conversation...'), {
         target: { value: 'Be helpful.' },
+      });
+      fireEvent.change(screen.getByPlaceholderText('Description of expected conversation response for AI tool call...'), {
+        target: { value: 'Respond naturally.' },
       });
 
       fireEvent.click(screen.getByText('Create Exercise'));
@@ -289,8 +312,15 @@ describe('ExerciseEditorPage', () => {
       fireEvent.change(screen.getByPlaceholderText('Message shown when conversation starts...'), {
         target: { value: 'Welcome to the exercise!' },
       });
-      fireEvent.change(screen.getByPlaceholderText('Guidelines for the AI...'), {
+      // Fill conversation task fields (required)
+      fireEvent.change(screen.getByPlaceholderText('Who is the user talking to?'), {
+        target: { value: 'Customer' },
+      });
+      fireEvent.change(screen.getByPlaceholderText('Instructions for the AI during conversation...'), {
         target: { value: 'Be helpful and concise.' },
+      });
+      fireEvent.change(screen.getByPlaceholderText('Description of expected conversation response for AI tool call...'), {
+        target: { value: 'Respond naturally.' },
       });
 
       fireEvent.click(screen.getByText('Create Exercise'));

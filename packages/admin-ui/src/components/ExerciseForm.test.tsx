@@ -1,9 +1,42 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import type { Exercise } from '@downpat/core';
+import type { Exercise, ConversationTask, CommentaryTask, SummaryTask } from '@downpat/core';
+import { MessageType } from '@downpat/core';
 import { ExerciseForm } from './ExerciseForm.js';
 
 const DEFAULT_MODELS = ['gpt-4', 'gpt-3.5-turbo'];
+
+const createConversationTask = (): ConversationTask => ({
+  taskId: 'conv-1',
+  name: 'Conversation',
+  responseType: MessageType.CONVERSATION,
+  role: 'Assistant',
+  prompt: 'You are helpful.',
+  responseSchema: { conversation: 'Respond naturally.' },
+  enabled: true,
+});
+
+const createCommentaryTask = (): CommentaryTask => ({
+  taskId: 'comment-1',
+  name: 'Commentary',
+  responseType: MessageType.COMMENTARY,
+  role: 'Coach',
+  prompt: 'Provide feedback.',
+  responseSchema: { commentary: 'Give feedback.', grade: 'Rate 1-5.' },
+  includeGuidelines: true,
+  enabled: true,
+});
+
+const createSummaryTask = (): SummaryTask => ({
+  taskId: 'summary-1',
+  name: 'Summary',
+  responseType: MessageType.SUMMARY,
+  role: 'Coach',
+  prompt: 'Summarize the conversation.',
+  responseSchema: { summary: 'Summarize.', grade: 'Final grade.' },
+  includeGuidelines: true,
+  enabled: true,
+});
 
 const createExercise = (): Exercise => ({
   exerciseId: 'ex-123',
@@ -12,7 +45,7 @@ const createExercise = (): Exercise => ({
   maxUserMessages: 10,
   model: 'gpt-4',
   talkToCoachEnabled: false,
-  continuationTasks: [],
+  continuationTasks: [createConversationTask()],
   completionTasks: [],
   welcomeMessage: 'Welcome!',
   guidelines: 'Be helpful',
@@ -57,8 +90,19 @@ describe('ExerciseForm', () => {
     fireEvent.change(screen.getByPlaceholderText('Message shown when conversation starts...'), {
       target: { value: 'Welcome to the exercise!' },
     });
-    fireEvent.change(screen.getByPlaceholderText('Guidelines for the AI...'), {
+    fireEvent.change(screen.getByPlaceholderText('Shared guidelines for coaching tasks...'), {
       target: { value: 'Be helpful and concise.' },
+    });
+
+    // Fill conversation task fields (required)
+    fireEvent.change(screen.getByPlaceholderText('Who is the user talking to?'), {
+      target: { value: 'Customer' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('Instructions for the AI during conversation...'), {
+      target: { value: 'You are a customer.' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('Description of expected conversation response for AI tool call...'), {
+      target: { value: 'Respond in character.' },
     });
 
     fireEvent.submit(screen.getByText('Create Exercise').closest('form')!);
@@ -111,28 +155,16 @@ describe('ExerciseForm', () => {
     expect(starterInputs.length).toBe(2);
   });
 
-  it('allows adding continuation tasks', () => {
-    const onSubmit = vi.fn();
-    render(<ExerciseForm onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
-
-    expect(screen.getByText('No tasks configured')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByText('+ Add Task'));
-
-    expect(screen.queryByText('No tasks configured')).not.toBeInTheDocument();
-    // createConversationTask sets name to 'Conversation'
-    // Use placeholder to find the specific task name input
-    expect(screen.getByPlaceholderText('Task name')).toHaveValue('Conversation');
-  });
-
   it('renders available models', () => {
     const onSubmit = vi.fn();
     const models = ['custom-model-1', 'custom-model-2'];
     render(<ExerciseForm onSubmit={onSubmit} availableModels={models} />);
 
-    const select = screen.getByRole('combobox') as HTMLSelectElement;
-    expect(select.options.length).toBe(2);
-    expect(select.options[0].value).toBe('custom-model-1');
+    // Find the model select by label
+    const modelSelect = screen.getByRole('combobox');
+    expect(modelSelect).toBeInTheDocument();
+    expect((modelSelect as HTMLSelectElement).options.length).toBe(2);
+    expect((modelSelect as HTMLSelectElement).options[0].value).toBe('custom-model-1');
   });
 
   describe('validation', () => {
@@ -144,7 +176,7 @@ describe('ExerciseForm', () => {
       fireEvent.change(screen.getByPlaceholderText('Message shown when conversation starts...'), {
         target: { value: 'Welcome!' },
       });
-      fireEvent.change(screen.getByPlaceholderText('Guidelines for the AI...'), {
+      fireEvent.change(screen.getByPlaceholderText('Shared guidelines for coaching tasks...'), {
         target: { value: 'Be helpful.' },
       });
 
@@ -162,7 +194,7 @@ describe('ExerciseForm', () => {
       fireEvent.change(screen.getByPlaceholderText('Enter exercise name'), {
         target: { value: 'My Exercise' },
       });
-      fireEvent.change(screen.getByPlaceholderText('Guidelines for the AI...'), {
+      fireEvent.change(screen.getByPlaceholderText('Shared guidelines for coaching tasks...'), {
         target: { value: 'Be helpful.' },
       });
 
@@ -172,22 +204,25 @@ describe('ExerciseForm', () => {
       expect(screen.getByText('Welcome message is required')).toBeInTheDocument();
     });
 
-    it('should not submit when guidelines is empty', () => {
+    it('should not submit when conversation prompt is empty', () => {
       const onSubmit = vi.fn();
       render(<ExerciseForm onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
 
-      // Fill all fields except guidelines
+      // Fill basic fields but leave conversation prompt empty
       fireEvent.change(screen.getByPlaceholderText('Enter exercise name'), {
         target: { value: 'My Exercise' },
       });
       fireEvent.change(screen.getByPlaceholderText('Message shown when conversation starts...'), {
         target: { value: 'Welcome!' },
       });
+      fireEvent.change(screen.getByPlaceholderText('Who is the user talking to?'), {
+        target: { value: 'Customer' },
+      });
 
       fireEvent.submit(screen.getByText('Create Exercise').closest('form')!);
 
       expect(onSubmit).not.toHaveBeenCalled();
-      expect(screen.getByText('Guidelines are required')).toBeInTheDocument();
+      expect(screen.getByText('Conversation prompt is required')).toBeInTheDocument();
     });
 
     it('should show error on blur for empty required field', () => {
@@ -240,7 +275,29 @@ describe('ExerciseForm', () => {
       // All validation errors should appear
       expect(screen.getByText('Exercise name is required')).toBeInTheDocument();
       expect(screen.getByText('Welcome message is required')).toBeInTheDocument();
-      expect(screen.getByText('Guidelines are required')).toBeInTheDocument();
+      expect(screen.getByText('Conversation role is required')).toBeInTheDocument();
+    });
+
+    it('should validate conversation task fields on submit', () => {
+      const onSubmit = vi.fn();
+      render(<ExerciseForm onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
+
+      // Fill basic required fields
+      fireEvent.change(screen.getByPlaceholderText('Enter exercise name'), {
+        target: { value: 'My Exercise' },
+      });
+      fireEvent.change(screen.getByPlaceholderText('Message shown when conversation starts...'), {
+        target: { value: 'Welcome!' },
+      });
+      fireEvent.change(screen.getByPlaceholderText('Shared guidelines for coaching tasks...'), {
+        target: { value: 'Be helpful.' },
+      });
+
+      fireEvent.submit(screen.getByText('Create Exercise').closest('form')!);
+
+      expect(onSubmit).not.toHaveBeenCalled();
+      // Should show conversation task validation errors
+      expect(screen.getByText('Conversation role is required')).toBeInTheDocument();
     });
   });
 
@@ -303,56 +360,110 @@ describe('ExerciseForm', () => {
     });
   });
 
-  describe('continuation tasks', () => {
-    it('should allow removing tasks', () => {
+  describe('conversation task section', () => {
+    it('should display conversation task section', () => {
       const onSubmit = vi.fn();
       render(<ExerciseForm onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
 
-      // Add a task - createConversationTask sets name to 'Conversation'
-      fireEvent.click(screen.getByText('+ Add Task'));
-      expect(screen.getByPlaceholderText('Task name')).toHaveValue('Conversation');
-
-      // Remove the task
-      fireEvent.click(screen.getByText('Remove'));
-
-      // Should show empty state again
-      expect(screen.getByText('No tasks configured')).toBeInTheDocument();
+      expect(screen.getByText('Conversation Task')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Who is the user talking to?')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Instructions for the AI during conversation...')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Description of expected conversation response for AI tool call...')).toBeInTheDocument();
     });
 
-    it('should allow editing task name', () => {
+    it('should populate conversation task fields from existing exercise', () => {
+      const onSubmit = vi.fn();
+      const exercise = createExercise();
+      render(<ExerciseForm exercise={exercise} onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
+
+      expect(screen.getByDisplayValue('Assistant')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('You are helpful.')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Respond naturally.')).toBeInTheDocument();
+    });
+  });
+
+  describe('commentary task section', () => {
+    it('should show Add Commentary Task button by default', () => {
       const onSubmit = vi.fn();
       render(<ExerciseForm onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
 
-      // Add a task - createConversationTask sets name to 'Conversation'
-      fireEvent.click(screen.getByText('+ Add Task'));
-
-      // Edit the task name using placeholder to find the specific input
-      const nameInput = screen.getByPlaceholderText('Task name');
-      fireEvent.change(nameInput, { target: { value: 'My Custom Task' } });
-
-      expect(nameInput).toHaveValue('My Custom Task');
+      expect(screen.getByText('+ Add Commentary Task')).toBeInTheDocument();
     });
 
-    it('should allow toggling task enabled state', () => {
+    it('should show commentary section when Add Commentary Task is clicked', () => {
       const onSubmit = vi.fn();
       render(<ExerciseForm onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
 
-      // Add a task
-      fireEvent.click(screen.getByText('+ Add Task'));
+      fireEvent.click(screen.getByText('+ Add Commentary Task'));
 
-      // Task is enabled by default
-      const checkboxes = screen.getAllByRole('checkbox');
-      const taskCheckbox = checkboxes.find((cb) => {
-        const parent = cb.closest('.downpat-task-header');
-        return parent !== null;
-      });
+      expect(screen.getByText('Commentary Task')).toBeInTheDocument();
+      expect(screen.getByText('Remove Commentary')).toBeInTheDocument();
+    });
 
-      expect(taskCheckbox).toBeDefined();
-      expect(taskCheckbox).toBeChecked();
+    it('should hide commentary section when Remove Commentary is clicked', () => {
+      const onSubmit = vi.fn();
+      render(<ExerciseForm onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
 
-      // Toggle it off
-      fireEvent.click(taskCheckbox!);
-      expect(taskCheckbox).not.toBeChecked();
+      // Add commentary section
+      fireEvent.click(screen.getByText('+ Add Commentary Task'));
+      expect(screen.getByText('Commentary Task')).toBeInTheDocument();
+
+      // Remove commentary section
+      fireEvent.click(screen.getByText('Remove Commentary'));
+      expect(screen.queryByText('Commentary Task')).not.toBeInTheDocument();
+      expect(screen.getByText('+ Add Commentary Task')).toBeInTheDocument();
+    });
+
+    it('should show commentary section when exercise has commentary task', () => {
+      const onSubmit = vi.fn();
+      const exercise = createExercise();
+      exercise.continuationTasks.push(createCommentaryTask());
+      render(<ExerciseForm exercise={exercise} onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
+
+      expect(screen.getByText('Commentary Task')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Coach')).toBeInTheDocument();
+    });
+  });
+
+  describe('summary task section', () => {
+    it('should show Add Summary Task button by default', () => {
+      const onSubmit = vi.fn();
+      render(<ExerciseForm onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
+
+      expect(screen.getByText('+ Add Summary Task')).toBeInTheDocument();
+    });
+
+    it('should show summary section when Add Summary Task is clicked', () => {
+      const onSubmit = vi.fn();
+      render(<ExerciseForm onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
+
+      fireEvent.click(screen.getByText('+ Add Summary Task'));
+
+      expect(screen.getByText('Summary Task')).toBeInTheDocument();
+      expect(screen.getByText('Remove Summary')).toBeInTheDocument();
+    });
+
+    it('should hide summary section when Remove Summary is clicked', () => {
+      const onSubmit = vi.fn();
+      render(<ExerciseForm onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
+
+      // Add summary section
+      fireEvent.click(screen.getByText('+ Add Summary Task'));
+      expect(screen.getByText('Summary Task')).toBeInTheDocument();
+
+      // Remove summary section
+      fireEvent.click(screen.getByText('Remove Summary'));
+      expect(screen.queryByText('Summary Task')).not.toBeInTheDocument();
+      expect(screen.getByText('+ Add Summary Task')).toBeInTheDocument();
+    });
+
+    it('should show summary section when exercise has summary task', () => {
+      const onSubmit = vi.fn();
+      const exercise = createExercise();
+      exercise.completionTasks.push(createSummaryTask());
+      render(<ExerciseForm exercise={exercise} onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
+
+      expect(screen.getByText('Summary Task')).toBeInTheDocument();
     });
   });
 
@@ -368,8 +479,17 @@ describe('ExerciseForm', () => {
       fireEvent.change(screen.getByPlaceholderText('Message shown when conversation starts...'), {
         target: { value: 'Welcome!' },
       });
-      fireEvent.change(screen.getByPlaceholderText('Guidelines for the AI...'), {
+      fireEvent.change(screen.getByPlaceholderText('Shared guidelines for coaching tasks...'), {
         target: { value: 'Be helpful.' },
+      });
+      fireEvent.change(screen.getByPlaceholderText('Who is the user talking to?'), {
+        target: { value: 'Customer' },
+      });
+      fireEvent.change(screen.getByPlaceholderText('Instructions for the AI during conversation...'), {
+        target: { value: 'You are a customer.' },
+      });
+      fireEvent.change(screen.getByPlaceholderText('Description of expected conversation response for AI tool call...'), {
+        target: { value: 'Respond in character.' },
       });
 
       // Change maxUserMessages
@@ -396,12 +516,21 @@ describe('ExerciseForm', () => {
       fireEvent.change(screen.getByPlaceholderText('Message shown when conversation starts...'), {
         target: { value: 'Welcome!' },
       });
-      fireEvent.change(screen.getByPlaceholderText('Guidelines for the AI...'), {
+      fireEvent.change(screen.getByPlaceholderText('Shared guidelines for coaching tasks...'), {
         target: { value: 'Be helpful.' },
+      });
+      fireEvent.change(screen.getByPlaceholderText('Who is the user talking to?'), {
+        target: { value: 'Customer' },
+      });
+      fireEvent.change(screen.getByPlaceholderText('Instructions for the AI during conversation...'), {
+        target: { value: 'You are a customer.' },
+      });
+      fireEvent.change(screen.getByPlaceholderText('Description of expected conversation response for AI tool call...'), {
+        target: { value: 'Respond in character.' },
       });
 
       // Change model
-      const modelSelect = screen.getByRole('combobox') as HTMLSelectElement;
+      const modelSelect = screen.getByRole('combobox');
       fireEvent.change(modelSelect, { target: { value: 'claude-3' } });
 
       fireEvent.submit(screen.getByText('Create Exercise').closest('form')!);
@@ -424,8 +553,17 @@ describe('ExerciseForm', () => {
       fireEvent.change(screen.getByPlaceholderText('Message shown when conversation starts...'), {
         target: { value: 'Welcome!' },
       });
-      fireEvent.change(screen.getByPlaceholderText('Guidelines for the AI...'), {
+      fireEvent.change(screen.getByPlaceholderText('Shared guidelines for coaching tasks...'), {
         target: { value: 'Be helpful.' },
+      });
+      fireEvent.change(screen.getByPlaceholderText('Who is the user talking to?'), {
+        target: { value: 'Customer' },
+      });
+      fireEvent.change(screen.getByPlaceholderText('Instructions for the AI during conversation...'), {
+        target: { value: 'You are a customer.' },
+      });
+      fireEvent.change(screen.getByPlaceholderText('Description of expected conversation response for AI tool call...'), {
+        target: { value: 'Respond in character.' },
       });
 
       // Enable talk to coach
@@ -452,8 +590,17 @@ describe('ExerciseForm', () => {
       fireEvent.change(screen.getByPlaceholderText('Message shown when conversation starts...'), {
         target: { value: 'Welcome!' },
       });
-      fireEvent.change(screen.getByPlaceholderText('Guidelines for the AI...'), {
+      fireEvent.change(screen.getByPlaceholderText('Shared guidelines for coaching tasks...'), {
         target: { value: 'Be helpful.' },
+      });
+      fireEvent.change(screen.getByPlaceholderText('Who is the user talking to?'), {
+        target: { value: 'Customer' },
+      });
+      fireEvent.change(screen.getByPlaceholderText('Instructions for the AI during conversation...'), {
+        target: { value: 'You are a customer.' },
+      });
+      fireEvent.change(screen.getByPlaceholderText('Description of expected conversation response for AI tool call...'), {
+        target: { value: 'Respond in character.' },
       });
 
       // Add starters - the new StarterEditor uses textarea with different placeholder
@@ -467,6 +614,153 @@ describe('ExerciseForm', () => {
       expect(onSubmit).toHaveBeenCalledWith(
         expect.objectContaining({
           starters: [{ text: 'First starter', context: '', attributes: {} }],
+        })
+      );
+    });
+
+    it('should include conversation task in continuationTasks', () => {
+      const onSubmit = vi.fn();
+      render(<ExerciseForm onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
+
+      // Fill all required fields
+      fireEvent.change(screen.getByPlaceholderText('Enter exercise name'), {
+        target: { value: 'My Exercise' },
+      });
+      fireEvent.change(screen.getByPlaceholderText('Message shown when conversation starts...'), {
+        target: { value: 'Welcome!' },
+      });
+      fireEvent.change(screen.getByPlaceholderText('Shared guidelines for coaching tasks...'), {
+        target: { value: 'Be helpful.' },
+      });
+      fireEvent.change(screen.getByPlaceholderText('Who is the user talking to?'), {
+        target: { value: 'Customer' },
+      });
+      fireEvent.change(screen.getByPlaceholderText('Instructions for the AI during conversation...'), {
+        target: { value: 'You are a customer.' },
+      });
+      fireEvent.change(screen.getByPlaceholderText('Description of expected conversation response for AI tool call...'), {
+        target: { value: 'Respond in character.' },
+      });
+
+      fireEvent.submit(screen.getByText('Create Exercise').closest('form')!);
+
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          continuationTasks: expect.arrayContaining([
+            expect.objectContaining({
+              responseType: MessageType.CONVERSATION,
+              role: 'Customer',
+              prompt: 'You are a customer.',
+              responseSchema: { conversation: 'Respond in character.' },
+            }),
+          ]),
+        })
+      );
+    });
+
+    it('should include commentary task when enabled', () => {
+      const onSubmit = vi.fn();
+      render(<ExerciseForm onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
+
+      // Fill required fields
+      fireEvent.change(screen.getByPlaceholderText('Enter exercise name'), {
+        target: { value: 'My Exercise' },
+      });
+      fireEvent.change(screen.getByPlaceholderText('Message shown when conversation starts...'), {
+        target: { value: 'Welcome!' },
+      });
+      fireEvent.change(screen.getByPlaceholderText('Shared guidelines for coaching tasks...'), {
+        target: { value: 'Be helpful.' },
+      });
+      fireEvent.change(screen.getByPlaceholderText('Who is the user talking to?'), {
+        target: { value: 'Customer' },
+      });
+      fireEvent.change(screen.getByPlaceholderText('Instructions for the AI during conversation...'), {
+        target: { value: 'You are a customer.' },
+      });
+      fireEvent.change(screen.getByPlaceholderText('Description of expected conversation response for AI tool call...'), {
+        target: { value: 'Respond in character.' },
+      });
+
+      // Add commentary task
+      fireEvent.click(screen.getByText('+ Add Commentary Task'));
+
+      // Fill commentary fields
+      const roleInputs = screen.getAllByPlaceholderText('Who is providing commentary? Ex: Coach');
+      fireEvent.change(roleInputs[0], { target: { value: 'Expert Coach' } });
+
+      const promptTextareas = screen.getAllByPlaceholderText('Instructions for generating commentary...');
+      fireEvent.change(promptTextareas[0], { target: { value: 'Provide helpful feedback.' } });
+
+      const commentaryDescTextareas = screen.getAllByPlaceholderText('Description of expected commentary response...');
+      fireEvent.change(commentaryDescTextareas[0], { target: { value: 'Describe the commentary.' } });
+
+      const gradeDescTextareas = screen.getAllByPlaceholderText('Description of how to grade performance...');
+      fireEvent.change(gradeDescTextareas[0], { target: { value: 'Rate 1-5.' } });
+
+      fireEvent.submit(screen.getByText('Create Exercise').closest('form')!);
+
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          continuationTasks: expect.arrayContaining([
+            expect.objectContaining({
+              responseType: MessageType.COMMENTARY,
+              role: 'Expert Coach',
+              prompt: 'Provide helpful feedback.',
+              responseSchema: { commentary: 'Describe the commentary.', grade: 'Rate 1-5.' },
+              includeGuidelines: true,
+            }),
+          ]),
+        })
+      );
+    });
+
+    it('should include summary task in completionTasks when enabled', () => {
+      const onSubmit = vi.fn();
+      render(<ExerciseForm onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
+
+      // Fill required fields
+      fireEvent.change(screen.getByPlaceholderText('Enter exercise name'), {
+        target: { value: 'My Exercise' },
+      });
+      fireEvent.change(screen.getByPlaceholderText('Message shown when conversation starts...'), {
+        target: { value: 'Welcome!' },
+      });
+      fireEvent.change(screen.getByPlaceholderText('Shared guidelines for coaching tasks...'), {
+        target: { value: 'Be helpful.' },
+      });
+      fireEvent.change(screen.getByPlaceholderText('Who is the user talking to?'), {
+        target: { value: 'Customer' },
+      });
+      fireEvent.change(screen.getByPlaceholderText('Instructions for the AI during conversation...'), {
+        target: { value: 'You are a customer.' },
+      });
+      fireEvent.change(screen.getByPlaceholderText('Description of expected conversation response for AI tool call...'), {
+        target: { value: 'Respond in character.' },
+      });
+
+      // Add summary task
+      fireEvent.click(screen.getByText('+ Add Summary Task'));
+
+      // Fill summary fields
+      fireEvent.change(screen.getByPlaceholderText('Who is providing the summary? Ex: Coach'), { target: { value: 'Evaluator' } });
+      fireEvent.change(screen.getByPlaceholderText('Instructions for generating summary...'), { target: { value: 'Summarize the conversation.' } });
+      fireEvent.change(screen.getByPlaceholderText('Description of expected summary response...'), { target: { value: 'Provide a summary.' } });
+      fireEvent.change(screen.getByPlaceholderText('Description of how to grade overall performance...'), { target: { value: 'Final grade.' } });
+
+      fireEvent.submit(screen.getByText('Create Exercise').closest('form')!);
+
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          completionTasks: expect.arrayContaining([
+            expect.objectContaining({
+              responseType: MessageType.SUMMARY,
+              role: 'Evaluator',
+              prompt: 'Summarize the conversation.',
+              responseSchema: { summary: 'Provide a summary.', grade: 'Final grade.' },
+              includeGuidelines: true,
+            }),
+          ]),
         })
       );
     });
