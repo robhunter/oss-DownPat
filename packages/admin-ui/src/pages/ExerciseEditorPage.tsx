@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import type { Exercise } from '@downpat/core';
 import { ExerciseForm } from '../components/ExerciseForm.js';
 import { useAdminContext, useAdminAPI } from '../AdminContext.js';
@@ -9,20 +10,24 @@ interface Toast {
   type: 'success' | 'error';
 }
 
-/** Auto-dismissing toast notification */
-function ToastNotification({ message, type, onClose }: Toast & { onClose: () => void }): React.JSX.Element {
+/** Auto-dismissing toast notification rendered in a portal at document body */
+function ToastNotification({ message, type, onClose }: Toast & { onClose: () => void }): React.JSX.Element | null {
   useEffect(() => {
     const timer = setTimeout(onClose, 5000);
     return () => clearTimeout(timer);
   }, [onClose]);
 
-  return (
-    <div className={`downpat-toast downpat-toast--${type}`}>
-      <span>{message}</span>
-      <button onClick={onClose} className="downpat-toast-close" aria-label="Dismiss">
-        &times;
-      </button>
-    </div>
+  // Render in a portal to escape any parent z-index/overflow constraints
+  return createPortal(
+    <div className="downpat-toast-container">
+      <div className={`downpat-toast downpat-toast--${type}`}>
+        <span>{message}</span>
+        <button onClick={onClose} className="downpat-toast-close" aria-label="Dismiss">
+          &times;
+        </button>
+      </div>
+    </div>,
+    document.body
   );
 }
 

@@ -170,18 +170,8 @@ export function ConversationPage({
         )}
       </div>
 
-      {/* Coach Toggle Button - only show if Talk to Coach is enabled */}
-      {talkToCoachEnabled && !showCoach && (
-        <button
-          onClick={() => setShowCoach(true)}
-          style={styles.coachToggle}
-          title="Talk to Coach"
-        >
-          <span role="img" aria-label="chat">💬</span>
-        </button>
-      )}
-
       {/* Talk to Coach Sidebar - only render if enabled */}
+      {/* Note: TalkToCoachSidebar renders its own toggle button when collapsed */}
       {talkToCoachEnabled && (
         <TalkToCoachSidebar
           messages={coachMessages}
@@ -273,21 +263,6 @@ const styles: Record<string, React.CSSProperties> = {
   sendBtnDisabled: {
     backgroundColor: 'var(--downpat-neutral-300, #d1d5db)',
     cursor: 'not-allowed',
-  },
-  coachToggle: {
-    position: 'fixed',
-    right: '24px',
-    bottom: '24px',
-    width: '56px',
-    height: '56px',
-    borderRadius: '50%',
-    backgroundColor: 'var(--downpat-primary-500, #3b82f6)',
-    color: 'white',
-    border: 'none',
-    fontSize: '1.5rem',
-    cursor: 'pointer',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-    zIndex: 50,
   },
   loadingContainer: {
     display: 'flex',

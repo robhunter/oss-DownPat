@@ -118,7 +118,7 @@ export function TalkToCoachSidebar({
         display: 'flex',
         flexDirection: 'column',
         boxShadow: '-4px 0 6px -1px rgba(0, 0, 0, 0.1)',
-        zIndex: 50,
+        zIndex: 200,
       }}
     >
       {/* Header */}

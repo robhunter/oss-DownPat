@@ -68,37 +68,46 @@ interface SummaryFields {
   gradeDescription: string;
 }
 
-/** Extract conversation task fields from existing tasks */
-function extractConversationFields(tasks: ConversationTask[]): ConversationFields {
+/** Extract conversation task fields and ID from existing tasks */
+function extractConversationTask(tasks: ConversationTask[]): { taskId: string | null; fields: ConversationFields } {
   const task = tasks.find((t) => t.responseType === MessageType.CONVERSATION);
   return {
-    role: task?.role || '',
-    prompt: task?.prompt || '',
-    responseDescription: task?.responseSchema?.conversation || '',
+    taskId: task?.taskId || null,
+    fields: {
+      role: task?.role || '',
+      prompt: task?.prompt || '',
+      responseDescription: task?.responseSchema?.conversation || '',
+    },
   };
 }
 
-/** Extract commentary task fields from existing tasks */
-function extractCommentaryFields(tasks: CommentaryTask[]): CommentaryFields | null {
+/** Extract commentary task fields and ID from existing tasks */
+function extractCommentaryTask(tasks: CommentaryTask[]): { taskId: string | null; fields: CommentaryFields } | null {
   const task = tasks.find((t) => t.responseType === MessageType.COMMENTARY) as CommentaryTask | undefined;
   if (!task) return null;
   return {
-    role: task.role,
-    prompt: task.prompt,
-    commentaryDescription: task.responseSchema?.commentary || '',
-    gradeDescription: task.responseSchema?.grade || '',
+    taskId: task.taskId,
+    fields: {
+      role: task.role,
+      prompt: task.prompt,
+      commentaryDescription: task.responseSchema?.commentary || '',
+      gradeDescription: task.responseSchema?.grade || '',
+    },
   };
 }
 
-/** Extract summary task fields from existing tasks */
-function extractSummaryFields(tasks: SummaryTask[]): SummaryFields | null {
+/** Extract summary task fields and ID from existing tasks */
+function extractSummaryTask(tasks: SummaryTask[]): { taskId: string | null; fields: SummaryFields } | null {
   const task = tasks.find((t) => t.responseType === MessageType.SUMMARY) as SummaryTask | undefined;
   if (!task) return null;
   return {
-    role: task.role,
-    prompt: task.prompt,
-    summaryDescription: task.responseSchema?.summary || '',
-    gradeDescription: task.responseSchema?.grade || '',
+    taskId: task.taskId,
+    fields: {
+      role: task.role,
+      prompt: task.prompt,
+      summaryDescription: task.responseSchema?.summary || '',
+      gradeDescription: task.responseSchema?.grade || '',
+    },
   };
 }
 
@@ -129,23 +138,25 @@ export function ExerciseForm({
     starters: exercise?.starters || [createEmptyStarter()],
   }));
 
-  // Conversation task fields (always visible, required)
-  const [conversationFields, setConversationFields] = useState<ConversationFields>(() =>
-    extractConversationFields((exercise?.continuationTasks || []) as ConversationTask[])
-  );
+  // Conversation task fields and ID (always visible, required)
+  const existingConversation = extractConversationTask((exercise?.continuationTasks || []) as ConversationTask[]);
+  const [conversationTaskId] = useState<string | null>(existingConversation.taskId);
+  const [conversationFields, setConversationFields] = useState<ConversationFields>(existingConversation.fields);
 
-  // Commentary task fields (optional, hidden by default)
-  const existingCommentary = extractCommentaryFields((exercise?.continuationTasks || []) as CommentaryTask[]);
+  // Commentary task fields and ID (optional, hidden by default)
+  const existingCommentary = extractCommentaryTask((exercise?.continuationTasks || []) as CommentaryTask[]);
+  const [commentaryTaskId] = useState<string | null>(existingCommentary?.taskId || null);
   const [showCommentary, setShowCommentary] = useState(existingCommentary !== null);
   const [commentaryFields, setCommentaryFields] = useState<CommentaryFields>(
-    existingCommentary || { role: '', prompt: '', commentaryDescription: '', gradeDescription: '' }
+    existingCommentary?.fields || { role: '', prompt: '', commentaryDescription: '', gradeDescription: '' }
   );
 
-  // Summary task fields (optional, hidden by default)
-  const existingSummary = extractSummaryFields((exercise?.completionTasks || []) as SummaryTask[]);
+  // Summary task fields and ID (optional, hidden by default)
+  const existingSummary = extractSummaryTask((exercise?.completionTasks || []) as SummaryTask[]);
+  const [summaryTaskId] = useState<string | null>(existingSummary?.taskId || null);
   const [showSummary, setShowSummary] = useState(existingSummary !== null);
   const [summaryFields, setSummaryFields] = useState<SummaryFields>(
-    existingSummary || { role: '', prompt: '', summaryDescription: '', gradeDescription: '' }
+    existingSummary?.fields || { role: '', prompt: '', summaryDescription: '', gradeDescription: '' }
   );
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -298,49 +309,54 @@ export function ExerciseForm({
       return;
     }
 
-    // Build continuation tasks
-    const continuationTasks = [];
-
-    // Always include conversation task
-    continuationTasks.push(
-      createConversationTask(
-        generateId(),
-        conversationFields.role,
-        conversationFields.prompt,
-        conversationFields.responseDescription,
-      )
+    // Build continuation tasks by merging:
+    // 1. Preserve any tasks we don't manage (not CONVERSATION or COMMENTARY)
+    // 2. Add/update the tasks we do manage
+    const unmanagedContinuationTasks = (exercise?.continuationTasks || []).filter(
+      (t) => t.responseType !== MessageType.CONVERSATION && t.responseType !== MessageType.COMMENTARY
     );
 
-    // Include commentary task if shown
-    if (showCommentary) {
-      continuationTasks.push(
-        createCommentaryTask(
-          generateId(),
-          commentaryFields.role,
-          commentaryFields.prompt,
-          commentaryFields.commentaryDescription,
-          commentaryFields.gradeDescription,
-        )
-      );
-    }
+    const managedConversationTask = createConversationTask(
+      conversationTaskId || generateId(),
+      conversationFields.role,
+      conversationFields.prompt,
+      conversationFields.responseDescription,
+    );
 
-    // Build completion tasks
-    const completionTasks = [];
+    const continuationTasks = [
+      ...unmanagedContinuationTasks,
+      managedConversationTask,
+      ...(showCommentary ? [createCommentaryTask(
+        commentaryTaskId || generateId(),
+        commentaryFields.role,
+        commentaryFields.prompt,
+        commentaryFields.commentaryDescription,
+        commentaryFields.gradeDescription,
+      )] : []),
+    ];
 
-    // Include summary task if shown
-    if (showSummary) {
-      completionTasks.push(
-        createSummaryTask(
-          generateId(),
-          summaryFields.role,
-          summaryFields.prompt,
-          summaryFields.summaryDescription,
-          summaryFields.gradeDescription,
-        )
-      );
-    }
+    // Build completion tasks by merging:
+    // 1. Preserve any tasks we don't manage (not SUMMARY)
+    // 2. Add/update the tasks we do manage
+    const unmanagedCompletionTasks = (exercise?.completionTasks || []).filter(
+      (t) => t.responseType !== MessageType.SUMMARY
+    );
 
+    const completionTasks = [
+      ...unmanagedCompletionTasks,
+      ...(showSummary ? [createSummaryTask(
+        summaryTaskId || generateId(),
+        summaryFields.role,
+        summaryFields.prompt,
+        summaryFields.summaryDescription,
+        summaryFields.gradeDescription,
+      )] : []),
+    ];
+
+    // Spread original exercise to preserve any fields the form doesn't manage,
+    // then override with the fields this form controls
     const finalExercise: Exercise = {
+      ...exercise,
       exerciseId: formData.exerciseId,
       exerciseName: formData.exerciseName,
       slug: formData.slug,

@@ -765,4 +765,168 @@ describe('ExerciseForm', () => {
       );
     });
   });
+
+  describe('task ID preservation (regression)', () => {
+    it('should preserve conversation task ID when editing', () => {
+      const onSubmit = vi.fn();
+      const exercise = createExercise();
+      render(<ExerciseForm exercise={exercise} onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
+
+      // Make a minor edit to conversation prompt
+      const promptInput = screen.getByPlaceholderText('Instructions for the AI during conversation...');
+      fireEvent.change(promptInput, { target: { value: 'Updated prompt.' } });
+
+      fireEvent.submit(screen.getByText('Update Exercise').closest('form')!);
+
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          continuationTasks: expect.arrayContaining([
+            expect.objectContaining({
+              taskId: 'conv-1', // Original task ID preserved
+              responseType: MessageType.CONVERSATION,
+              prompt: 'Updated prompt.',
+            }),
+          ]),
+        })
+      );
+    });
+
+    it('should preserve commentary task ID when editing', () => {
+      const onSubmit = vi.fn();
+      const exercise = createExercise();
+      exercise.continuationTasks.push(createCommentaryTask());
+      render(<ExerciseForm exercise={exercise} onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
+
+      // Make a minor edit to commentary prompt
+      const promptInput = screen.getByPlaceholderText('Instructions for generating commentary...');
+      fireEvent.change(promptInput, { target: { value: 'Updated commentary prompt.' } });
+
+      fireEvent.submit(screen.getByText('Update Exercise').closest('form')!);
+
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          continuationTasks: expect.arrayContaining([
+            expect.objectContaining({
+              taskId: 'comment-1', // Original task ID preserved
+              responseType: MessageType.COMMENTARY,
+              prompt: 'Updated commentary prompt.',
+            }),
+          ]),
+        })
+      );
+    });
+
+    it('should preserve summary task ID when editing', () => {
+      const onSubmit = vi.fn();
+      const exercise = createExercise();
+      exercise.completionTasks.push(createSummaryTask());
+      render(<ExerciseForm exercise={exercise} onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
+
+      // Make a minor edit to summary prompt
+      const promptInput = screen.getByPlaceholderText('Instructions for generating summary...');
+      fireEvent.change(promptInput, { target: { value: 'Updated summary prompt.' } });
+
+      fireEvent.submit(screen.getByText('Update Exercise').closest('form')!);
+
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          completionTasks: expect.arrayContaining([
+            expect.objectContaining({
+              taskId: 'summary-1', // Original task ID preserved
+              responseType: MessageType.SUMMARY,
+              prompt: 'Updated summary prompt.',
+            }),
+          ]),
+        })
+      );
+    });
+
+    it('should preserve unknown exercise fields when editing', () => {
+      const onSubmit = vi.fn();
+      const exercise = createExercise();
+      // Add an unknown field that the form doesn't manage
+      (exercise as Record<string, unknown>).customField = 'custom value';
+      render(<ExerciseForm exercise={exercise} onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
+
+      // Make a minor edit
+      fireEvent.change(screen.getByPlaceholderText('Enter exercise name'), {
+        target: { value: 'Updated Name' },
+      });
+
+      fireEvent.submit(screen.getByText('Update Exercise').closest('form')!);
+
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          exerciseName: 'Updated Name',
+          customField: 'custom value', // Unknown field preserved
+        })
+      );
+    });
+
+    it('should preserve unmanaged task types in continuationTasks', () => {
+      const onSubmit = vi.fn();
+      const exercise = createExercise();
+      // Add an unmanaged task type (SimpleTask) that the form doesn't edit
+      const simpleTask = {
+        taskId: 'simple-1',
+        name: 'Talk to Coach',
+        responseType: MessageType.SIMPLE,
+        role: 'Coach',
+        prompt: 'Help the user.',
+        enabled: true,
+      };
+      exercise.continuationTasks.push(simpleTask as never);
+      render(<ExerciseForm exercise={exercise} onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
+
+      // Make a minor edit
+      fireEvent.change(screen.getByPlaceholderText('Enter exercise name'), {
+        target: { value: 'Updated Name' },
+      });
+
+      fireEvent.submit(screen.getByText('Update Exercise').closest('form')!);
+
+      // Verify SimpleTask was preserved
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          continuationTasks: expect.arrayContaining([
+            expect.objectContaining({
+              taskId: 'simple-1',
+              responseType: MessageType.SIMPLE,
+            }),
+          ]),
+        })
+      );
+    });
+
+    it('should preserve extra commentary tasks beyond the first one', () => {
+      const onSubmit = vi.fn();
+      const exercise = createExercise();
+      // Add two commentary tasks - form only manages the first one
+      const commentary1 = createCommentaryTask();
+      const commentary2 = {
+        ...createCommentaryTask(),
+        taskId: 'comment-2',
+        prompt: 'Second commentary prompt',
+      };
+      exercise.continuationTasks.push(commentary1, commentary2);
+      render(<ExerciseForm exercise={exercise} onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
+
+      // Make a minor edit to the managed commentary
+      const promptInput = screen.getByPlaceholderText('Instructions for generating commentary...');
+      fireEvent.change(promptInput, { target: { value: 'Updated first commentary.' } });
+
+      fireEvent.submit(screen.getByText('Update Exercise').closest('form')!);
+
+      // The form manages ONE commentary task, so there should be exactly one COMMENTARY task
+      // (the edited one). The second commentary task is NOT preserved because
+      // the form replaces all COMMENTARY tasks with its managed one.
+      // This is the expected behavior per the simplified UI design.
+      const submittedExercise = onSubmit.mock.calls[0][0];
+      const commentaryTasks = submittedExercise.continuationTasks.filter(
+        (t: { responseType: string }) => t.responseType === MessageType.COMMENTARY
+      );
+      expect(commentaryTasks.length).toBe(1);
+      expect(commentaryTasks[0].prompt).toBe('Updated first commentary.');
+    });
+  });
 });

@@ -22,16 +22,17 @@ function buildTaskPrompt(task: CommentaryTask | SummaryTask, guidelines: string)
 
 /**
  * Build AI messages array from conversation history.
- * Uses the conversation task's prompt if available, otherwise falls back to exercise guidelines.
+ * Uses the conversation task's prompt if available, otherwise falls back to a default message.
+ * Note: exercise.guidelines are NOT used here - they are only for Commentary, Summary, and Talk to Coach tasks.
  */
 function buildAIMessagesFromConversation(
   conversation: Conversation,
   exercise: Exercise,
   conversationTask?: ConversationTask
 ): AIMessage[] {
-  // Use conversation task prompt if provided, otherwise fall back to exercise guidelines
+  // Use conversation task prompt if provided, otherwise use a default
+  // Note: guidelines are intentionally NOT used here per UI design
   const systemPrompt = conversationTask?.prompt
-    || exercise.guidelines
     || `You are an AI assistant for the exercise: ${exercise.exerciseName}`;
 
   const aiMessages: AIMessage[] = [

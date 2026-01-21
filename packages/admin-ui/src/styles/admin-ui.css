@@ -631,17 +631,45 @@
   box-shadow: var(--downpat-shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.1));
 }
 
-/* Toast Notifications */
+/* Toast Notifications - Fixed position floating toast */
+.downpat-toast-container {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--downpat-spacing-md, 16px);
+  pointer-events: none;
+  max-width: 420px;
+  width: 100%;
+}
+
 .downpat-toast {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--downpat-spacing-md, 16px);
-  padding: var(--downpat-spacing-md, 16px);
+  padding: var(--downpat-spacing-md, 16px) var(--downpat-spacing-lg, 24px);
   border-radius: var(--downpat-radius-md, 8px);
-  margin-bottom: var(--downpat-spacing-lg, 24px);
   font-size: 0.875rem;
   font-weight: 500;
+  pointer-events: auto;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  animation: downpat-toast-slide-in 0.3s ease-out;
+}
+
+@keyframes downpat-toast-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .downpat-toast--success {

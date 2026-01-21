@@ -9,8 +9,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Added
 
 ### Fixed
+- Fix toast to be proper floating notification with fixed positioning (#106)
 
 ### Changed
+- Fix Talk to Coach UI issues (#112)
+- Fix sidebar z-index to appear above nav (#114)
+- Remove duplicate coach toggle button (#113)
+- Fix task array merge - preserve unmanaged task types (#111)
+- Fix code review issues from simplified task UI (#107)
+- Remove guidelines fallback for conversation prompts (#110)
+- Use spread pattern to preserve unmanaged exercise fields (#109)
+- Preserve task IDs when editing exercises (#108)
 - Fix spacing between Add Commentary/Summary Task buttons (#103)
 - Simplify task configuration to match legacy UX (#95)
 - Stay on edit screen after save with toast notification (#102)
