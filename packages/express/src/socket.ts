@@ -1,7 +1,7 @@
 import { Server as SocketServer } from 'socket.io';
 import type { Server as HTTPServer } from 'http';
-import type { ConversationStorage, ExerciseStorage, UserStateStorage, ServerAuthProvider, User, AIAdapter, AIMessage, Task, ModerationAdapter, Conversation, Exercise, Message } from '@downpat/core';
-import { ConversationController, MessageType, isCommentaryTask, parseStarterContent } from '@downpat/core';
+import type { ConversationStorage, ExerciseStorage, UserStateStorage, ServerAuthProvider, User, AIAdapter, AIMessage, Task, ModerationAdapter, Conversation, Exercise, Message, ConversationTask, CommentaryTask, SummaryTask } from '@downpat/core';
+import { ConversationController, MessageType, isCommentaryTask, isSummaryTask, isConversationTask, parseStarterContent } from '@downpat/core';
 
 /**
  * Default model to use when neither exercise.model nor config.defaultModel is set.
@@ -10,18 +10,32 @@ import { ConversationController, MessageType, isCommentaryTask, parseStarterCont
 const DEFAULT_MODEL = 'gpt-4';
 
 /**
+ * Build the system prompt for a task.
+ * For tasks with includeGuidelines=true, prepends exercise guidelines to the task prompt.
+ */
+function buildTaskPrompt(task: CommentaryTask | SummaryTask, guidelines: string): string {
+  if (task.includeGuidelines && guidelines) {
+    return `${guidelines}\n\n${task.prompt}`;
+  }
+  return task.prompt;
+}
+
+/**
  * Build AI messages array from conversation history.
- * Shared helper to avoid duplicating message transformation logic.
+ * Uses the conversation task's prompt if available, otherwise falls back to exercise guidelines.
  */
 function buildAIMessagesFromConversation(
   conversation: Conversation,
-  exercise: Exercise
+  exercise: Exercise,
+  conversationTask?: ConversationTask
 ): AIMessage[] {
+  // Use conversation task prompt if provided, otherwise fall back to exercise guidelines
+  const systemPrompt = conversationTask?.prompt
+    || exercise.guidelines
+    || `You are an AI assistant for the exercise: ${exercise.exerciseName}`;
+
   const aiMessages: AIMessage[] = [
-    {
-      role: 'system',
-      content: exercise.guidelines || `You are an AI assistant for the exercise: ${exercise.exerciseName}`,
-    },
+    { role: 'system', content: systemPrompt },
   ];
 
   for (const msg of conversation.messages) {
@@ -43,14 +57,16 @@ function buildAIMessagesFromConversation(
 }
 
 /**
- * Build AI messages for commentary, including previous commentary messages.
+ * Build AI messages for commentary/summary tasks.
+ * Includes previous commentary messages for context.
+ * The system prompt should already have guidelines prepended if needed (via buildTaskPrompt).
  */
-function buildCommentaryMessages(
+function buildCoachingMessages(
   messages: Message[],
-  commentaryPrompt: string
+  systemPrompt: string
 ): AIMessage[] {
   const aiMessages: AIMessage[] = [
-    { role: 'system', content: commentaryPrompt },
+    { role: 'system', content: systemPrompt },
   ];
 
   for (const msg of messages) {
@@ -363,7 +379,13 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
         // 3. If we have an AI adapter, generate response
         if (config.aiAdapter) {
           const model = exercise.model || config.defaultModel || DEFAULT_MODEL;
-          const aiMessages = buildAIMessagesFromConversation(conversation, exercise);
+
+          // Find conversation task for system prompt
+          const conversationTask = (exercise.continuationTasks || []).find(
+            (task: Task) => task.enabled && isConversationTask(task)
+          ) as ConversationTask | undefined;
+
+          const aiMessages = buildAIMessagesFromConversation(conversation, exercise, conversationTask);
 
           // Get stream controller (aborts any existing stream for this conversation)
           const streamController = getStreamController(data.conversationId);
@@ -389,7 +411,7 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
               data.conversationId,
               {
                 type: MessageType.CONVERSATION,
-                role: 'AI',
+                role: conversationTask?.role || 'AI',
                 content: fullContent,
               },
               socket.data.user!
@@ -401,7 +423,7 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
             // 7. Process commentary tasks from continuationTasks
             const commentaryTasks = (exercise.continuationTasks || []).filter(
               (task: Task) => task.enabled && isCommentaryTask(task)
-            );
+            ) as CommentaryTask[];
 
             if (commentaryTasks.length > 0) {
               // Fetch updated conversation for commentary context
@@ -409,9 +431,11 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
 
               for (const commentaryTask of commentaryTasks) {
                 try {
-                  const commentaryMessages = buildCommentaryMessages(
+                  // Build prompt with guidelines if includeGuidelines is true
+                  const systemPrompt = buildTaskPrompt(commentaryTask, exercise.guidelines || '');
+                  const commentaryMessages = buildCoachingMessages(
                     updatedConversation.messages,
-                    commentaryTask.prompt
+                    systemPrompt
                   );
 
                   // Stream commentary response
@@ -618,7 +642,13 @@ Be concise, supportive, and focused on helping them learn.`,
         // Regenerate AI response if adapter is available
         if (config.aiAdapter) {
           const model = exercise.model || config.defaultModel || DEFAULT_MODEL;
-          const aiMessages = buildAIMessagesFromConversation(conversation, exercise);
+
+          // Find conversation task for system prompt
+          const conversationTask = (exercise.continuationTasks || []).find(
+            (task: Task) => task.enabled && isConversationTask(task)
+          ) as ConversationTask | undefined;
+
+          const aiMessages = buildAIMessagesFromConversation(conversation, exercise, conversationTask);
 
           // Get stream controller (aborts any existing stream for this conversation)
           const streamController = getStreamController(data.conversationId);
@@ -644,7 +674,7 @@ Be concise, supportive, and focused on helping them learn.`,
               data.conversationId,
               {
                 type: MessageType.CONVERSATION,
-                role: 'AI',
+                role: conversationTask?.role || 'AI',
                 content: fullContent,
               },
               socket.data.user!
@@ -656,7 +686,7 @@ Be concise, supportive, and focused on helping them learn.`,
             // Process commentary tasks (same as send-message)
             const commentaryTasks = (exercise.continuationTasks || []).filter(
               (task: Task) => task.enabled && isCommentaryTask(task)
-            );
+            ) as CommentaryTask[];
 
             if (commentaryTasks.length > 0) {
               // Fetch updated conversation for commentary context
@@ -664,9 +694,11 @@ Be concise, supportive, and focused on helping them learn.`,
 
               for (const commentaryTask of commentaryTasks) {
                 try {
-                  const commentaryMessages = buildCommentaryMessages(
+                  // Build prompt with guidelines if includeGuidelines is true
+                  const systemPrompt = buildTaskPrompt(commentaryTask, exercise.guidelines || '');
+                  const commentaryMessages = buildCoachingMessages(
                     updatedConversation.messages,
-                    commentaryTask.prompt
+                    systemPrompt
                   );
 
                   // Stream commentary response
@@ -758,10 +790,16 @@ Be concise, supportive, and focused on helping them learn.`,
             if (!task.enabled) continue;
 
             try {
-              // Build messages for completion task (uses task.prompt as system message)
-              const completionMessages = buildCommentaryMessages(
+              // Build system prompt - include guidelines for summary tasks if includeGuidelines is true
+              let systemPrompt = task.prompt;
+              if (isSummaryTask(task)) {
+                systemPrompt = buildTaskPrompt(task, exercise.guidelines || '');
+              }
+
+              // Build messages for completion task
+              const completionMessages = buildCoachingMessages(
                 conversation.messages,
-                task.prompt
+                systemPrompt
               );
 
               // Stream completion task response
