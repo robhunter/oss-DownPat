@@ -3,6 +3,29 @@ import type { Exercise } from '@downpat/core';
 import { ExerciseForm } from '../components/ExerciseForm.js';
 import { useAdminContext, useAdminAPI } from '../AdminContext.js';
 
+/** Toast notification state */
+interface Toast {
+  message: string;
+  type: 'success' | 'error';
+}
+
+/** Auto-dismissing toast notification */
+function ToastNotification({ message, type, onClose }: Toast & { onClose: () => void }): React.JSX.Element {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 5000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  return (
+    <div className={`downpat-toast downpat-toast--${type}`}>
+      <span>{message}</span>
+      <button onClick={onClose} className="downpat-toast-close" aria-label="Dismiss">
+        &times;
+      </button>
+    </div>
+  );
+}
+
 export interface ExerciseEditorPageProps {
   /** Slug of exercise to edit, or undefined for new exercise */
   slug?: string;
@@ -21,14 +44,9 @@ export function ExerciseEditorPage({ slug }: ExerciseEditorPageProps): React.JSX
   const [isLoading, setIsLoading] = useState(!isNew);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<Toast | null>(null);
 
-  useEffect(() => {
-    if (!isNew && slug) {
-      loadExercise(slug);
-    }
-  }, [isNew, slug]);
-
-  const loadExercise = async (exerciseSlug: string) => {
+  const loadExercise = useCallback(async (exerciseSlug: string) => {
     try {
       setError(null);
       const data = await api.getExercise(exerciseSlug);
@@ -38,11 +56,18 @@ export function ExerciseEditorPage({ slug }: ExerciseEditorPageProps): React.JSX
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [api]);
+
+  useEffect(() => {
+    if (!isNew && slug) {
+      loadExercise(slug);
+    }
+  }, [isNew, slug, loadExercise]);
 
   const handleSubmit = useCallback(async (data: Exercise) => {
     setIsSubmitting(true);
     setError(null);
+    setToast(null);
 
     try {
       if (isNew) {
@@ -50,12 +75,17 @@ export function ExerciseEditorPage({ slug }: ExerciseEditorPageProps): React.JSX
       } else {
         await api.updateExercise(data.exerciseId, data);
       }
-      navigate('/exercises');
+      setToast({ message: 'Exercise saved successfully', type: 'success' });
+      // Update local exercise state to reflect saved data
+      setExercise(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save exercise');
+      const message = err instanceof Error ? err.message : 'Failed to save exercise';
+      setError(message);
+      setToast({ message, type: 'error' });
+    } finally {
       setIsSubmitting(false);
     }
-  }, [api, isNew, navigate]);
+  }, [api, isNew]);
 
   const handleCancel = useCallback(() => {
     navigate('/exercises');
@@ -90,6 +120,14 @@ export function ExerciseEditorPage({ slug }: ExerciseEditorPageProps): React.JSX
             Dismiss
           </button>
         </div>
+      )}
+
+      {toast && (
+        <ToastNotification
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
       )}
 
       <div className="downpat-admin-form-container">

@@ -198,7 +198,9 @@ describe('ExerciseEditorPage', () => {
       fireEvent.click(screen.getByText('Create Exercise'));
 
       await waitFor(() => {
-        expect(screen.getByText('Validation failed')).toBeInTheDocument();
+        // Error appears in both error block and toast - check both exist
+        const errors = screen.getAllByText('Validation failed');
+        expect(errors.length).toBe(2);
       });
     });
   });
@@ -222,15 +224,14 @@ describe('ExerciseEditorPage', () => {
       expect(onNavigate).toHaveBeenCalledWith('/admin/exercises');
     });
 
-    it('should navigate back after successful create', async () => {
-      const onNavigate = vi.fn();
+    it('should show success toast after successful create', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 201,
         json: () => Promise.resolve({ ...mockExercise, exerciseId: 'new-id' }),
       });
 
-      renderWithProvider({}, createConfig({ onNavigate }));
+      renderWithProvider();
 
       // Fill in required fields
       fireEvent.change(screen.getByPlaceholderText('Enter exercise name'), {
@@ -253,13 +254,11 @@ describe('ExerciseEditorPage', () => {
       fireEvent.click(screen.getByText('Create Exercise'));
 
       await waitFor(() => {
-        expect(onNavigate).toHaveBeenCalledWith('/admin/exercises');
+        expect(screen.getByText('Exercise saved successfully')).toBeInTheDocument();
       });
     });
 
-    it('should navigate back after successful update', async () => {
-      const onNavigate = vi.fn();
-
+    it('should show success toast after successful update', async () => {
       // First call: load exercise
       // Second call: update exercise
       mockFetch
@@ -274,7 +273,7 @@ describe('ExerciseEditorPage', () => {
           json: () => Promise.resolve(mockExercise),
         });
 
-      renderWithProvider({ slug: 'test-exercise' }, createConfig({ onNavigate }));
+      renderWithProvider({ slug: 'test-exercise' });
 
       // Wait for exercise to load
       await waitFor(() => {
@@ -290,7 +289,7 @@ describe('ExerciseEditorPage', () => {
       fireEvent.click(screen.getByText('Update Exercise'));
 
       await waitFor(() => {
-        expect(onNavigate).toHaveBeenCalledWith('/admin/exercises');
+        expect(screen.getByText('Exercise saved successfully')).toBeInTheDocument();
       });
     });
   });

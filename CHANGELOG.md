@@ -11,6 +11,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 ### Changed
+- Stay on edit screen after save with toast notification (#102)
+- Write unit tests for form validation and task generation (#101)
+- Update backend to use task-specific fields with includeGuidelines (#100)
+- Add show/hide functionality for optional task sections (#99)
+- Implement all-or-nothing validation per task type (#98)
+- Create dedicated form sections for each task type (#97)
+- Update Task type to support task-specific fields (#96)
+- Add integration tests for join-conversation socket event (#94)
+- Track active conversation in all creation paths (#93)
+- Remove dangling JSDoc comment in controller (#92)
+- Fix code review round 3: consistency and tests (#91)
 - Fix code review round 3 blockers (#91)
 - Fix code review round 2 blockers (#87)
 - Add MessageType.WELCOME for welcome messages (#90)
