@@ -88,16 +88,38 @@ export const BaseTaskSchema = z.object({
   enabled: z.boolean(),
 });
 
+// Response schema for conversation tasks
+export const ConversationResponseSchemaSchema = z.object({
+  conversation: z.string().min(1, 'Conversation response description is required'),
+});
+
+// Response schema for commentary tasks
+export const CommentaryResponseSchemaSchema = z.object({
+  commentary: z.string().min(1, 'Commentary response description is required'),
+  grade: z.string().min(1, 'Grade description is required'),
+});
+
+// Response schema for summary tasks
+export const SummaryResponseSchemaSchema = z.object({
+  summary: z.string().min(1, 'Summary response description is required'),
+  grade: z.string().min(1, 'Grade description is required'),
+});
+
 export const ConversationTaskSchema = BaseTaskSchema.extend({
   responseType: z.literal(MessageType.CONVERSATION),
+  responseSchema: ConversationResponseSchemaSchema,
 });
 
 export const CommentaryTaskSchema = BaseTaskSchema.extend({
   responseType: z.literal(MessageType.COMMENTARY),
+  responseSchema: CommentaryResponseSchemaSchema,
+  includeGuidelines: z.boolean(),
 });
 
 export const SummaryTaskSchema = BaseTaskSchema.extend({
   responseType: z.literal(MessageType.SUMMARY),
+  responseSchema: SummaryResponseSchemaSchema,
+  includeGuidelines: z.boolean(),
 });
 
 export const SimpleTaskSchema = BaseTaskSchema.extend({

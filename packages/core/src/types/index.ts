@@ -8,12 +8,21 @@ export type {
   SummaryTask,
   SimpleTask,
   Task,
+  ConversationResponseSchema,
+  CommentaryResponseSchema,
+  SummaryResponseSchema,
 } from './task.js';
 export {
   isConversationTask,
   isCommentaryTask,
   isSummaryTask,
   isSimpleTask,
+  createConversationTask,
+  createCommentaryTask,
+  createSummaryTask,
+  DEFAULT_CONVERSATION_FILTER,
+  DEFAULT_COMMENTARY_FILTER,
+  DEFAULT_SUMMARY_FILTER,
 } from './task.js';
 
 export type {

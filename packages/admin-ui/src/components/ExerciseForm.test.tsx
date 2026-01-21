@@ -120,7 +120,9 @@ describe('ExerciseForm', () => {
     fireEvent.click(screen.getByText('+ Add Task'));
 
     expect(screen.queryByText('No tasks configured')).not.toBeInTheDocument();
-    expect(screen.getByDisplayValue('New Task')).toBeInTheDocument();
+    // createConversationTask sets name to 'Conversation'
+    // Use placeholder to find the specific task name input
+    expect(screen.getByPlaceholderText('Task name')).toHaveValue('Conversation');
   });
 
   it('renders available models', () => {
@@ -306,9 +308,9 @@ describe('ExerciseForm', () => {
       const onSubmit = vi.fn();
       render(<ExerciseForm onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
 
-      // Add a task
+      // Add a task - createConversationTask sets name to 'Conversation'
       fireEvent.click(screen.getByText('+ Add Task'));
-      expect(screen.getByDisplayValue('New Task')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Task name')).toHaveValue('Conversation');
 
       // Remove the task
       fireEvent.click(screen.getByText('Remove'));
@@ -321,14 +323,14 @@ describe('ExerciseForm', () => {
       const onSubmit = vi.fn();
       render(<ExerciseForm onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
 
-      // Add a task
+      // Add a task - createConversationTask sets name to 'Conversation'
       fireEvent.click(screen.getByText('+ Add Task'));
 
-      // Edit the task name
-      const nameInput = screen.getByDisplayValue('New Task');
+      // Edit the task name using placeholder to find the specific input
+      const nameInput = screen.getByPlaceholderText('Task name');
       fireEvent.change(nameInput, { target: { value: 'My Custom Task' } });
 
-      expect(screen.getByDisplayValue('My Custom Task')).toBeInTheDocument();
+      expect(nameInput).toHaveValue('My Custom Task');
     });
 
     it('should allow toggling task enabled state', () => {

@@ -16,6 +16,9 @@ export type {
   SummaryTask,
   SimpleTask,
   Task,
+  ConversationResponseSchema,
+  CommentaryResponseSchema,
+  SummaryResponseSchema,
   Starter,
   ExerciseMetadata,
   Exercise,
@@ -33,6 +36,12 @@ export {
   isCommentaryTask,
   isSummaryTask,
   isSimpleTask,
+  createConversationTask,
+  createCommentaryTask,
+  createSummaryTask,
+  DEFAULT_CONVERSATION_FILTER,
+  DEFAULT_COMMENTARY_FILTER,
+  DEFAULT_SUMMARY_FILTER,
 } from './types/index.js';
 
 // Interfaces

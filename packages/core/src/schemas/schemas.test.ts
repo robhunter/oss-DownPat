@@ -132,17 +132,31 @@ describe('Zod Schemas', () => {
     };
 
     it('validates a conversation task', () => {
-      const task = { ...baseTask, responseType: MessageType.CONVERSATION };
+      const task = {
+        ...baseTask,
+        responseType: MessageType.CONVERSATION,
+        responseSchema: { conversation: 'Respond naturally in conversation.' },
+      };
       expect(() => TaskSchema.parse(task)).not.toThrow();
     });
 
     it('validates a commentary task', () => {
-      const task = { ...baseTask, responseType: MessageType.COMMENTARY };
+      const task = {
+        ...baseTask,
+        responseType: MessageType.COMMENTARY,
+        responseSchema: { commentary: 'Provide feedback.', grade: 'Rate performance.' },
+        includeGuidelines: true,
+      };
       expect(() => TaskSchema.parse(task)).not.toThrow();
     });
 
     it('validates a summary task', () => {
-      const task = { ...baseTask, responseType: MessageType.SUMMARY };
+      const task = {
+        ...baseTask,
+        responseType: MessageType.SUMMARY,
+        responseSchema: { summary: 'Summarize the conversation.', grade: 'Final grade.' },
+        includeGuidelines: true,
+      };
       expect(() => TaskSchema.parse(task)).not.toThrow();
     });
 
@@ -153,6 +167,22 @@ describe('Zod Schemas', () => {
 
     it('rejects invalid responseType', () => {
       const task = { ...baseTask, responseType: 'INVALID' };
+      const result = safeValidate(TaskSchema, task);
+      expect(result.success).toBe(false);
+    });
+
+    it('rejects conversation task without responseSchema', () => {
+      const task = { ...baseTask, responseType: MessageType.CONVERSATION };
+      const result = safeValidate(TaskSchema, task);
+      expect(result.success).toBe(false);
+    });
+
+    it('rejects commentary task without includeGuidelines', () => {
+      const task = {
+        ...baseTask,
+        responseType: MessageType.COMMENTARY,
+        responseSchema: { commentary: 'Feedback.', grade: 'Grade.' },
+      };
       const result = safeValidate(TaskSchema, task);
       expect(result.success).toBe(false);
     });
@@ -173,6 +203,7 @@ describe('Zod Schemas', () => {
         role: 'Assistant',
         prompt: 'Be helpful.',
         enabled: true,
+        responseSchema: { conversation: 'Respond naturally.' },
       }],
       completionTasks: [],
       welcomeMessage: 'Welcome!',

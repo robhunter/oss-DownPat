@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
-import type { Exercise, Task, BaseTask, ConversationTask, Starter } from '@downpat/core';
+import type { Exercise, Task, BaseTask, Starter } from '@downpat/core';
 import { MessageType } from '@downpat/core';
-import { generateId, generateSlug } from '@downpat/core';
+import { generateId, generateSlug, createConversationTask } from '@downpat/core';
 
 /** Create an empty starter with default values */
 function createEmptyStarter(): Starter {
@@ -38,33 +38,7 @@ export function ExerciseForm({
 }: ExerciseFormProps): React.JSX.Element {
   const hasModels = availableModels.length > 0;
 
-  // Show blocking alert if no models are configured
-  if (!hasModels) {
-    return (
-      <div className="downpat-exercise-form">
-        <div className="downpat-config-error">
-          <div className="downpat-config-error-icon">⚠️</div>
-          <h3 className="downpat-config-error-title">Configuration Required</h3>
-          <p className="downpat-config-error-message">
-            No AI models are available. Please configure at least one model before creating exercises.
-          </p>
-          <p className="downpat-config-error-hint">
-            Pass the <code>availableModels</code> prop with your configured AI models.
-          </p>
-          {onCancel && (
-            <button
-              type="button"
-              onClick={onCancel}
-              className="downpat-btn downpat-btn--secondary"
-            >
-              Go Back
-            </button>
-          )}
-        </div>
-      </div>
-    );
-  }
-
+  // All hooks must be called before any conditional returns
   const [formData, setFormData] = useState<Partial<Exercise>>(() => ({
     exerciseId: exercise?.exerciseId || generateId(),
     exerciseName: exercise?.exerciseName || '',
@@ -192,16 +166,41 @@ export function ExerciseForm({
   };
 
   const addContinuationTask = () => {
-    const newTask: ConversationTask = {
-      taskId: generateId(),
-      name: 'New Task',
-      responseType: MessageType.CONVERSATION,
-      role: 'Assistant',
-      prompt: '',
-      enabled: true,
-    };
+    const newTask = createConversationTask(
+      generateId(),
+      'Assistant',
+      '',
+      'Respond naturally in conversation.',
+    );
     updateField('continuationTasks', [...(formData.continuationTasks || []), newTask]);
   };
+
+  // Show blocking alert if no models are configured (after all hooks)
+  if (!hasModels) {
+    return (
+      <div className="downpat-exercise-form">
+        <div className="downpat-config-error">
+          <div className="downpat-config-error-icon">⚠️</div>
+          <h3 className="downpat-config-error-title">Configuration Required</h3>
+          <p className="downpat-config-error-message">
+            No AI models are available. Please configure at least one model before creating exercises.
+          </p>
+          <p className="downpat-config-error-hint">
+            Pass the <code>availableModels</code> prop with your configured AI models.
+          </p>
+          {onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="downpat-btn downpat-btn--secondary"
+            >
+              Go Back
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="downpat-exercise-form">
