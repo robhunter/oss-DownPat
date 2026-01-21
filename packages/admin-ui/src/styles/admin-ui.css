@@ -631,6 +631,46 @@
   box-shadow: var(--downpat-shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.1));
 }
 
+/* Toast Notifications */
+.downpat-toast {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--downpat-spacing-md, 16px);
+  padding: var(--downpat-spacing-md, 16px);
+  border-radius: var(--downpat-radius-md, 8px);
+  margin-bottom: var(--downpat-spacing-lg, 24px);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.downpat-toast--success {
+  background-color: #d1fae5;
+  color: #065f46;
+  border: 1px solid #10b981;
+}
+
+.downpat-toast--error {
+  background-color: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #ef4444;
+}
+
+.downpat-toast-close {
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  opacity: 0.7;
+}
+
+.downpat-toast-close:hover {
+  opacity: 1;
+}
+
 /* ============================================
    Starter Editor Styles
    ============================================ */

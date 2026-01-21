@@ -38,10 +38,12 @@ export function ExerciseEditorPage({ slug }: ExerciseEditorPageProps): React.JSX
   const { navigate, availableModels } = useAdminContext();
   const api = useAdminAPI();
 
-  const isNew = !slug;
+  // Track whether we're creating vs editing - starts based on slug prop
+  // but switches to false once we've successfully created
+  const [isNew, setIsNew] = useState(!slug);
 
   const [exercise, setExercise] = useState<Exercise | undefined>(undefined);
-  const [isLoading, setIsLoading] = useState(!isNew);
+  const [isLoading, setIsLoading] = useState(!!slug);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
@@ -72,6 +74,8 @@ export function ExerciseEditorPage({ slug }: ExerciseEditorPageProps): React.JSX
     try {
       if (isNew) {
         await api.createExercise(data);
+        // Switch to edit mode after successful create
+        setIsNew(false);
       } else {
         await api.updateExercise(data.exerciseId, data);
       }

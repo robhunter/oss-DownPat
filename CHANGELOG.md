@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 ### Changed
+- Fix spacing between Add Commentary/Summary Task buttons (#103)
+- Simplify task configuration to match legacy UX (#95)
 - Stay on edit screen after save with toast notification (#102)
 - Write unit tests for form validation and task generation (#101)
 - Update backend to use task-specific fields with includeGuidelines (#100)
