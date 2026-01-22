@@ -46,18 +46,18 @@ export function selectStarter(
 /**
  * Create Messages from a Starter.
  * Returns an array of messages:
- * - If context exists, a CONTEXT message is created first (for AI context, not displayed to user)
- * - Then a STARTER message with the full starter object as JSON content
+ * - If context exists, a CONTEXT message is created (shown as system context)
+ * - If text exists, a STARTER message is created (shown as character dialog)
  *
- * The JSON format allows passing all starter data (text, context, attributes) to the AI.
- * The UI should parse the JSON and display only the 'text' field.
+ * Context-only starters (no text) only produce a CONTEXT message.
+ * The STARTER message JSON includes text, context, and attributes for the AI.
  */
 export function starterToMessages(starter: Starter): Message[] {
   const messages: Message[] = [];
   const timestamp = new Date().toISOString();
 
-  // If context exists, create a CONTEXT message first
-  // This provides scenario context to the AI but is filtered from user display
+  // If context exists, create a CONTEXT message
+  // This provides scenario context to the AI and is displayed as system message
   if (starter.context && starter.context.trim()) {
     messages.push({
       messageId: generateId(),
@@ -68,24 +68,26 @@ export function starterToMessages(starter: Starter): Message[] {
     });
   }
 
-  // Create the STARTER message with full starter object as JSON
-  // This includes text, context, and all attributes for the AI
-  const starterContent = JSON.stringify({
-    text: starter.text,
-    context: starter.context || '',
-    ...starter.attributes,
-  });
+  // Only create STARTER message if text exists (not empty)
+  // Context-only starters don't need a character dialog message
+  if (starter.text && starter.text.trim()) {
+    const starterContent = JSON.stringify({
+      text: starter.text,
+      context: starter.context || '',
+      ...starter.attributes,
+    });
 
-  // Get role from attributes if 'name' is provided, otherwise default to 'Assistant'
-  const role = starter.attributes?.name || 'Assistant';
+    // Get role from attributes if 'name' is provided, otherwise default to 'Assistant'
+    const role = starter.attributes?.name || 'Assistant';
 
-  messages.push({
-    messageId: generateId(),
-    type: MessageType.STARTER,
-    role,
-    content: starterContent,
-    timestamp,
-  });
+    messages.push({
+      messageId: generateId(),
+      type: MessageType.STARTER,
+      role,
+      content: starterContent,
+      timestamp,
+    });
+  }
 
   return messages;
 }
