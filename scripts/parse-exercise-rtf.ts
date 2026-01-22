@@ -171,12 +171,8 @@ function parseStarterBlock(block: string): Starter | null {
   text = text.trim();
   context = context.trim();
 
-  // If no explicit text field, use context as both text and context
-  if (!text && context) {
-    text = context;
-  }
-
-  if (!text) {
+  // A starter needs either text or context to be valid
+  if (!text && !context) {
     return null;
   }
 

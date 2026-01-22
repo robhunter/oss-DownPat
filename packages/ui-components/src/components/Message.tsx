@@ -29,7 +29,8 @@ function getDisplayContent(message: MessageData): string {
   if (message.type === MessageType.STARTER) {
     try {
       const parsed = JSON.parse(message.content) as { text?: string };
-      return parsed.text || message.content;
+      // Check for explicit 'text' property - empty string is valid (context-only starters)
+      return 'text' in parsed ? (parsed.text ?? '') : message.content;
     } catch {
       // If not valid JSON, return content as-is (backwards compatibility)
       return message.content;
