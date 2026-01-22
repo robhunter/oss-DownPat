@@ -12,6 +12,13 @@ export { OpenAIAdapter, OpenAIModerationAdapter, createOpenAIAdapter } from './o
 export { AnthropicAdapter, createAnthropicAdapter } from './anthropic-adapter.js';
 export { GeminiAdapter, createGeminiAdapter } from './gemini-adapter.js';
 
+// Export streaming JSON parser utilities
+export {
+  initializeParserState,
+  parseJsonToken,
+  type ParserState,
+} from './streaming-json-parser.js';
+
 // Re-export types from core
 export type {
   AIAdapter,
@@ -21,6 +28,11 @@ export type {
   AIProviderConfig,
   ModerationAdapter,
   ModerationResult,
+  AIToolParameter,
+  AITool,
+  AIToolCallbacks,
+  AIToolCompletionOptions,
+  AIToolCompletionResult,
 } from '@downpat/core';
 export { getAvailableModels } from '@downpat/core';
 

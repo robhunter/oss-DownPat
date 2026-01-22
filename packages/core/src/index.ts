@@ -58,6 +58,11 @@ export type {
   AIProviderConfig,
   ModerationResult,
   ModerationAdapter,
+  AIToolParameter,
+  AITool,
+  AIToolCallbacks,
+  AIToolCompletionOptions,
+  AIToolCompletionResult,
 } from './interfaces/index.js';
 
 export { getAvailableModels } from './interfaces/index.js';

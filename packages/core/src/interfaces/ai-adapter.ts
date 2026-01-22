@@ -19,6 +19,62 @@ export interface AICompletionOptions {
   signal?: AbortSignal;
 }
 
+/**
+ * Tool parameter definition for structured output
+ */
+export interface AIToolParameter {
+  type: 'string' | 'number' | 'boolean' | 'array';
+  description?: string;
+  enum?: string[];
+  items?: { type: string };
+}
+
+/**
+ * Tool definition for function calling
+ */
+export interface AITool {
+  name: string;
+  description?: string;
+  parameters: Record<string, AIToolParameter>;
+  required?: string[];
+}
+
+/**
+ * Callbacks for streaming tool call fields
+ */
+export interface AIToolCallbacks {
+  [fieldName: string]: (chunk: string) => void;
+}
+
+/**
+ * Options for tool-based completion with streaming
+ */
+export interface AIToolCompletionOptions {
+  model: string;
+  messages: AIMessage[];
+  tool: AITool;
+  maxTokens?: number;
+  temperature?: number;
+  /** Callbacks for streaming specific fields from the tool response */
+  callbacks?: AIToolCallbacks;
+  /** Signal for aborting the request */
+  signal?: AbortSignal;
+}
+
+/**
+ * Result from a tool-based completion
+ */
+export interface AIToolCompletionResult {
+  /** Parsed tool arguments */
+  arguments: Record<string, unknown>;
+  finishReason: 'stop' | 'length' | 'content_filter' | 'error';
+  usage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
+}
+
 export interface AICompletionResult {
   content: string;
   finishReason: 'stop' | 'length' | 'content_filter' | 'error';
@@ -53,6 +109,13 @@ export interface AIAdapter {
    * Generate a completion (with optional streaming)
    */
   complete(options: AICompletionOptions): Promise<AICompletionResult>;
+
+  /**
+   * Generate a completion using tool/function calling with streaming support.
+   * Allows streaming individual fields from the tool response.
+   * Optional - adapters that don't support tool calling can omit this.
+   */
+  completeWithTool?(options: AIToolCompletionOptions): Promise<AIToolCompletionResult>;
 }
 
 /**

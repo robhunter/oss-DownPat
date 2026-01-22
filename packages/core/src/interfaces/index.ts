@@ -10,5 +10,10 @@ export type {
   AIProviderConfig,
   ModerationResult,
   ModerationAdapter,
+  AIToolParameter,
+  AITool,
+  AIToolCallbacks,
+  AIToolCompletionOptions,
+  AIToolCompletionResult,
 } from './ai-adapter.js';
 export { getAvailableModels } from './ai-adapter.js';

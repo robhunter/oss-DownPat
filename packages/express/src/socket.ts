@@ -1,6 +1,6 @@
 import { Server as SocketServer } from 'socket.io';
 import type { Server as HTTPServer } from 'http';
-import type { ConversationStorage, ExerciseStorage, UserStateStorage, ServerAuthProvider, User, AIAdapter, AIMessage, Task, ModerationAdapter, Conversation, Exercise, Message, ConversationTask, CommentaryTask, SummaryTask } from '@downpat/core';
+import type { ConversationStorage, ExerciseStorage, UserStateStorage, ServerAuthProvider, User, AIAdapter, AIMessage, Task, ModerationAdapter, Conversation, Exercise, Message, ConversationTask, CommentaryTask, SummaryTask, AITool, AIToolCallbacks } from '@downpat/core';
 import { ConversationController, MessageType, isCommentaryTask, isSummaryTask, isConversationTask, parseStarterContent } from '@downpat/core';
 
 /**
@@ -12,7 +12,6 @@ const DEFAULT_MODEL = 'gpt-4';
 /**
  * Build the system prompt for a task.
  * For tasks with includeGuidelines=true, prepends exercise guidelines to the task prompt.
- * For commentary/summary tasks, appends grade output instructions.
  */
 function buildTaskPrompt(task: CommentaryTask | SummaryTask, guidelines: string): string {
   let prompt = task.prompt;
@@ -21,21 +20,31 @@ function buildTaskPrompt(task: CommentaryTask | SummaryTask, guidelines: string)
     prompt = `${guidelines}\n\n${prompt}`;
   }
 
-  // Append grade output instructions for structured response
-  const gradeInstructions = `
-
-IMPORTANT: You must include a grade assessment. Start your response with exactly one of these lines:
-GRADE: good
-GRADE: okay
-GRADE: needs improvement
-
-Then on the next line, provide your ${task.responseType === MessageType.COMMENTARY ? 'commentary' : 'summary'}.`;
-
-  return prompt + gradeInstructions;
+  return prompt;
 }
 
 /**
- * Parse commentary/summary response to extract grade and content.
+ * Tool definition for commentary responses with grade.
+ */
+const COMMENTARY_TOOL: AITool = {
+  name: 'commentary',
+  description: 'Provide coaching commentary on the conversation with a grade assessment',
+  parameters: {
+    commentary: {
+      type: 'string',
+      description: 'Your coaching feedback and commentary on the conversation',
+    },
+    grade: {
+      type: 'string',
+      description: 'Assessment of the user\'s performance',
+      enum: ['good', 'okay', 'needs improvement'],
+    },
+  },
+  required: ['commentary', 'grade'],
+};
+
+/**
+ * Parse commentary/summary response to extract grade and content (fallback for non-tool responses).
  * Expected format:
  * GRADE: good|okay|needs improvement
  * [actual commentary/summary text]
@@ -428,11 +437,24 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
           // Get stream controller (aborts any existing stream for this conversation)
           const streamController = getStreamController(data.conversationId);
 
-          // 4. Stream AI response
+          // Find commentary tasks to run in parallel with conversation
+          const commentaryTasks = (exercise.continuationTasks || []).filter(
+            (task: Task) => task.enabled && isCommentaryTask(task)
+          ) as CommentaryTask[];
+
+          // Build commentary messages now (before conversation response changes the conversation)
+          const commentaryMessagesMap = new Map<CommentaryTask, AIMessage[]>();
+          for (const commentaryTask of commentaryTasks) {
+            const systemPrompt = buildTaskPrompt(commentaryTask, exercise.guidelines || '');
+            commentaryMessagesMap.set(commentaryTask, buildCoachingMessages(conversation.messages, systemPrompt));
+          }
+
+          // 4. Stream AI response and commentary in PARALLEL
           let fullContent = '';
 
           try {
-            await config.aiAdapter.complete({
+            // Create conversation promise
+            const conversationPromise = config.aiAdapter.complete({
               model,
               messages: aiMessages,
               maxTokens: 1024,
@@ -443,6 +465,53 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
                 socket.emit('message-chunk', { chunk });
               },
             });
+
+            // Create commentary promises (run in parallel)
+            // Capture adapter reference for use in async closure
+            const aiAdapter = config.aiAdapter;
+            const commentaryPromises = commentaryTasks.map(async (commentaryTask) => {
+              const commentaryMessages = commentaryMessagesMap.get(commentaryTask)!;
+
+              // Check if adapter supports tool calling for streaming with grade
+              if (aiAdapter.completeWithTool) {
+                // Use tool calling for streaming commentary with grade
+                const callbacks: AIToolCallbacks = {
+                  commentary: (chunk: string) => {
+                    socket.emit('commentary-chunk', { chunk, role: commentaryTask.role });
+                  },
+                };
+
+                const result = await aiAdapter.completeWithTool({
+                  model,
+                  messages: commentaryMessages,
+                  tool: COMMENTARY_TOOL,
+                  maxTokens: 512,
+                  temperature: 0.7,
+                  callbacks,
+                  signal: streamController.signal,
+                });
+
+                const commentaryContent = (result.arguments.commentary as string) || '';
+                const grade = (result.arguments.grade as string) || null;
+
+                return { commentaryTask, commentaryContent, grade };
+              } else {
+                // Fallback: non-streaming with text parsing for grade
+                const result = await aiAdapter.complete({
+                  model,
+                  messages: commentaryMessages,
+                  maxTokens: 512,
+                  temperature: 0.7,
+                  signal: streamController.signal,
+                });
+
+                const { grade, content: commentaryContent } = parseGradedResponse(result.content);
+                return { commentaryTask, commentaryContent, grade };
+              }
+            });
+
+            // Wait for conversation to complete
+            await conversationPromise;
 
             // 5. Save AI message
             await controller.addAIMessage(
@@ -458,37 +527,14 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
             // 6. Emit message complete
             socket.emit('message-complete');
 
-            // 7. Process commentary tasks from continuationTasks
-            const commentaryTasks = (exercise.continuationTasks || []).filter(
-              (task: Task) => task.enabled && isCommentaryTask(task)
-            ) as CommentaryTask[];
+            // 7. Wait for all commentary tasks to complete and save them
+            const commentaryResults = await Promise.allSettled(commentaryPromises);
 
-            if (commentaryTasks.length > 0) {
-              // Fetch updated conversation for commentary context
-              const updatedConversation = await controller.getConversation(data.conversationId, socket.data.user!);
+            for (const result of commentaryResults) {
+              if (result.status === 'fulfilled') {
+                const { commentaryTask, commentaryContent, grade } = result.value;
 
-              for (const commentaryTask of commentaryTasks) {
                 try {
-                  // Build prompt with guidelines if includeGuidelines is true
-                  // This includes grade output instructions
-                  const systemPrompt = buildTaskPrompt(commentaryTask, exercise.guidelines || '');
-                  const commentaryMessages = buildCoachingMessages(
-                    updatedConversation.messages,
-                    systemPrompt
-                  );
-
-                  // Get commentary response (no streaming - we need to parse grade)
-                  const result = await config.aiAdapter.complete({
-                    model,
-                    messages: commentaryMessages,
-                    maxTokens: 512,
-                    temperature: 0.7,
-                    signal: streamController.signal,
-                  });
-
-                  // Parse grade and content from response
-                  const { grade, content: commentaryContent } = parseGradedResponse(result.content);
-
                   // Save commentary message with grade in metadata
                   await controller.addAIMessage(
                     data.conversationId,
@@ -507,10 +553,11 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
                     content: commentaryContent,
                     grade: grade || undefined,
                   });
-                } catch (commentaryError) {
-                  console.error('[Socket] Commentary error:', commentaryError);
-                  // Don't fail the whole message if commentary fails
+                } catch (saveError) {
+                  console.error('[Socket] Error saving commentary:', saveError);
                 }
+              } else {
+                console.error('[Socket] Commentary task failed:', result.reason);
               }
             }
 
@@ -695,11 +742,24 @@ Be concise, supportive, and focused on helping them learn.`,
           // Get stream controller (aborts any existing stream for this conversation)
           const streamController = getStreamController(data.conversationId);
 
-          // Stream AI response
+          // Find commentary tasks to run in parallel with conversation
+          const commentaryTasks = (exercise.continuationTasks || []).filter(
+            (task: Task) => task.enabled && isCommentaryTask(task)
+          ) as CommentaryTask[];
+
+          // Build commentary messages now (before conversation response changes the conversation)
+          const commentaryMessagesMap = new Map<CommentaryTask, AIMessage[]>();
+          for (const commentaryTask of commentaryTasks) {
+            const systemPrompt = buildTaskPrompt(commentaryTask, exercise.guidelines || '');
+            commentaryMessagesMap.set(commentaryTask, buildCoachingMessages(conversation.messages, systemPrompt));
+          }
+
+          // Stream AI response and commentary in PARALLEL
           let fullContent = '';
 
           try {
-            await config.aiAdapter.complete({
+            // Create conversation promise
+            const conversationPromise = config.aiAdapter.complete({
               model,
               messages: aiMessages,
               maxTokens: 1024,
@@ -710,6 +770,53 @@ Be concise, supportive, and focused on helping them learn.`,
                 socket.emit('message-chunk', { chunk });
               },
             });
+
+            // Create commentary promises (run in parallel)
+            // Capture adapter reference for use in async closures
+            const aiAdapter = config.aiAdapter;
+            const commentaryPromises = commentaryTasks.map(async (commentaryTask) => {
+              const commentaryMessages = commentaryMessagesMap.get(commentaryTask)!;
+
+              // Check if adapter supports tool calling for streaming with grade
+              if (aiAdapter.completeWithTool) {
+                // Use tool calling for streaming commentary with grade
+                const callbacks: AIToolCallbacks = {
+                  commentary: (chunk: string) => {
+                    socket.emit('commentary-chunk', { chunk, role: commentaryTask.role });
+                  },
+                };
+
+                const result = await aiAdapter.completeWithTool({
+                  model,
+                  messages: commentaryMessages,
+                  tool: COMMENTARY_TOOL,
+                  maxTokens: 512,
+                  temperature: 0.7,
+                  callbacks,
+                  signal: streamController.signal,
+                });
+
+                const commentaryContent = (result.arguments.commentary as string) || '';
+                const grade = (result.arguments.grade as string) || null;
+
+                return { commentaryTask, commentaryContent, grade };
+              } else {
+                // Fallback: non-streaming with text parsing for grade
+                const result = await aiAdapter.complete({
+                  model,
+                  messages: commentaryMessages,
+                  maxTokens: 512,
+                  temperature: 0.7,
+                  signal: streamController.signal,
+                });
+
+                const { grade, content: commentaryContent } = parseGradedResponse(result.content);
+                return { commentaryTask, commentaryContent, grade };
+              }
+            });
+
+            // Wait for conversation to complete
+            await conversationPromise;
 
             // Save AI message
             await controller.addAIMessage(
@@ -725,37 +832,14 @@ Be concise, supportive, and focused on helping them learn.`,
             // Emit message complete
             socket.emit('message-complete');
 
-            // Process commentary tasks (same as send-message)
-            const commentaryTasks = (exercise.continuationTasks || []).filter(
-              (task: Task) => task.enabled && isCommentaryTask(task)
-            ) as CommentaryTask[];
+            // Wait for all commentary tasks to complete and save them
+            const commentaryResults = await Promise.allSettled(commentaryPromises);
 
-            if (commentaryTasks.length > 0) {
-              // Fetch updated conversation for commentary context
-              const updatedConversation = await controller.getConversation(data.conversationId, socket.data.user!);
+            for (const result of commentaryResults) {
+              if (result.status === 'fulfilled') {
+                const { commentaryTask, commentaryContent, grade } = result.value;
 
-              for (const commentaryTask of commentaryTasks) {
                 try {
-                  // Build prompt with guidelines if includeGuidelines is true
-                  // This includes grade output instructions
-                  const systemPrompt = buildTaskPrompt(commentaryTask, exercise.guidelines || '');
-                  const commentaryMessages = buildCoachingMessages(
-                    updatedConversation.messages,
-                    systemPrompt
-                  );
-
-                  // Get commentary response (no streaming - we need to parse grade)
-                  const result = await config.aiAdapter.complete({
-                    model,
-                    messages: commentaryMessages,
-                    maxTokens: 512,
-                    temperature: 0.7,
-                    signal: streamController.signal,
-                  });
-
-                  // Parse grade and content from response
-                  const { grade, content: commentaryContent } = parseGradedResponse(result.content);
-
                   // Save commentary message with grade in metadata
                   await controller.addAIMessage(
                     data.conversationId,
@@ -774,10 +858,11 @@ Be concise, supportive, and focused on helping them learn.`,
                     content: commentaryContent,
                     grade: grade || undefined,
                   });
-                } catch (commentaryError) {
-                  console.error('[Socket] Commentary error during edit:', commentaryError);
-                  // Don't fail the whole edit if commentary fails
+                } catch (saveError) {
+                  console.error('[Socket] Error saving commentary during edit:', saveError);
                 }
+              } else {
+                console.error('[Socket] Commentary task failed during edit:', result.reason);
               }
             }
 
