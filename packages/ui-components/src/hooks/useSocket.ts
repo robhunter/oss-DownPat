@@ -293,16 +293,37 @@ export function useConversation({ slug, conversationId, socketUrl }: UseConversa
       });
     });
 
-    // Handle commentary complete
-    socket.on('commentary-complete', () => {
+    // Handle commentary complete (now includes full content and grade)
+    socket.on('commentary-complete', (data: { role: string; content?: string; grade?: string }) => {
       streamingCommentaryRef.current = '';
-      // Finalize the commentary message ID
+      // Finalize the commentary message - use content from server if provided (includes parsed grade)
       setMessages((prev) => {
-        return prev.map((m) =>
-          m.messageId === 'streaming-commentary'
-            ? { ...m, messageId: `commentary-${Date.now()}` }
-            : m
-        );
+        // Check if there's an existing streaming commentary to update
+        const hasStreaming = prev.some((m) => m.messageId === 'streaming-commentary');
+        if (hasStreaming) {
+          return prev.map((m) =>
+            m.messageId === 'streaming-commentary'
+              ? {
+                  ...m,
+                  messageId: `commentary-${Date.now()}`,
+                  content: data.content ?? m.content,
+                  metadata: data.grade ? { grade: data.grade } : undefined,
+                }
+              : m
+          );
+        }
+        // No streaming message - add the complete commentary directly
+        return [
+          ...prev,
+          {
+            messageId: `commentary-${Date.now()}`,
+            type: 'COMMENTARY' as MessageData['type'],
+            role: data.role,
+            content: data.content ?? '',
+            timestamp: new Date().toISOString(),
+            metadata: data.grade ? { grade: data.grade } : undefined,
+          },
+        ];
       });
     });
 

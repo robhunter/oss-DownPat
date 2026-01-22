@@ -9,6 +9,11 @@ export interface MessageData {
   role: string;
   content: string;
   timestamp: string;
+  /** Additional metadata (e.g., grade for commentary) */
+  metadata?: {
+    grade?: string;
+    [key: string]: unknown;
+  };
 }
 
 export interface MessageProps {
@@ -20,6 +25,47 @@ export interface MessageProps {
   showTimestamp?: boolean;
   /** Whether to show avatar (default: true) */
   showAvatar?: boolean;
+}
+
+/**
+ * Grade display configuration for commentary/summary messages.
+ */
+interface GradeDisplay {
+  label: string;
+  color: string;
+  backgroundColor: string;
+}
+
+/**
+ * Get grade display configuration based on grade value.
+ */
+function getGradeDisplay(grade: string | undefined): GradeDisplay | null {
+  if (!grade) return null;
+
+  const normalizedGrade = grade.toLowerCase();
+
+  switch (normalizedGrade) {
+    case 'good':
+      return {
+        label: 'Well done',
+        color: '#065f46',
+        backgroundColor: '#d1fae5',
+      };
+    case 'okay':
+      return {
+        label: 'Almost there',
+        color: '#92400e',
+        backgroundColor: '#fef3c7',
+      };
+    case 'needs improvement':
+      return {
+        label: 'Room for improvement',
+        color: '#991b1b',
+        backgroundColor: '#fee2e2',
+      };
+    default:
+      return null;
+  }
 }
 
 /**
@@ -52,6 +98,7 @@ export function Message({
 }: MessageProps): React.JSX.Element {
   const style = getMessageStyle(message.type);
   const displayContent = getDisplayContent(message);
+  const gradeDisplay = getGradeDisplay(message.metadata?.grade);
 
   return (
     <div
@@ -71,19 +118,40 @@ export function Message({
               fontWeight: 500,
               fontSize: '14px',
               color: 'var(--downpat-text-secondary, #6b7280)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              flexWrap: 'wrap',
             }}
           >
-            {message.role}
-            {getTypeLabel(message.type) && (
+            <span>
+              {message.role}
+              {getTypeLabel(message.type) && (
+                <span
+                  style={{
+                    marginLeft: '8px',
+                    fontSize: '12px',
+                    fontWeight: 400,
+                    color: 'var(--downpat-text-secondary, #9ca3af)',
+                  }}
+                >
+                  {getTypeLabel(message.type)}
+                </span>
+              )}
+            </span>
+            {gradeDisplay && (
               <span
+                className="downpat-grade-badge"
                 style={{
-                  marginLeft: '8px',
                   fontSize: '12px',
-                  fontWeight: 400,
-                  color: 'var(--downpat-text-secondary, #9ca3af)',
+                  fontWeight: 500,
+                  padding: '2px 8px',
+                  borderRadius: '9999px',
+                  color: gradeDisplay.color,
+                  backgroundColor: gradeDisplay.backgroundColor,
                 }}
               >
-                {getTypeLabel(message.type)}
+                {gradeDisplay.label}
               </span>
             )}
           </div>

@@ -12,12 +12,49 @@ const DEFAULT_MODEL = 'gpt-4';
 /**
  * Build the system prompt for a task.
  * For tasks with includeGuidelines=true, prepends exercise guidelines to the task prompt.
+ * For commentary/summary tasks, appends grade output instructions.
  */
 function buildTaskPrompt(task: CommentaryTask | SummaryTask, guidelines: string): string {
+  let prompt = task.prompt;
+
   if (task.includeGuidelines && guidelines) {
-    return `${guidelines}\n\n${task.prompt}`;
+    prompt = `${guidelines}\n\n${prompt}`;
   }
-  return task.prompt;
+
+  // Append grade output instructions for structured response
+  const gradeInstructions = `
+
+IMPORTANT: You must include a grade assessment. Start your response with exactly one of these lines:
+GRADE: good
+GRADE: okay
+GRADE: needs improvement
+
+Then on the next line, provide your ${task.responseType === MessageType.COMMENTARY ? 'commentary' : 'summary'}.`;
+
+  return prompt + gradeInstructions;
+}
+
+/**
+ * Parse commentary/summary response to extract grade and content.
+ * Expected format:
+ * GRADE: good|okay|needs improvement
+ * [actual commentary/summary text]
+ */
+function parseGradedResponse(response: string): { grade: string | null; content: string } {
+  const lines = response.trim().split('\n');
+  const firstLine = lines[0]?.trim() || '';
+
+  // Check if first line matches grade format
+  const gradeMatch = firstLine.match(/^GRADE:\s*(good|okay|needs improvement)$/i);
+
+  if (gradeMatch) {
+    const grade = gradeMatch[1].toLowerCase();
+    const content = lines.slice(1).join('\n').trim();
+    return { grade, content };
+  }
+
+  // No grade found, return full response as content
+  return { grade: null, content: response };
 }
 
 /**
@@ -433,43 +470,47 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
               for (const commentaryTask of commentaryTasks) {
                 try {
                   // Build prompt with guidelines if includeGuidelines is true
+                  // This includes grade output instructions
                   const systemPrompt = buildTaskPrompt(commentaryTask, exercise.guidelines || '');
                   const commentaryMessages = buildCoachingMessages(
                     updatedConversation.messages,
                     systemPrompt
                   );
 
-                  // Stream commentary response
-                let commentaryContent = '';
-                await config.aiAdapter.complete({
-                  model,
-                  messages: commentaryMessages,
-                  maxTokens: 512,
-                  temperature: 0.7,
-                  signal: streamController.signal,
-                  onChunk: (chunk: string) => {
-                    commentaryContent += chunk;
-                    socket.emit('commentary-chunk', { chunk, role: commentaryTask.role });
-                  },
-                });
+                  // Get commentary response (no streaming - we need to parse grade)
+                  const result = await config.aiAdapter.complete({
+                    model,
+                    messages: commentaryMessages,
+                    maxTokens: 512,
+                    temperature: 0.7,
+                    signal: streamController.signal,
+                  });
 
-                // Save commentary message
-                await controller.addAIMessage(
-                  data.conversationId,
-                  {
-                    type: MessageType.COMMENTARY,
+                  // Parse grade and content from response
+                  const { grade, content: commentaryContent } = parseGradedResponse(result.content);
+
+                  // Save commentary message with grade in metadata
+                  await controller.addAIMessage(
+                    data.conversationId,
+                    {
+                      type: MessageType.COMMENTARY,
+                      role: commentaryTask.role,
+                      content: commentaryContent,
+                      metadata: grade ? { grade } : undefined,
+                    },
+                    socket.data.user!
+                  );
+
+                  // Emit commentary complete with content and grade
+                  socket.emit('commentary-complete', {
                     role: commentaryTask.role,
                     content: commentaryContent,
-                  },
-                  socket.data.user!
-                );
-
-                // Emit commentary complete
-                socket.emit('commentary-complete', { role: commentaryTask.role });
-              } catch (commentaryError) {
-                console.error('[Socket] Commentary error:', commentaryError);
-                // Don't fail the whole message if commentary fails
-              }
+                    grade: grade || undefined,
+                  });
+                } catch (commentaryError) {
+                  console.error('[Socket] Commentary error:', commentaryError);
+                  // Don't fail the whole message if commentary fails
+                }
               }
             }
 
@@ -696,39 +737,43 @@ Be concise, supportive, and focused on helping them learn.`,
               for (const commentaryTask of commentaryTasks) {
                 try {
                   // Build prompt with guidelines if includeGuidelines is true
+                  // This includes grade output instructions
                   const systemPrompt = buildTaskPrompt(commentaryTask, exercise.guidelines || '');
                   const commentaryMessages = buildCoachingMessages(
                     updatedConversation.messages,
                     systemPrompt
                   );
 
-                  // Stream commentary response
-                  let commentaryContent = '';
-                  await config.aiAdapter.complete({
+                  // Get commentary response (no streaming - we need to parse grade)
+                  const result = await config.aiAdapter.complete({
                     model,
                     messages: commentaryMessages,
                     maxTokens: 512,
                     temperature: 0.7,
                     signal: streamController.signal,
-                    onChunk: (chunk: string) => {
-                      commentaryContent += chunk;
-                      socket.emit('commentary-chunk', { chunk, role: commentaryTask.role });
-                    },
                   });
 
-                  // Save commentary message
+                  // Parse grade and content from response
+                  const { grade, content: commentaryContent } = parseGradedResponse(result.content);
+
+                  // Save commentary message with grade in metadata
                   await controller.addAIMessage(
                     data.conversationId,
                     {
                       type: MessageType.COMMENTARY,
                       role: commentaryTask.role,
                       content: commentaryContent,
+                      metadata: grade ? { grade } : undefined,
                     },
                     socket.data.user!
                   );
 
-                  // Emit commentary complete
-                  socket.emit('commentary-complete', { role: commentaryTask.role });
+                  // Emit commentary complete with content and grade
+                  socket.emit('commentary-complete', {
+                    role: commentaryTask.role,
+                    content: commentaryContent,
+                    grade: grade || undefined,
+                  });
                 } catch (commentaryError) {
                   console.error('[Socket] Commentary error during edit:', commentaryError);
                   // Don't fail the whole edit if commentary fails
@@ -916,7 +961,7 @@ interface ServerToClientEvents {
   'message-chunk': (data: { chunk: string }) => void;
   'message-complete': () => void;
   'commentary-chunk': (data: { chunk: string; role: string }) => void;
-  'commentary-complete': (data: { role: string }) => void;
+  'commentary-complete': (data: { role: string; content?: string; grade?: string }) => void;
   'coach-message-chunk': (data: { chunk: string }) => void;
   'coach-message-complete': (data: { content: string }) => void;
   'message-moderated': (data: { flagged: boolean; categories: string[]; message: string; isComplete: boolean }) => void;
@@ -928,5 +973,6 @@ interface ServerToClientEvents {
   'conversation-finished': (data: { conversationId: string; isComplete: boolean }) => void;
   'completion-chunk': (data: { chunk: string; role: string }) => void;
   'completion-complete': (data: { role: string }) => void;
+  'completion-task-error': (data: { role: string; error: string }) => void;
   error: (data: { message: string }) => void;
 }

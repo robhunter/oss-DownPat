@@ -719,33 +719,27 @@ describe('Socket.io attachSocketIO', () => {
       vi.mocked(mockAIAdapter.complete).mockImplementation(async ({ onChunk }) => {
         callCount++;
         if (callCount === 1) {
-          // Main AI response
+          // Main AI response (streamed)
           onChunk?.('New ');
           onChunk?.('response!');
-          return { content: 'New response!' };
+          return { content: 'New response!', finishReason: 'stop' as const };
         } else {
-          // Commentary response
-          onChunk?.('Great ');
-          onChunk?.('job!');
-          return { content: 'Great job!' };
+          // Commentary response (not streamed - includes grade)
+          return { content: 'GRADE: good\nGreat job!', finishReason: 'stop' as const };
         }
       });
 
       const { socket } = await connectAndWaitForAuth();
 
       // Collect events
-      const commentaryChunks: string[] = [];
-      let commentaryCompleteReceived = false;
+      let commentaryContent = '';
+      let commentaryGrade = '';
       let commentaryRole = '';
-
-      socket.on('commentary-chunk', (data) => {
-        commentaryChunks.push(data.chunk);
-        commentaryRole = data.role;
-      });
 
       const commentaryPromise = new Promise<void>((resolve) => {
         socket.on('commentary-complete', (data) => {
-          commentaryCompleteReceived = true;
+          commentaryContent = data.content ?? '';
+          commentaryGrade = data.grade ?? '';
           commentaryRole = data.role;
           resolve();
         });
@@ -760,9 +754,9 @@ describe('Socket.io attachSocketIO', () => {
 
       await commentaryPromise;
 
-      // Verify commentary was regenerated
-      expect(commentaryChunks).toEqual(['Great ', 'job!']);
-      expect(commentaryCompleteReceived).toBe(true);
+      // Verify commentary was regenerated (no longer streamed - full content in commentary-complete)
+      expect(commentaryContent).toBe('Great job!');
+      expect(commentaryGrade).toBe('good');
       expect(commentaryRole).toBe('Coach');
 
       // Verify AI adapter was called twice (main + commentary)
