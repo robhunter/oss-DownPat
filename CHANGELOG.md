@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Fix toast to be proper floating notification with fixed positioning (#106)
 
 ### Changed
+- Fix session-start hook to inject reminder on compact (#115)
 - Fix Talk to Coach UI issues (#112)
 - Fix sidebar z-index to appear above nav (#114)
 - Remove duplicate coach toggle button (#113)

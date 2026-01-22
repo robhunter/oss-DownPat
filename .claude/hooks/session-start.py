@@ -4,10 +4,24 @@ Session start hook that loads chainlink context and reminds about session workfl
 Outputs JSON with additionalContext for Claude Code to inject into the conversation.
 """
 
+# Immediate log before any other imports
+import sys as _sys
+with open("/tmp/session-start-hook.log", "a") as _f:
+    _f.write(f"IMMEDIATE: Script invoked with args: {_sys.argv}\n")
+
 import json
 import subprocess
 import sys
 import os
+from datetime import datetime
+
+LOG_FILE = "/tmp/session-start-hook.log"
+
+
+def log(message):
+    """Write timestamped message to log file for debugging."""
+    with open(LOG_FILE, "a") as f:
+        f.write(f"{datetime.now().isoformat()} - {message}\n")
 
 
 def run_chainlink(args):
@@ -41,18 +55,24 @@ def check_chainlink_initialized():
     return False
 
 
-def get_session_type():
-    """Detect if this is a resume or fresh startup from hook input."""
+def get_hook_input():
+    """Read and parse hook input from stdin."""
     try:
-        hook_input = json.loads(sys.stdin.read())
-        # Check if there's a session_type or similar field
-        return hook_input.get("session_type", "unknown")
-    except:
-        return "unknown"
+        raw = sys.stdin.read()
+        log(f"Raw stdin: {raw}")
+        hook_input = json.loads(raw) if raw else {}
+        log(f"Parsed hook input: {hook_input}")
+        return hook_input
+    except Exception as e:
+        log(f"Error parsing hook input: {e}")
+        return {}
 
 
 def main():
-    session_type = get_session_type()
+    log("=== Hook invoked ===")
+    hook_input = get_hook_input()
+    source = hook_input.get("source", "unknown")
+    log(f"Source: {source}")
 
     context_parts = []
 
@@ -99,7 +119,11 @@ Do NOT automatically continue with "next steps" from summaries without user appr
         }
     }
 
-    print(json.dumps(output))
+    output_json = json.dumps(output)
+    log(f"Output JSON length: {len(output_json)}")
+    log(f"Output first 500 chars: {output_json[:500]}")
+    print(output_json)
+    log("=== Hook completed ===")
     sys.exit(0)
 
 
