@@ -514,8 +514,8 @@ export function useConversation({ slug, conversationId, socketUrl }: UseConversa
     streamingCommentaryRef.current = '';
     streamingCoachRef.current = '';
 
-    // Request new conversation with same slug
-    socket.emit('start-conversation', { slug });
+    // Request new conversation with same slug (forceNew bypasses resumption)
+    socket.emit('start-conversation', { slug, forceNew: true });
   }, [socket, isConnected, slug]);
 
   const editMessage = useCallback(

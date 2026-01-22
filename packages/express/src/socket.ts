@@ -256,7 +256,7 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
     });
 
     // Start a new conversation by exercise slug (or resume existing if userStateStorage is configured)
-    socket.on('start-conversation', async (data: { slug: string; query?: Record<string, string> }) => {
+    socket.on('start-conversation', async (data: { slug: string; query?: Record<string, string>; forceNew?: boolean }) => {
       if (!socket.data.user) {
         socket.emit('error', { message: 'Not authenticated' });
         return;
@@ -276,7 +276,8 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
 
         // Use getOrStartConversation if userStateStorage is available (enables resumption)
         // The controller now handles adding welcome/starter messages for new conversations
-        if (config.userStateStorage) {
+        // If forceNew is true, always create a new conversation (used by admin test mode)
+        if (config.userStateStorage && !data.forceNew) {
           const result = await controller.getOrStartConversation(
             exercise.exerciseId,
             socket.data.user,
@@ -287,7 +288,7 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
           // isResumed is the inverse of wasCreated (resumed = not newly created)
           isResumed = !result.wasCreated;
         } else {
-          // Fall back to always creating new conversation
+          // Fall back to always creating new conversation (or forceNew requested)
           conversation = await controller.startConversation(
             exercise.exerciseId,
             socket.data.user,
@@ -1012,7 +1013,7 @@ Be concise, supportive, and focused on helping them learn.`,
  */
 interface ClientToServerEvents {
   authenticate: (token: string) => void;
-  'start-conversation': (data: { slug: string; query?: Record<string, string> }) => void;
+  'start-conversation': (data: { slug: string; query?: Record<string, string>; forceNew?: boolean }) => void;
   'join-conversation': (data: { conversationId: string }) => void;
   'leave-conversation': (conversationId: string) => void;
   'send-message': (data: { conversationId: string; content: string }) => void;
