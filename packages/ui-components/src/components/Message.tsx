@@ -1,4 +1,5 @@
 import React from 'react';
+import Markdown from 'markdown-to-jsx';
 import { MessageType } from '@downpat/core';
 import { Avatar } from './Avatar.js';
 
@@ -87,15 +88,34 @@ export function Message({
             )}
           </div>
           <div
+            className="downpat-message-content"
             style={{
               marginTop: '4px',
               color: 'var(--downpat-text, #1f2937)',
-              lineHeight: 1.5,
-              whiteSpace: 'pre-wrap',
+              lineHeight: 1.6,
               wordBreak: 'break-word',
             }}
           >
-            {displayContent}
+            <Markdown
+              options={{
+                overrides: {
+                  a: {
+                    props: {
+                      target: '_blank',
+                      rel: 'noopener noreferrer',
+                      style: { color: 'var(--downpat-link, #2563eb)', textDecoration: 'underline' },
+                    },
+                  },
+                  p: {
+                    props: {
+                      style: { margin: '0 0 0.5em 0' },
+                    },
+                  },
+                },
+              }}
+            >
+              {displayContent}
+            </Markdown>
           </div>
           {showTimestamp && (
             <div
