@@ -12,6 +12,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Fix toast to be proper floating notification with fixed positioning (#106)
 
 ### Changed
+- Plan exercise import from inbound RTF files (#116)
+- Verify import with screenshots (#120)
+- Create import script and run import (#119)
+- Create RTF parser utility (#118)
+- Add inbound/* to .gitignore (#117)
 - Fix session-start hook to inject reminder on compact (#115)
 - Fix Talk to Coach UI issues (#112)
 - Fix sidebar z-index to appear above nav (#114)
