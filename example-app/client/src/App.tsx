@@ -3,7 +3,7 @@ import '@downpat/ui-components/styles';
 import '@downpat/admin-ui/styles';
 import { DownpatRoutes } from '@downpat/react';
 
-import { AuthProvider, useAuth } from './components/AuthProvider';
+import { AuthProvider, TOKEN_KEY } from './components/AuthProvider';
 import { Layout } from './components/Layout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
@@ -16,8 +16,6 @@ import { Login } from './pages/Login';
  * DownpatRoutes is rendered as a catch-all route element.
  */
 function AppRoutes() {
-  const { token } = useAuth();
-
   return (
     <Routes>
       <Route element={<Layout />}>
@@ -35,7 +33,10 @@ function AppRoutes() {
                 <ProtectedRoute requireAdmin>{children}</ProtectedRoute>
               )}
               basePath="/downpat"
-              getAuthToken={async () => token}
+              // Read from localStorage directly to avoid race condition with React state.
+              // localStorage is populated immediately on login, while React state
+              // requires effect execution which may lag behind initial API requests.
+              getAuthToken={() => localStorage.getItem(TOKEN_KEY)}
             />
           }
         />

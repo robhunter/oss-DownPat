@@ -47,13 +47,11 @@ test.describe('Admin Exercise Management', () => {
       welcomeMessage,
       guidelines,
       maxMessages: 10,
-      tasks: [
-        {
-          name: 'Main Conversation',
-          responseType: 'CONVERSATION',
-          prompt: 'Respond helpfully and briefly to the user.',
-        },
-      ],
+      conversationTask: {
+        role: 'Assistant',
+        prompt: 'Respond helpfully and briefly to the user.',
+        responseDescription: 'A brief, helpful response.',
+      },
     });
 
     // Verify exercise appears in the list
@@ -177,18 +175,17 @@ test.describe('Exercise with Commentary', () => {
       welcomeMessage: 'Welcome! I will provide commentary on your messages.',
       guidelines: 'You are a helpful assistant. Always respond briefly.',
       maxMessages: 10,
-      tasks: [
-        {
-          name: 'Main Response',
-          responseType: 'CONVERSATION',
-          prompt: 'Respond to the user helpfully in 1-2 sentences.',
-        },
-        {
-          name: 'Coaching Commentary',
-          responseType: 'COMMENTARY',
-          prompt: 'Provide brief coaching commentary on the conversation (1 sentence).',
-        },
-      ],
+      conversationTask: {
+        role: 'Assistant',
+        prompt: 'Respond to the user helpfully in 1-2 sentences.',
+        responseDescription: 'A helpful response in 1-2 sentences.',
+      },
+      commentaryTask: {
+        role: 'Coach',
+        prompt: 'Provide brief coaching commentary on the conversation (1 sentence).',
+        commentaryDescription: 'Brief coaching commentary.',
+        gradeDescription: 'Grade the response quality.',
+      },
     });
 
     // Test the exercise
@@ -207,6 +204,7 @@ test.describe('Exercise with Commentary', () => {
     // Check for commentary messages
     // Commentary messages should have a different styling/class
     const hasCommentary = await hasCommentaryMessages(page);
+    expect(hasCommentary).toBe(true);
 
     // This test verifies the messages exist - commentary styling depends on implementation
     const messageCount = await countMessages(page);
@@ -241,26 +239,24 @@ test.describe('Exercise with Starters', () => {
 
     // Fill content
     await page.getByPlaceholder('Message shown when conversation starts...').fill(welcomeMessage);
-    await page.getByPlaceholder('Guidelines for the AI...').fill('Be helpful and encouraging.');
 
-    // Fill the starter text (starters now have text, context, attributes - but text is the main visible field)
+    // Fill the starter text
     await page.getByPlaceholder('Opening message shown to the user...').fill(starterText);
 
     // Expand starter options to add context
     await page.getByRole('button', { name: 'Show Options' }).click();
     await page.getByPlaceholder('Additional context for the AI about this scenario (not shown to user)...').fill(starterContext);
 
-    // Add a task
-    await page.getByRole('button', { name: '+ Add Task' }).click();
-    await page.waitForTimeout(500);
-    const taskEditor = page.locator('.downpat-task-editor').last();
-    await taskEditor.getByPlaceholder('Task name').fill('Response');
-    await taskEditor.locator('select').first().selectOption('CONVERSATION');
-    await taskEditor.getByPlaceholder('AI prompt for this task...').fill('Respond helpfully.');
+    // Fill Conversation Task (always visible in new form)
+    await page.getByPlaceholder('Who is the user talking to?').fill('Assistant');
+    await page.getByPlaceholder('Instructions for the AI during conversation...').fill('Respond helpfully.');
+    await page.getByPlaceholder('Description of expected conversation response for AI tool call...').fill('A helpful response.');
 
     // Create the exercise
     await page.getByRole('button', { name: 'Create Exercise' }).click();
-    await expect(page).toHaveURL('/downpat/admin/exercises');
+    await expect(page.locator('.downpat-toast--success')).toBeVisible({ timeout: 10000 });
+    await page.goto('/downpat/admin/exercises');
+    await expect(page.getByRole('heading', { name: 'Exercises', exact: true })).toBeVisible();
 
     // Test the exercise
     await testExercise(page, starterSlug);
@@ -337,13 +333,11 @@ test.describe('New Conversation Button', () => {
       welcomeMessage,
       guidelines: 'You are a helpful assistant. Keep responses very brief.',
       maxMessages: 10,
-      tasks: [
-        {
-          name: 'Response',
-          responseType: 'CONVERSATION',
-          prompt: 'Respond briefly in 1 sentence.',
-        },
-      ],
+      conversationTask: {
+        role: 'Assistant',
+        prompt: 'Respond briefly in 1 sentence.',
+        responseDescription: 'A brief response in 1 sentence.',
+      },
     });
 
     // Test the exercise
@@ -409,13 +403,11 @@ test.describe('Exercise with Welcome Message', () => {
       welcomeMessage: uniqueWelcomeMessage,
       guidelines: 'You are a helpful assistant.',
       maxMessages: 5,
-      tasks: [
-        {
-          name: 'Response',
-          responseType: 'CONVERSATION',
-          prompt: 'Respond briefly.',
-        },
-      ],
+      conversationTask: {
+        role: 'Assistant',
+        prompt: 'Respond briefly.',
+        responseDescription: 'A brief response.',
+      },
     });
 
     // Test the exercise

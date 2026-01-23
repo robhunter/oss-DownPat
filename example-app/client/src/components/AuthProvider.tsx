@@ -18,7 +18,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-const TOKEN_KEY = 'downpat_token';
+export const TOKEN_KEY = 'downpat_token';
 const USER_KEY = 'downpat_user';
 
 export function AuthProvider({ children }: { children: ReactNode }) {

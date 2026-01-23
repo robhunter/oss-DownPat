@@ -90,7 +90,7 @@ export function DownpatProvider({
     }
   }, [token, updateToken]);
 
-  // Initial token setup - runs once on mount, clears only on unmount
+  // Initial token setup - runs once on mount
   // Uses ref to access latest getToken without causing effect re-runs
   useEffect(() => {
     let cancelled = false;
@@ -108,10 +108,12 @@ export function DownpatProvider({
 
     initializeToken();
 
-    // Only clear token on actual unmount, not on re-renders
+    // Note: We intentionally do NOT clear the token on unmount.
+    // The token lifecycle is managed by the app's auth system (e.g., AuthProvider),
+    // not by DownpatProvider. Clearing here would break StrictMode (mount-unmount-remount)
+    // and cause tokens to be lost when navigating away from DownPat routes.
     return () => {
       cancelled = true;
-      clearDownPatToken();
     };
   }, []); // Empty deps - only run on mount/unmount
 

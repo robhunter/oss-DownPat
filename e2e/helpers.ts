@@ -37,17 +37,34 @@ export async function goToAdminExercises(page: Page): Promise<void> {
 
 /**
  * Create a new exercise with the given parameters
+ *
+ * The form requires:
+ * - Exercise Name
+ * - Welcome Message
+ * - Conversation Task: Role, Prompt, Response Description
  */
 export async function createExercise(page: Page, options: {
   name: string;
   welcomeMessage: string;
-  guidelines: string;
+  guidelines?: string;
   maxMessages?: number;
-  tasks?: Array<{
-    name: string;
-    responseType: 'CONVERSATION' | 'COMMENTARY' | 'SUMMARY' | 'SIMPLE';
+  conversationTask?: {
+    role: string;
     prompt: string;
-  }>;
+    responseDescription: string;
+  };
+  commentaryTask?: {
+    role: string;
+    prompt: string;
+    commentaryDescription: string;
+    gradeDescription: string;
+  };
+  summaryTask?: {
+    role: string;
+    prompt: string;
+    summaryDescription: string;
+    gradeDescription: string;
+  };
 }): Promise<string> {
   await page.goto('/downpat/admin/exercises/new');
   // Wait for the form to load - use the h2 inside the form
@@ -65,35 +82,53 @@ export async function createExercise(page: Page, options: {
     await maxMessagesInput.fill(String(options.maxMessages));
   }
 
-  // Fill content - use placeholder text
+  // Fill content - Welcome Message
   await page.getByPlaceholder('Message shown when conversation starts...').fill(options.welcomeMessage);
-  await page.getByPlaceholder('Guidelines for the AI...').fill(options.guidelines);
 
-  // Add tasks if specified
-  if (options.tasks && options.tasks.length > 0) {
-    for (const task of options.tasks) {
-      await page.getByRole('button', { name: '+ Add Task' }).click();
+  // Fill Guidelines if provided
+  if (options.guidelines) {
+    await page.getByPlaceholder('Shared guidelines for coaching tasks...').fill(options.guidelines);
+  }
 
-      // Wait for task editor to appear
-      await page.waitForTimeout(500);
+  // Fill Conversation Task (always required)
+  const conversationTask = options.conversationTask || {
+    role: 'Assistant',
+    prompt: 'Respond helpfully to the user.',
+    responseDescription: 'A helpful response to the user.',
+  };
+  await page.getByPlaceholder('Who is the user talking to?').fill(conversationTask.role);
+  await page.getByPlaceholder('Instructions for the AI during conversation...').fill(conversationTask.prompt);
+  await page.getByPlaceholder('Description of expected conversation response for AI tool call...').fill(conversationTask.responseDescription);
 
-      // Find the last task editor
-      const taskEditors = page.locator('.downpat-task-editor');
-      const lastTask = taskEditors.last();
+  // Add Commentary Task if specified
+  if (options.commentaryTask) {
+    await page.getByRole('button', { name: '+ Add Commentary Task' }).click();
+    await page.waitForTimeout(300);
+    await page.getByPlaceholder('Who is providing commentary? Ex: Coach').fill(options.commentaryTask.role);
+    await page.getByPlaceholder('Instructions for generating commentary...').fill(options.commentaryTask.prompt);
+    await page.getByPlaceholder('Description of expected commentary response...').fill(options.commentaryTask.commentaryDescription);
+    await page.getByPlaceholder('Description of how to grade performance...').fill(options.commentaryTask.gradeDescription);
+  }
 
-      // Fill task details - labels aren't linked, use locators directly
-      await lastTask.getByPlaceholder('Task name').fill(task.name);
-      // Select response type - find the first select in the task editor
-      await lastTask.locator('select').first().selectOption(task.responseType);
-      await lastTask.getByPlaceholder('AI prompt for this task...').fill(task.prompt);
-    }
+  // Add Summary Task if specified
+  if (options.summaryTask) {
+    await page.getByRole('button', { name: '+ Add Summary Task' }).click();
+    await page.waitForTimeout(300);
+    await page.getByPlaceholder('Who is providing the summary? Ex: Coach').fill(options.summaryTask.role);
+    await page.getByPlaceholder('Instructions for generating summary...').fill(options.summaryTask.prompt);
+    await page.getByPlaceholder('Description of expected summary response...').fill(options.summaryTask.summaryDescription);
+    await page.getByPlaceholder('Description of how to grade overall performance...').fill(options.summaryTask.gradeDescription);
   }
 
   // Submit the form
   await page.getByRole('button', { name: 'Create Exercise' }).click();
 
-  // Wait for redirect back to exercises list
-  await expect(page).toHaveURL('/downpat/admin/exercises');
+  // Wait for success toast (page stays on edit screen after save)
+  await expect(page.locator('.downpat-toast--success')).toBeVisible({ timeout: 10000 });
+
+  // Navigate back to exercises list
+  await page.goto('/downpat/admin/exercises');
+  await expect(page.getByRole('heading', { name: 'Exercises', exact: true })).toBeVisible();
 
   return expectedSlug;
 }
@@ -157,31 +192,41 @@ export async function waitForCommentary(page: Page, minCount: number = 1): Promi
 }
 
 /**
- * Publish an exercise by slug
+ * Publish an exercise by slug (via edit page)
  */
 export async function publishExercise(page: Page, slug: string): Promise<void> {
-  await goToAdminExercises(page);
+  // Navigate to the edit page
+  await page.goto(`/downpat/admin/exercises/${slug}/edit`);
+  await expect(page.locator('h1').filter({ hasText: 'Edit:' })).toBeVisible({ timeout: 10000 });
 
-  // Find the row with the exercise
-  const row = page.locator('tr').filter({ hasText: `/${slug}` });
-  await row.getByRole('button', { name: 'Publish' }).click();
+  // Click Publish button
+  await page.getByRole('button', { name: 'Publish', exact: true }).click();
 
-  // Wait for status to change
-  await expect(row.locator('.downpat-status-badge--published')).toBeVisible();
+  // Confirm in modal
+  await expect(page.locator('.downpat-modal')).toBeVisible();
+  await page.getByRole('button', { name: 'Confirm' }).click();
+
+  // Wait for success toast
+  await expect(page.locator('.downpat-toast--success')).toBeVisible({ timeout: 10000 });
 }
 
 /**
- * Unpublish an exercise by slug
+ * Unpublish an exercise by slug (via edit page)
  */
 export async function unpublishExercise(page: Page, slug: string): Promise<void> {
-  await goToAdminExercises(page);
+  // Navigate to the edit page
+  await page.goto(`/downpat/admin/exercises/${slug}/edit`);
+  await expect(page.locator('h1').filter({ hasText: 'Edit:' })).toBeVisible({ timeout: 10000 });
 
-  // Find the row with the exercise
-  const row = page.locator('tr').filter({ hasText: `/${slug}` });
-  await row.getByRole('button', { name: 'Unpublish' }).click();
+  // Click Unpublish button
+  await page.getByRole('button', { name: 'Unpublish', exact: true }).click();
 
-  // Wait for status to change
-  await expect(row.locator('.downpat-status-badge--draft')).toBeVisible();
+  // Confirm in modal
+  await expect(page.locator('.downpat-modal')).toBeVisible();
+  await page.getByRole('button', { name: 'Confirm' }).click();
+
+  // Wait for success toast
+  await expect(page.locator('.downpat-toast--success')).toBeVisible({ timeout: 10000 });
 }
 
 /**

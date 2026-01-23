@@ -100,7 +100,10 @@ describe('DownpatProvider', () => {
     expect(provideDownPatToken).toHaveBeenCalledWith('initial-token');
   });
 
-  it('should clear token on unmount', () => {
+  it('should NOT clear token on unmount (token lifecycle managed by auth provider)', () => {
+    // Token should not be cleared on unmount because:
+    // 1. It breaks React StrictMode (mount-unmount-remount cycle)
+    // 2. Token lifecycle is managed by the app's auth system, not DownpatProvider
     const { unmount } = render(
       <DownpatProvider getToken={mockGetToken}>
         <div>App</div>
@@ -109,7 +112,7 @@ describe('DownpatProvider', () => {
 
     unmount();
 
-    expect(clearDownPatToken).toHaveBeenCalled();
+    expect(clearDownPatToken).not.toHaveBeenCalled();
   });
 
   it('should handle null token on mount', () => {

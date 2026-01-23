@@ -6,10 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Changed
+- Bug: Exercise not found error when editing restored exercise (#136)
+
 ### Added
 - Add Test button to ExerciseEditorPage (#131)
 
 ### Fixed
+- Fix edit/save flow issues - buttons not refreshing, 404 after restore (#137)
 - Fix updating published exercise creates draft instead of modifying published (#134)
 - Fix toast to be proper floating notification with fixed positioning (#106)
 - Fix Phase 3: Refresh metadata after save for publish controls (#129)
