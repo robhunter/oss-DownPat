@@ -333,12 +333,19 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
         // Join the conversation room
         socket.join(`conversation:${conversation.conversationId}`);
 
+        // Compute AI role for client placeholders
+        const conversationTask = (exercise.continuationTasks || []).find(
+          (task: Task) => task.enabled && isConversationTask(task)
+        ) as ConversationTask | undefined;
+        const aiRole = getConversationRole(conversation, conversationTask);
+
         // Emit conversation started with messages and exercise settings
         socket.emit('conversation-started', {
           conversationId: conversation.conversationId,
           messages: conversation.messages,
           talkToCoachEnabled: exercise.talkToCoachEnabled ?? false,
           isResumed,
+          aiRole,
         });
       } catch (error) {
         socket.emit('error', {
@@ -358,8 +365,14 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
         // Verify user has access and get full conversation
         const conversation = await controller.getConversation(data.conversationId, socket.data.user);
 
-        // Get exercise for talkToCoachEnabled flag
+        // Get exercise for talkToCoachEnabled flag and AI role
         const exercise = await config.exerciseStorage.getExercise(conversation.exerciseId);
+
+        // Compute AI role for client placeholders
+        const conversationTask = exercise ? (exercise.continuationTasks || []).find(
+          (task: Task) => task.enabled && isConversationTask(task)
+        ) as ConversationTask | undefined : undefined;
+        const aiRole = getConversationRole(conversation, conversationTask);
 
         // Join the room for real-time updates
         socket.join(`conversation:${data.conversationId}`);
@@ -370,6 +383,7 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
           messages: conversation.messages,
           isComplete: conversation.isComplete,
           talkToCoachEnabled: exercise?.talkToCoachEnabled ?? false,
+          aiRole,
         });
       } catch (error) {
         socket.emit('error', {
@@ -1066,12 +1080,14 @@ interface ServerToClientEvents {
     messages: import('@downpat/core').Message[];
     talkToCoachEnabled: boolean;
     isResumed: boolean;
+    aiRole: string;
   }) => void;
   'conversation-joined': (data: {
     conversationId: string;
     messages: import('@downpat/core').Message[];
     isComplete: boolean;
     talkToCoachEnabled: boolean;
+    aiRole: string;
   }) => void;
   'message-added': (data: {
     conversationId: string;

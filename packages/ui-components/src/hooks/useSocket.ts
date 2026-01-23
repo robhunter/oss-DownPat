@@ -168,6 +168,7 @@ export function useConversation({ slug, conversationId, socketUrl }: UseConversa
   const [isResumed, setIsResumed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [talkToCoachEnabled, setTalkToCoachEnabled] = useState(false);
+  const [aiRole, setAiRole] = useState<string>('AI');
   const streamingMessageRef = useRef<string>('');
   const streamingCommentaryRef = useRef<string>('');
   const streamingCoachRef = useRef<string>('');
@@ -190,11 +191,13 @@ export function useConversation({ slug, conversationId, socketUrl }: UseConversa
       messages: MessageData[];
       talkToCoachEnabled: boolean;
       isResumed?: boolean;
+      aiRole: string;
     }) => {
       setConversation({ conversationId: data.conversationId, messages: data.messages } as Conversation);
       setMessages(data.messages);
       setTalkToCoachEnabled(data.talkToCoachEnabled ?? false);
       setIsResumed(data.isResumed ?? false);
+      setAiRole(data.aiRole);
       setIsLoading(false);
     });
 
@@ -204,9 +207,11 @@ export function useConversation({ slug, conversationId, socketUrl }: UseConversa
       messages: MessageData[];
       isComplete: boolean;
       talkToCoachEnabled: boolean;
+      aiRole: string;
     }) => {
       setConversation({ conversationId: data.conversationId, messages: data.messages } as Conversation);
       setMessages(data.messages);
+      setAiRole(data.aiRole);
       setTalkToCoachEnabled(data.talkToCoachEnabled ?? false);
       setIsComplete(data.isComplete);
       setIsResumed(true);
@@ -396,7 +401,7 @@ export function useConversation({ slug, conversationId, socketUrl }: UseConversa
         {
           messageId: 'streaming',
           type: 'CONVERSATION' as MessageData['type'],
-          role: 'AI',
+          role: aiRole,
           content: '',
           timestamp: new Date().toISOString(),
         },
@@ -427,7 +432,7 @@ export function useConversation({ slug, conversationId, socketUrl }: UseConversa
       socket.off('messages-truncated');
       socket.off('conversation-finished');
     };
-  }, [socket, isConnected, slug, conversationId]);
+  }, [socket, isConnected, slug, conversationId, aiRole]);
 
   const sendMessage = useCallback(
     (text: string) => {
@@ -446,7 +451,7 @@ export function useConversation({ slug, conversationId, socketUrl }: UseConversa
       const aiPlaceholder: MessageData = {
         messageId: 'streaming',
         type: 'CONVERSATION' as MessageData['type'],
-        role: 'AI',
+        role: aiRole,
         content: '',
         timestamp: new Date().toISOString(),
       };
@@ -460,7 +465,7 @@ export function useConversation({ slug, conversationId, socketUrl }: UseConversa
         content: text
       });
     },
-    [socket, isConnected, conversation]
+    [socket, isConnected, conversation, aiRole]
   );
 
   const sendCoachMessage = useCallback(
@@ -510,6 +515,7 @@ export function useConversation({ slug, conversationId, socketUrl }: UseConversa
     setIsLoading(true);
     setIsStreaming(false);
     setIsCoachStreaming(false);
+    setAiRole('AI');
     streamingMessageRef.current = '';
     streamingCommentaryRef.current = '';
     streamingCoachRef.current = '';
