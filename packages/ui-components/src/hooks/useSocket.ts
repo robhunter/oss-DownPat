@@ -230,15 +230,15 @@ export function useConversation({ slug, conversationId, socketUrl }: UseConversa
     });
 
     // Handle message complete
-    socket.on('message-complete', () => {
+    socket.on('message-complete', (data: { role: string }) => {
       setIsStreaming(false);
       streamingMessageRef.current = '';
       // The streaming message already has content from chunks
-      // Just update messageId to make it permanent
+      // Update messageId to make it permanent and set the correct role from server
       setMessages((prev) => {
         return prev.map((m) =>
           m.messageId === 'streaming'
-            ? { ...m, messageId: `ai-${Date.now()}` }
+            ? { ...m, messageId: `ai-${Date.now()}`, role: data.role }
             : m
         );
       });
