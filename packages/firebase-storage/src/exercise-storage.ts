@@ -65,16 +65,38 @@ export class FirebaseExerciseStorage implements ExerciseStorage {
   }
 
   async updateExercise(exercise: Exercise): Promise<void> {
-    await this.db
-      .collection(this.exercisesCollection)
-      .doc(exercise.exerciseId)
-      .set(
-        {
+    const metadataRef = this.db.collection(this.metadataCollection).doc(exercise.slug);
+
+    await this.db.runTransaction(async (txn) => {
+      const metadataDoc = await txn.get(metadataRef);
+      const metadata = metadataDoc.data() as ExerciseMetadata | undefined;
+
+      // If updating a published-only exercise, create a draft first
+      if (metadata && !metadata.draft && metadata.published === exercise.exerciseId) {
+        // Create new draft from the updated data
+        const draftId = metadata.published.replace('-published', '');
+        const draftRef = this.db.collection(this.exercisesCollection).doc(draftId);
+
+        txn.set(draftRef, {
           ...exercise,
+          exerciseId: draftId,
+          status: 'draft',
           updatedAt: new Date().toISOString(),
-        },
-        { merge: true }
-      );
+        });
+        txn.set(metadataRef, { ...metadata, draft: draftId });
+      } else {
+        // Normal update - just update the document
+        const exerciseRef = this.db.collection(this.exercisesCollection).doc(exercise.exerciseId);
+        txn.set(
+          exerciseRef,
+          {
+            ...exercise,
+            updatedAt: new Date().toISOString(),
+          },
+          { merge: true }
+        );
+      }
+    });
   }
 
   async publishExercise(slug: string): Promise<void> {

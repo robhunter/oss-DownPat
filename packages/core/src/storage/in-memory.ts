@@ -101,7 +101,18 @@ export function createInMemoryStorage(): {
     },
 
     async updateExercise(exercise: Exercise) {
-      exercises.set(exercise.exerciseId, exercise);
+      const metadata = exerciseMetadata.get(exercise.slug);
+
+      // If updating a published-only exercise, create a draft first
+      if (metadata && !metadata.draft && metadata.published === exercise.exerciseId) {
+        // Create new draft from the updated data
+        const draftId = metadata.published.replace('-published', '');
+        exercises.set(draftId, { ...exercise, exerciseId: draftId, status: 'draft' });
+        exerciseMetadata.set(exercise.slug, { ...metadata, draft: draftId });
+      } else {
+        // Normal update - just update the document
+        exercises.set(exercise.exerciseId, exercise);
+      }
     },
 
     async publishExercise(slug: string) {

@@ -16,11 +16,14 @@ export interface Starter {
 
 /**
  * Metadata for tracking draft/published versions of an exercise.
- * Each exercise has a draft version and optionally a published version.
+ * At least one of draft or published must be present.
+ * - Draft only: unpublished exercise
+ * - Published only: published with no pending changes
+ * - Both: published with pending draft changes
  */
 export interface ExerciseMetadata {
-  /** Exercise ID of the draft version */
-  draft: string;
+  /** Exercise ID of the draft version (undefined if no pending changes) */
+  draft?: string;
   /** Exercise ID of the published version (undefined if not published) */
   published?: string;
 }
