@@ -27,9 +27,7 @@ const mockExercises: ExerciseWithMetadata[] = [
     },
     metadata: {
       slug: 'test-exercise-1',
-      draftId: 'ex-1',
-      publishedId: null,
-      lastModified: new Date().toISOString(),
+      draft: 'ex-1',
     },
   },
   {
@@ -48,9 +46,8 @@ const mockExercises: ExerciseWithMetadata[] = [
     },
     metadata: {
       slug: 'test-exercise-2',
-      draftId: 'ex-2',
-      publishedId: 'pub-2',
-      lastModified: new Date().toISOString(),
+      draft: 'ex-2',
+      published: 'pub-2',
     },
   },
 ];
@@ -175,7 +172,7 @@ describe('ExerciseListPage', () => {
     });
   });
 
-  describe('actions', () => {
+  describe('delete', () => {
     it('should call delete API when delete confirmed', async () => {
       mockFetch
         .mockResolvedValueOnce({

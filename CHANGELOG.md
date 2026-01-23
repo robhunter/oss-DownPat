@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Fix toast to be proper floating notification with fixed positioning (#106)
 
 ### Changed
+- Fix stale mock data in ExerciseListPage.test.tsx (#128)
 - Phase 2: Remove publish/restore buttons from ExerciseList (#123)
 - Add missing test assertions for status and publishedAt fields (#127)
 - Fix Phase 1 code review issues: status field, publishedAt type, data hygiene (#126)
