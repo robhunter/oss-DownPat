@@ -17,6 +17,9 @@ export type {
   SlicedResponse,
 } from '@downpat/api-client';
 
+import type { ExerciseMetadata } from '@downpat/core';
+export type { ExerciseMetadata } from '@downpat/core';
+
 // Re-export the client class
 export { DownpatClient } from '@downpat/api-client';
 
@@ -64,6 +67,9 @@ export interface AdminAPIClient {
 
   /** Restore draft from published version */
   restoreExercise(slug: string): Promise<void>;
+
+  /** Get metadata for a single exercise by slug */
+  getExerciseMetadata(slug: string): Promise<ExerciseMetadata | null>;
 }
 
 /**
@@ -99,5 +105,10 @@ export function createAdminAPIClient(
     publishExercise: (slug) => client.publishExercise(slug),
     unpublishExercise: (slug) => client.unpublishExercise(slug),
     restoreExercise: (slug) => client.restoreExercise(slug),
+    getExerciseMetadata: async (slug) => {
+      const exercises = await client.getExercisesWithMetadata();
+      const found = exercises.find((e) => e.exercise.slug === slug);
+      return found?.metadata ?? null;
+    },
   };
 }

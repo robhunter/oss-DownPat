@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import type { Exercise } from '@downpat/core';
 import { ExerciseForm } from '../components/ExerciseForm.js';
 import { useAdminContext, useAdminAPI } from '../AdminContext.js';
+import type { ExerciseMetadata } from '../api-client.js';
 
 /** Toast notification state */
 interface Toast {
@@ -48,16 +49,23 @@ export function ExerciseEditorPage({ slug }: ExerciseEditorPageProps): React.JSX
   const [isNew, setIsNew] = useState(!slug);
 
   const [exercise, setExercise] = useState<Exercise | undefined>(undefined);
+  const [metadata, setMetadata] = useState<ExerciseMetadata | null>(null);
   const [isLoading, setIsLoading] = useState(!!slug);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
+  const [confirmAction, setConfirmAction] = useState<'publish' | 'unpublish' | 'restore' | null>(null);
+  const [isActionPending, setIsActionPending] = useState(false);
 
   const loadExercise = useCallback(async (exerciseSlug: string) => {
     try {
       setError(null);
-      const data = await api.getExercise(exerciseSlug);
+      const [data, meta] = await Promise.all([
+        api.getExercise(exerciseSlug),
+        api.getExerciseMetadata(exerciseSlug),
+      ]);
       setExercise(data);
+      setMetadata(meta);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load exercise');
     } finally {
@@ -100,6 +108,86 @@ export function ExerciseEditorPage({ slug }: ExerciseEditorPageProps): React.JSX
     navigate('/exercises');
   }, [navigate]);
 
+  const handlePublish = useCallback(async () => {
+    if (!slug) return;
+    setIsActionPending(true);
+    setError(null);
+    try {
+      await api.publishExercise(slug);
+      setToast({ message: 'Exercise published successfully', type: 'success' });
+      // Reload metadata to reflect new state
+      const meta = await api.getExerciseMetadata(slug);
+      setMetadata(meta);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to publish exercise';
+      setError(message);
+      setToast({ message, type: 'error' });
+    } finally {
+      setIsActionPending(false);
+      setConfirmAction(null);
+    }
+  }, [api, slug]);
+
+  const handleUnpublish = useCallback(async () => {
+    if (!slug) return;
+    setIsActionPending(true);
+    setError(null);
+    try {
+      await api.unpublishExercise(slug);
+      setToast({ message: 'Exercise unpublished successfully', type: 'success' });
+      // Reload metadata to reflect new state
+      const meta = await api.getExerciseMetadata(slug);
+      setMetadata(meta);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to unpublish exercise';
+      setError(message);
+      setToast({ message, type: 'error' });
+    } finally {
+      setIsActionPending(false);
+      setConfirmAction(null);
+    }
+  }, [api, slug]);
+
+  const handleRestore = useCallback(async () => {
+    if (!slug) return;
+    setIsActionPending(true);
+    setError(null);
+    try {
+      await api.restoreExercise(slug);
+      setToast({ message: 'Exercise restored from published version', type: 'success' });
+      // Reload both exercise and metadata to reflect new state
+      await loadExercise(slug);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to restore exercise';
+      setError(message);
+      setToast({ message, type: 'error' });
+    } finally {
+      setIsActionPending(false);
+      setConfirmAction(null);
+    }
+  }, [api, slug, loadExercise]);
+
+  const executeConfirmedAction = useCallback(() => {
+    switch (confirmAction) {
+      case 'publish':
+        handlePublish();
+        break;
+      case 'unpublish':
+        handleUnpublish();
+        break;
+      case 'restore':
+        handleRestore();
+        break;
+    }
+  }, [confirmAction, handlePublish, handleUnpublish, handleRestore]);
+
+  // Derived state for button visibility
+  const hasDraft = metadata?.draft != null;
+  const hasPublished = metadata?.published != null;
+  const canPublish = hasDraft;
+  const canUnpublish = hasPublished;
+  const canRestore = hasDraft && hasPublished;
+
   if (isLoading) {
     return (
       <div className="downpat-admin-page">
@@ -137,6 +225,81 @@ export function ExerciseEditorPage({ slug }: ExerciseEditorPageProps): React.JSX
           type={toast.type}
           onClose={() => setToast(null)}
         />
+      )}
+
+      {/* Publish/Unpublish/Restore Actions - only shown when editing */}
+      {!isNew && metadata && (
+        <div className="downpat-publish-actions">
+          {canPublish && (
+            <button
+              type="button"
+              onClick={() => setConfirmAction('publish')}
+              disabled={isActionPending}
+              className="downpat-btn downpat-btn--warning"
+            >
+              Publish
+            </button>
+          )}
+          {canUnpublish && (
+            <button
+              type="button"
+              onClick={() => setConfirmAction('unpublish')}
+              disabled={isActionPending}
+              className="downpat-btn downpat-btn--warning"
+            >
+              Unpublish
+            </button>
+          )}
+          {canRestore && (
+            <button
+              type="button"
+              onClick={() => setConfirmAction('restore')}
+              disabled={isActionPending}
+              className="downpat-btn downpat-btn--destructive"
+            >
+              Restore from Published
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Confirmation Dialog */}
+      {confirmAction && (
+        <div className="downpat-modal-overlay">
+          <div className="downpat-modal">
+            <h3 className="downpat-modal-title">
+              {confirmAction === 'publish' && 'Publish Exercise?'}
+              {confirmAction === 'unpublish' && 'Unpublish Exercise?'}
+              {confirmAction === 'restore' && 'Restore from Published?'}
+            </h3>
+            <p className="downpat-modal-message">
+              {confirmAction === 'publish' &&
+                'This will make the current draft available to all users. The draft will be deleted.'}
+              {confirmAction === 'unpublish' &&
+                'This will remove the exercise from public view. A new draft will be created from the published version.'}
+              {confirmAction === 'restore' &&
+                'This will discard the current draft and replace it with the published version. This action cannot be undone.'}
+            </p>
+            <div className="downpat-modal-actions">
+              <button
+                type="button"
+                onClick={() => setConfirmAction(null)}
+                disabled={isActionPending}
+                className="downpat-btn downpat-btn--secondary"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={executeConfirmedAction}
+                disabled={isActionPending}
+                className={`downpat-btn ${confirmAction === 'restore' ? 'downpat-btn--destructive' : 'downpat-btn--warning'}`}
+              >
+                {isActionPending ? 'Processing...' : 'Confirm'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <div className="downpat-admin-form-container">

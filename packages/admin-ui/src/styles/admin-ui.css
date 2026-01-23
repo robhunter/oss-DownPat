@@ -275,6 +275,26 @@
   color: var(--downpat-admin-btn-danger-color);
 }
 
+.downpat-btn--warning {
+  background-color: #fef3c7;
+  color: #92400e;
+  border: 1px solid #f59e0b;
+}
+
+.downpat-btn--warning:hover:not(:disabled) {
+  background-color: #fde68a;
+}
+
+.downpat-btn--destructive {
+  background-color: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #f87171;
+}
+
+.downpat-btn--destructive:hover:not(:disabled) {
+  background-color: #fecaca;
+}
+
 .downpat-form-actions {
   display: flex;
   gap: var(--downpat-spacing-md, 16px);
@@ -739,4 +759,61 @@
 
 .downpat-attribute-row .downpat-input--small {
   flex: 1;
+}
+
+/* ============================================
+   Publish Actions Styles
+   ============================================ */
+
+.downpat-publish-actions {
+  display: flex;
+  gap: var(--downpat-spacing-md, 16px);
+  margin-bottom: var(--downpat-spacing-lg, 24px);
+  padding: var(--downpat-spacing-md, 16px);
+  background-color: var(--downpat-admin-task-bg, #f9fafb);
+  border: 1px solid var(--downpat-admin-section-border, #e5e7eb);
+  border-radius: var(--downpat-radius-md, 8px);
+}
+
+/* ============================================
+   Modal Styles
+   ============================================ */
+
+.downpat-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.downpat-modal {
+  background-color: white;
+  border-radius: var(--downpat-radius-lg, 12px);
+  padding: var(--downpat-spacing-lg, 24px);
+  max-width: 480px;
+  width: 90%;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.downpat-modal-title {
+  margin: 0 0 var(--downpat-spacing-md, 16px) 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--downpat-text, #1f2937);
+}
+
+.downpat-modal-message {
+  margin: 0 0 var(--downpat-spacing-lg, 24px) 0;
+  font-size: 14px;
+  color: var(--downpat-text-secondary, #6b7280);
+  line-height: 1.5;
+}
+
+.downpat-modal-actions {
+  display: flex;
+  gap: var(--downpat-spacing-md, 16px);
+  justify-content: flex-end;
 }

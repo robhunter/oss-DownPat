@@ -33,6 +33,36 @@ const mockExercise: Exercise = {
   completionTasks: [],
 };
 
+const mockExercisesWithMetadata = [
+  {
+    exercise: mockExercise,
+    metadata: {
+      draft: 'ex-1',
+    },
+  },
+];
+
+/** Helper to mock both exercise and metadata API calls for edit mode */
+function mockEditModeResponses(exerciseResponse = mockExercise, metadataList = mockExercisesWithMetadata) {
+  mockFetch.mockImplementation((url: string) => {
+    if (url.includes('/exercises/by-slug/')) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(exerciseResponse),
+      });
+    }
+    if (url.includes('/exercises/with-metadata')) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(metadataList),
+      });
+    }
+    return Promise.reject(new Error(`Unexpected URL: ${url}`));
+  });
+}
+
 const createConfig = (overrides?: Partial<AdminUIConfig>): AdminUIConfig => ({
   apiBaseUrl: '/api/test',
   getAuthToken: async () => 'test-token',
@@ -88,11 +118,7 @@ describe('ExerciseEditorPage', () => {
     });
 
     it('should display exercise data after loading', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: () => Promise.resolve(mockExercise),
-      });
+      mockEditModeResponses();
 
       renderWithProvider({ slug: 'test-exercise' });
 
@@ -106,11 +132,7 @@ describe('ExerciseEditorPage', () => {
     });
 
     it('should fetch exercise from correct API endpoint', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: () => Promise.resolve(mockExercise),
-      });
+      mockEditModeResponses();
 
       renderWithProvider({ slug: 'test-exercise' });
 
@@ -130,12 +152,24 @@ describe('ExerciseEditorPage', () => {
 
   describe('error handling', () => {
     it('should show error when exercise fetch fails', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 404,
-        statusText: 'Not Found',
-        headers: new Headers({ 'content-type': 'application/json' }),
-        json: () => Promise.resolve({ message: 'Exercise not found' }),
+      mockFetch.mockImplementation((url: string) => {
+        if (url.includes('/exercises/by-slug/')) {
+          return Promise.resolve({
+            ok: false,
+            status: 404,
+            statusText: 'Not Found',
+            headers: new Headers({ 'content-type': 'application/json' }),
+            json: () => Promise.resolve({ message: 'Exercise not found' }),
+          });
+        }
+        if (url.includes('/exercises/with-metadata')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve([]),
+          });
+        }
+        return Promise.reject(new Error(`Unexpected URL: ${url}`));
       });
 
       renderWithProvider({ slug: 'non-existent' });
@@ -146,12 +180,24 @@ describe('ExerciseEditorPage', () => {
     });
 
     it('should allow dismissing error message', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 500,
-        statusText: 'Internal Server Error',
-        headers: new Headers({ 'content-type': 'application/json' }),
-        json: () => Promise.resolve({ message: 'Server error' }),
+      mockFetch.mockImplementation((url: string) => {
+        if (url.includes('/exercises/by-slug/')) {
+          return Promise.resolve({
+            ok: false,
+            status: 500,
+            statusText: 'Internal Server Error',
+            headers: new Headers({ 'content-type': 'application/json' }),
+            json: () => Promise.resolve({ message: 'Server error' }),
+          });
+        }
+        if (url.includes('/exercises/with-metadata')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve([]),
+          });
+        }
+        return Promise.reject(new Error(`Unexpected URL: ${url}`));
       });
 
       renderWithProvider({ slug: 'test-exercise' });
@@ -259,19 +305,31 @@ describe('ExerciseEditorPage', () => {
     });
 
     it('should show success toast after successful update', async () => {
-      // First call: load exercise
-      // Second call: update exercise
-      mockFetch
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: () => Promise.resolve(mockExercise),
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: () => Promise.resolve(mockExercise),
-        });
+      // Mock all API calls based on URL
+      mockFetch.mockImplementation((url: string, options?: RequestInit) => {
+        if (url.includes('/exercises/by-slug/')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve(mockExercise),
+          });
+        }
+        if (url.includes('/exercises/with-metadata')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve(mockExercisesWithMetadata),
+          });
+        }
+        if (url.includes('/exercises/ex-1') && options?.method === 'PUT') {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve(mockExercise),
+          });
+        }
+        return Promise.reject(new Error(`Unexpected URL: ${url}`));
+      });
 
       renderWithProvider({ slug: 'test-exercise' });
 
@@ -336,19 +394,31 @@ describe('ExerciseEditorPage', () => {
     });
 
     it('should call update API for existing exercise', async () => {
-      // First call: load exercise
-      // Second call: update exercise
-      mockFetch
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: () => Promise.resolve(mockExercise),
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: () => Promise.resolve(mockExercise),
-        });
+      // Mock all API calls based on URL
+      mockFetch.mockImplementation((url: string, options?: RequestInit) => {
+        if (url.includes('/exercises/by-slug/')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve(mockExercise),
+          });
+        }
+        if (url.includes('/exercises/with-metadata')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve(mockExercisesWithMetadata),
+          });
+        }
+        if (url.includes('/exercises/ex-1') && options?.method === 'PUT') {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve(mockExercise),
+          });
+        }
+        return Promise.reject(new Error(`Unexpected URL: ${url}`));
+      });
 
       renderWithProvider({ slug: 'test-exercise' });
 
@@ -380,6 +450,172 @@ describe('ExerciseEditorPage', () => {
       expect(modelSelect.options.length).toBe(2);
       expect(modelSelect.options[0].value).toBe('claude-3');
       expect(modelSelect.options[1].value).toBe('gpt-4');
+    });
+  });
+
+  describe('publish actions', () => {
+    it('should show Publish button when exercise has draft', async () => {
+      mockEditModeResponses();
+
+      renderWithProvider({ slug: 'test-exercise' });
+
+      await waitFor(() => {
+        expect(screen.getByText('Publish')).toBeInTheDocument();
+      });
+    });
+
+    it('should not show publish actions for new exercise', () => {
+      renderWithProvider();
+
+      expect(screen.queryByText('Publish')).not.toBeInTheDocument();
+      expect(screen.queryByText('Unpublish')).not.toBeInTheDocument();
+      expect(screen.queryByText('Restore from Published')).not.toBeInTheDocument();
+    });
+
+    it('should show Unpublish button when exercise has published version', async () => {
+      const metadataWithPublished = [{
+        exercise: mockExercise,
+        metadata: { draft: 'ex-1', published: 'pub-1' },
+      }];
+      mockEditModeResponses(mockExercise, metadataWithPublished);
+
+      renderWithProvider({ slug: 'test-exercise' });
+
+      await waitFor(() => {
+        expect(screen.getByText('Unpublish')).toBeInTheDocument();
+      });
+    });
+
+    it('should show Restore button only when both draft and published exist', async () => {
+      const metadataWithBoth = [{
+        exercise: mockExercise,
+        metadata: { draft: 'ex-1', published: 'pub-1' },
+      }];
+      mockEditModeResponses(mockExercise, metadataWithBoth);
+
+      renderWithProvider({ slug: 'test-exercise' });
+
+      await waitFor(() => {
+        expect(screen.getByText('Restore from Published')).toBeInTheDocument();
+      });
+    });
+
+    it('should show confirmation dialog when Publish clicked', async () => {
+      mockEditModeResponses();
+
+      renderWithProvider({ slug: 'test-exercise' });
+
+      await waitFor(() => {
+        expect(screen.getByText('Publish')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText('Publish'));
+
+      expect(screen.getByText('Publish Exercise?')).toBeInTheDocument();
+      expect(screen.getByText(/will make the current draft available/)).toBeInTheDocument();
+    });
+
+    it('should close confirmation dialog when Cancel clicked', async () => {
+      mockEditModeResponses();
+
+      renderWithProvider({ slug: 'test-exercise' });
+
+      await waitFor(() => {
+        expect(screen.getByText('Publish')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText('Publish'));
+      expect(screen.getByText('Publish Exercise?')).toBeInTheDocument();
+
+      // Find the Cancel button in the modal (next to Confirm)
+      const confirmButton = screen.getByText('Confirm');
+      const modalCancelButton = confirmButton.parentElement?.querySelector('button:first-child');
+      fireEvent.click(modalCancelButton!);
+
+      expect(screen.queryByText('Publish Exercise?')).not.toBeInTheDocument();
+    });
+
+    it('should call publish API when confirmed', async () => {
+      mockFetch.mockImplementation((url: string, options?: RequestInit) => {
+        if (url.includes('/exercises/by-slug/')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve(mockExercise),
+          });
+        }
+        if (url.includes('/exercises/with-metadata')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve(mockExercisesWithMetadata),
+          });
+        }
+        if (url.includes('/publish') && options?.method === 'POST') {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({ success: true }),
+          });
+        }
+        return Promise.reject(new Error(`Unexpected URL: ${url}`));
+      });
+
+      renderWithProvider({ slug: 'test-exercise' });
+
+      await waitFor(() => {
+        expect(screen.getByText('Publish')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText('Publish'));
+      fireEvent.click(screen.getByText('Confirm'));
+
+      await waitFor(() => {
+        expect(mockFetch).toHaveBeenCalledWith(
+          '/api/test/exercises/test-exercise/publish',
+          expect.objectContaining({ method: 'POST' })
+        );
+      });
+    });
+
+    it('should show success toast after publish', async () => {
+      mockFetch.mockImplementation((url: string, options?: RequestInit) => {
+        if (url.includes('/exercises/by-slug/')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve(mockExercise),
+          });
+        }
+        if (url.includes('/exercises/with-metadata')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve(mockExercisesWithMetadata),
+          });
+        }
+        if (url.includes('/publish') && options?.method === 'POST') {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({ success: true }),
+          });
+        }
+        return Promise.reject(new Error(`Unexpected URL: ${url}`));
+      });
+
+      renderWithProvider({ slug: 'test-exercise' });
+
+      await waitFor(() => {
+        expect(screen.getByText('Publish')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText('Publish'));
+      fireEvent.click(screen.getByText('Confirm'));
+
+      await waitFor(() => {
+        expect(screen.getByText('Exercise published successfully')).toBeInTheDocument();
+      });
     });
   });
 });
