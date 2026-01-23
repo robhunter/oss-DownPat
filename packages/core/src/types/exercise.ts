@@ -69,6 +69,8 @@ export interface Exercise {
   createdAt?: string;
   /** When the exercise was last updated */
   updatedAt?: string;
+  /** When the exercise was published (only set on published versions) */
+  publishedAt?: string;
 }
 
 /**

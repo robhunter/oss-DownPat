@@ -39,7 +39,7 @@ describe('InMemoryExerciseStorage', () => {
       await storage.createExercise(exercise);
 
       const retrieved = await storage.getExerciseBySlug('test-slug');
-      expect(retrieved).toEqual(exercise);
+      expect(retrieved).toEqual({ ...exercise, status: 'draft' });
     });
   });
 

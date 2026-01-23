@@ -94,7 +94,7 @@ export function createInMemoryStorage(): {
     },
 
     async createExercise(exercise: Exercise) {
-      exercises.set(exercise.exerciseId, exercise);
+      exercises.set(exercise.exerciseId, { ...exercise, status: 'draft' });
       exerciseMetadata.set(exercise.slug, {
         draft: exercise.exerciseId,
       });
@@ -111,9 +111,16 @@ export function createInMemoryStorage(): {
       const draft = exercises.get(metadata.draft);
       if (!draft) throw new Error('Draft exercise not found');
 
-      // Create or update published version
+      // Create or update published version with status and timestamp
       const publishedId = metadata.published || `${metadata.draft}-published`;
-      exercises.set(publishedId, { ...draft, exerciseId: publishedId });
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { publishedAt: _stripped, ...draftData } = draft;
+      exercises.set(publishedId, {
+        ...draftData,
+        exerciseId: publishedId,
+        status: 'published',
+        publishedAt: new Date().toISOString(),
+      });
 
       // Delete draft and update metadata
       exercises.delete(metadata.draft);
@@ -126,9 +133,11 @@ export function createInMemoryStorage(): {
       const published = exercises.get(metadata.published);
       if (!published) throw new Error('Published exercise not found');
 
-      // Convert published to draft
+      // Convert published to draft - strip publishedAt since drafts shouldn't have it
       const draftId = metadata.published.replace('-published', '');
-      exercises.set(draftId, { ...published, exerciseId: draftId });
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { publishedAt: _stripped, ...publishedData } = published;
+      exercises.set(draftId, { ...publishedData, exerciseId: draftId, status: 'draft' });
 
       // Delete published and update metadata
       exercises.delete(metadata.published);
@@ -152,9 +161,11 @@ export function createInMemoryStorage(): {
       const published = exercises.get(metadata.published);
       if (!published) throw new Error('Published exercise not found');
 
-      // Create draft from published
+      // Create draft from published - strip publishedAt since drafts shouldn't have it
       const draftId = metadata.published.replace('-published', '');
-      exercises.set(draftId, { ...published, exerciseId: draftId });
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { publishedAt: _stripped, ...publishedData } = published;
+      exercises.set(draftId, { ...publishedData, exerciseId: draftId, status: 'draft' });
       exerciseMetadata.set(slug, { ...metadata, draft: draftId });
     },
 

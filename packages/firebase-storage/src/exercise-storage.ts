@@ -49,9 +49,10 @@ export class FirebaseExerciseStorage implements ExerciseStorage {
         throw new Error(`Exercise with slug "${exercise.slug}" already exists`);
       }
 
-      // Create exercise document
+      // Create exercise document as draft
       txn.create(exerciseRef, {
         ...exercise,
+        status: 'draft',
         createdAt: new Date().toISOString(),
       });
 
@@ -103,10 +104,13 @@ export class FirebaseExerciseStorage implements ExerciseStorage {
       const publishedId = metadata.published || `${metadata.draft}-published`;
       const publishedRef = this.db.collection(this.exercisesCollection).doc(publishedId);
 
-      const draftData = draftDoc.data()!;
+      // Copy draft data, set published status and timestamp
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { publishedAt: _stripped, ...draftData } = draftDoc.data()!;
       txn.set(publishedRef, {
         ...draftData,
         exerciseId: publishedId,
+        status: 'published',
         publishedAt: new Date().toISOString(),
       });
 
@@ -141,14 +145,16 @@ export class FirebaseExerciseStorage implements ExerciseStorage {
         throw new Error('Published exercise not found');
       }
 
-      // Convert published to draft
+      // Convert published to draft - strip publishedAt since drafts shouldn't have it
       const draftId = metadata.published.replace('-published', '');
       const draftRef = this.db.collection(this.exercisesCollection).doc(draftId);
-      const publishedData = publishedDoc.data()!;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { publishedAt: _stripped, ...publishedData } = publishedDoc.data()!;
 
       txn.set(draftRef, {
         ...publishedData,
         exerciseId: draftId,
+        status: 'draft',
       });
 
       // Delete published and update metadata
@@ -208,14 +214,16 @@ export class FirebaseExerciseStorage implements ExerciseStorage {
         throw new Error('Published exercise not found');
       }
 
-      // Create draft from published
+      // Create draft from published - strip publishedAt since drafts shouldn't have it
       const draftId = metadata.published.replace('-published', '');
       const draftRef = this.db.collection(this.exercisesCollection).doc(draftId);
-      const publishedData = publishedDoc.data()!;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { publishedAt: _stripped, ...publishedData } = publishedDoc.data()!;
 
       txn.set(draftRef, {
         ...publishedData,
         exerciseId: draftId,
+        status: 'draft',
       });
 
       // Update metadata to have both draft and published
