@@ -68,15 +68,24 @@ interface SummaryFields {
   gradeDescription: string;
 }
 
+// Default values for new exercises
+const DEFAULT_RESPONSE_DESCRIPTION = "Response to the user's message";
+const DEFAULT_COMMENTARY_ROLE = 'Coach';
+const DEFAULT_COMMENTARY_DESCRIPTION = "Assessment of the user's last message";
+const DEFAULT_COMMENTARY_GRADE = "A grade assessing the user's last message";
+const DEFAULT_SUMMARY_ROLE = 'Coach';
+const DEFAULT_SUMMARY_DESCRIPTION = "Assessment of the user's performance over the entire conversation";
+const DEFAULT_SUMMARY_GRADE = "A grade assessing the user's performance over the entire conversation";
+
 /** Extract conversation task fields and ID from existing tasks */
-function extractConversationTask(tasks: ConversationTask[]): { taskId: string | null; fields: ConversationFields } {
+function extractConversationTask(tasks: ConversationTask[], isNew: boolean): { taskId: string | null; fields: ConversationFields } {
   const task = tasks.find((t) => t.responseType === MessageType.CONVERSATION);
   return {
     taskId: task?.taskId || null,
     fields: {
       role: task?.role || '',
       prompt: task?.prompt || '',
-      responseDescription: task?.responseSchema?.conversation || '',
+      responseDescription: task?.responseSchema?.conversation || (isNew ? DEFAULT_RESPONSE_DESCRIPTION : ''),
     },
   };
 }
@@ -130,7 +139,7 @@ export function ExerciseForm({
     exerciseId: exercise?.exerciseId || generateId(),
     exerciseName: exercise?.exerciseName || '',
     slug: exercise?.slug || '',
-    maxUserMessages: exercise?.maxUserMessages || 10,
+    maxUserMessages: exercise?.maxUserMessages || 200,
     model: exercise?.model || (hasModels ? availableModels[0] : ''),
     talkToCoachEnabled: exercise?.talkToCoachEnabled || false,
     welcomeMessage: exercise?.welcomeMessage || '',
@@ -139,7 +148,7 @@ export function ExerciseForm({
   }));
 
   // Conversation task fields and ID (always visible, required)
-  const existingConversation = extractConversationTask((exercise?.continuationTasks || []) as ConversationTask[]);
+  const existingConversation = extractConversationTask((exercise?.continuationTasks || []) as ConversationTask[], !exercise);
   const [conversationTaskId] = useState<string | null>(existingConversation.taskId);
   const [conversationFields, setConversationFields] = useState<ConversationFields>(existingConversation.fields);
 
@@ -390,7 +399,12 @@ export function ExerciseForm({
 
   const handleAddCommentary = () => {
     setShowCommentary(true);
-    setCommentaryFields({ role: 'Coach', prompt: '', commentaryDescription: '', gradeDescription: '' });
+    setCommentaryFields({
+      role: DEFAULT_COMMENTARY_ROLE,
+      prompt: '',
+      commentaryDescription: DEFAULT_COMMENTARY_DESCRIPTION,
+      gradeDescription: DEFAULT_COMMENTARY_GRADE,
+    });
   };
 
   const handleRemoveCommentary = () => {
@@ -402,7 +416,12 @@ export function ExerciseForm({
 
   const handleAddSummary = () => {
     setShowSummary(true);
-    setSummaryFields({ role: 'Coach', prompt: '', summaryDescription: '', gradeDescription: '' });
+    setSummaryFields({
+      role: DEFAULT_SUMMARY_ROLE,
+      prompt: '',
+      summaryDescription: DEFAULT_SUMMARY_DESCRIPTION,
+      gradeDescription: DEFAULT_SUMMARY_GRADE,
+    });
   };
 
   const handleRemoveSummary = () => {
@@ -623,7 +642,7 @@ export function ExerciseForm({
             value={conversationFields.responseDescription}
             onChange={(e) => setConversationFields((prev) => ({ ...prev, responseDescription: e.target.value }))}
             onBlur={() => handleBlur('conversationResponseDescription', conversationFields.responseDescription)}
-            placeholder="Description of expected conversation response for AI tool call..."
+            placeholder={`ex: ${DEFAULT_RESPONSE_DESCRIPTION}`}
             rows={4}
             className={`downpat-textarea ${touched.conversationResponseDescription && errors.conversationResponseDescription ? 'downpat-textarea--error' : ''}`}
           />
@@ -656,7 +675,7 @@ export function ExerciseForm({
               type="text"
               value={commentaryFields.role}
               onChange={(e) => setCommentaryFields((prev) => ({ ...prev, role: e.target.value }))}
-              placeholder="Who is providing commentary? Ex: Coach"
+              placeholder={`ex: ${DEFAULT_COMMENTARY_ROLE}`}
               className={`downpat-input ${errors.commentaryRole ? 'downpat-input--error' : ''}`}
             />
             {errors.commentaryRole && (
@@ -683,7 +702,7 @@ export function ExerciseForm({
             <textarea
               value={commentaryFields.commentaryDescription}
               onChange={(e) => setCommentaryFields((prev) => ({ ...prev, commentaryDescription: e.target.value }))}
-              placeholder="Description of expected commentary response..."
+              placeholder={`ex: ${DEFAULT_COMMENTARY_DESCRIPTION}`}
               rows={4}
               className={`downpat-textarea ${errors.commentaryDescription ? 'downpat-textarea--error' : ''}`}
             />
@@ -697,7 +716,7 @@ export function ExerciseForm({
             <textarea
               value={commentaryFields.gradeDescription}
               onChange={(e) => setCommentaryFields((prev) => ({ ...prev, gradeDescription: e.target.value }))}
-              placeholder="Description of how to grade performance..."
+              placeholder={`ex: ${DEFAULT_COMMENTARY_GRADE}`}
               rows={4}
               className={`downpat-textarea ${errors.commentaryGradeDescription ? 'downpat-textarea--error' : ''}`}
             />
@@ -737,7 +756,7 @@ export function ExerciseForm({
               type="text"
               value={summaryFields.role}
               onChange={(e) => setSummaryFields((prev) => ({ ...prev, role: e.target.value }))}
-              placeholder="Who is providing the summary? Ex: Coach"
+              placeholder={`ex: ${DEFAULT_SUMMARY_ROLE}`}
               className={`downpat-input ${errors.summaryRole ? 'downpat-input--error' : ''}`}
             />
             {errors.summaryRole && (
@@ -764,7 +783,7 @@ export function ExerciseForm({
             <textarea
               value={summaryFields.summaryDescription}
               onChange={(e) => setSummaryFields((prev) => ({ ...prev, summaryDescription: e.target.value }))}
-              placeholder="Description of expected summary response..."
+              placeholder={`ex: ${DEFAULT_SUMMARY_DESCRIPTION}`}
               rows={4}
               className={`downpat-textarea ${errors.summaryDescription ? 'downpat-textarea--error' : ''}`}
             />
@@ -778,7 +797,7 @@ export function ExerciseForm({
             <textarea
               value={summaryFields.gradeDescription}
               onChange={(e) => setSummaryFields((prev) => ({ ...prev, gradeDescription: e.target.value }))}
-              placeholder="Description of how to grade overall performance..."
+              placeholder={`ex: ${DEFAULT_SUMMARY_GRADE}`}
               rows={4}
               className={`downpat-textarea ${errors.summaryGradeDescription ? 'downpat-textarea--error' : ''}`}
             />

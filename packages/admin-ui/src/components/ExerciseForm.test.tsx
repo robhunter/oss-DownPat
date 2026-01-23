@@ -101,7 +101,7 @@ describe('ExerciseForm', () => {
     fireEvent.change(screen.getByPlaceholderText('Instructions for the AI during conversation...'), {
       target: { value: 'You are a customer.' },
     });
-    fireEvent.change(screen.getByPlaceholderText('Description of expected conversation response for AI tool call...'), {
+    fireEvent.change(screen.getByPlaceholderText("ex: Response to the user's message"), {
       target: { value: 'Respond in character.' },
     });
 
@@ -368,7 +368,7 @@ describe('ExerciseForm', () => {
       expect(screen.getByText('Conversation Task')).toBeInTheDocument();
       expect(screen.getByPlaceholderText('Who is the user talking to?')).toBeInTheDocument();
       expect(screen.getByPlaceholderText('Instructions for the AI during conversation...')).toBeInTheDocument();
-      expect(screen.getByPlaceholderText('Description of expected conversation response for AI tool call...')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText("ex: Response to the user's message")).toBeInTheDocument();
     });
 
     it('should populate conversation task fields from existing exercise', () => {
@@ -488,12 +488,12 @@ describe('ExerciseForm', () => {
       fireEvent.change(screen.getByPlaceholderText('Instructions for the AI during conversation...'), {
         target: { value: 'You are a customer.' },
       });
-      fireEvent.change(screen.getByPlaceholderText('Description of expected conversation response for AI tool call...'), {
+      fireEvent.change(screen.getByPlaceholderText("ex: Response to the user's message"), {
         target: { value: 'Respond in character.' },
       });
 
-      // Change maxUserMessages
-      const maxMessagesInput = screen.getByDisplayValue('10');
+      // Change maxUserMessages (default is now 200)
+      const maxMessagesInput = screen.getByDisplayValue('200');
       fireEvent.change(maxMessagesInput, { target: { value: '25' } });
 
       fireEvent.submit(screen.getByText('Create Exercise').closest('form')!);
@@ -525,7 +525,7 @@ describe('ExerciseForm', () => {
       fireEvent.change(screen.getByPlaceholderText('Instructions for the AI during conversation...'), {
         target: { value: 'You are a customer.' },
       });
-      fireEvent.change(screen.getByPlaceholderText('Description of expected conversation response for AI tool call...'), {
+      fireEvent.change(screen.getByPlaceholderText("ex: Response to the user's message"), {
         target: { value: 'Respond in character.' },
       });
 
@@ -562,7 +562,7 @@ describe('ExerciseForm', () => {
       fireEvent.change(screen.getByPlaceholderText('Instructions for the AI during conversation...'), {
         target: { value: 'You are a customer.' },
       });
-      fireEvent.change(screen.getByPlaceholderText('Description of expected conversation response for AI tool call...'), {
+      fireEvent.change(screen.getByPlaceholderText("ex: Response to the user's message"), {
         target: { value: 'Respond in character.' },
       });
 
@@ -599,7 +599,7 @@ describe('ExerciseForm', () => {
       fireEvent.change(screen.getByPlaceholderText('Instructions for the AI during conversation...'), {
         target: { value: 'You are a customer.' },
       });
-      fireEvent.change(screen.getByPlaceholderText('Description of expected conversation response for AI tool call...'), {
+      fireEvent.change(screen.getByPlaceholderText("ex: Response to the user's message"), {
         target: { value: 'Respond in character.' },
       });
 
@@ -638,7 +638,7 @@ describe('ExerciseForm', () => {
       fireEvent.change(screen.getByPlaceholderText('Instructions for the AI during conversation...'), {
         target: { value: 'You are a customer.' },
       });
-      fireEvent.change(screen.getByPlaceholderText('Description of expected conversation response for AI tool call...'), {
+      fireEvent.change(screen.getByPlaceholderText("ex: Response to the user's message"), {
         target: { value: 'Respond in character.' },
       });
 
@@ -678,7 +678,7 @@ describe('ExerciseForm', () => {
       fireEvent.change(screen.getByPlaceholderText('Instructions for the AI during conversation...'), {
         target: { value: 'You are a customer.' },
       });
-      fireEvent.change(screen.getByPlaceholderText('Description of expected conversation response for AI tool call...'), {
+      fireEvent.change(screen.getByPlaceholderText("ex: Response to the user's message"), {
         target: { value: 'Respond in character.' },
       });
 
@@ -686,16 +686,16 @@ describe('ExerciseForm', () => {
       fireEvent.click(screen.getByText('+ Add Commentary Task'));
 
       // Fill commentary fields
-      const roleInputs = screen.getAllByPlaceholderText('Who is providing commentary? Ex: Coach');
+      const roleInputs = screen.getAllByPlaceholderText('ex: Coach');
       fireEvent.change(roleInputs[0], { target: { value: 'Expert Coach' } });
 
       const promptTextareas = screen.getAllByPlaceholderText('Instructions for generating commentary...');
       fireEvent.change(promptTextareas[0], { target: { value: 'Provide helpful feedback.' } });
 
-      const commentaryDescTextareas = screen.getAllByPlaceholderText('Description of expected commentary response...');
+      const commentaryDescTextareas = screen.getAllByPlaceholderText("ex: Assessment of the user's last message");
       fireEvent.change(commentaryDescTextareas[0], { target: { value: 'Describe the commentary.' } });
 
-      const gradeDescTextareas = screen.getAllByPlaceholderText('Description of how to grade performance...');
+      const gradeDescTextareas = screen.getAllByPlaceholderText("ex: A grade assessing the user's last message");
       fireEvent.change(gradeDescTextareas[0], { target: { value: 'Rate 1-5.' } });
 
       fireEvent.submit(screen.getByText('Create Exercise').closest('form')!);
@@ -735,7 +735,7 @@ describe('ExerciseForm', () => {
       fireEvent.change(screen.getByPlaceholderText('Instructions for the AI during conversation...'), {
         target: { value: 'You are a customer.' },
       });
-      fireEvent.change(screen.getByPlaceholderText('Description of expected conversation response for AI tool call...'), {
+      fireEvent.change(screen.getByPlaceholderText("ex: Response to the user's message"), {
         target: { value: 'Respond in character.' },
       });
 
@@ -743,10 +743,10 @@ describe('ExerciseForm', () => {
       fireEvent.click(screen.getByText('+ Add Summary Task'));
 
       // Fill summary fields
-      fireEvent.change(screen.getByPlaceholderText('Who is providing the summary? Ex: Coach'), { target: { value: 'Evaluator' } });
+      fireEvent.change(screen.getByPlaceholderText('ex: Coach'), { target: { value: 'Evaluator' } });
       fireEvent.change(screen.getByPlaceholderText('Instructions for generating summary...'), { target: { value: 'Summarize the conversation.' } });
-      fireEvent.change(screen.getByPlaceholderText('Description of expected summary response...'), { target: { value: 'Provide a summary.' } });
-      fireEvent.change(screen.getByPlaceholderText('Description of how to grade overall performance...'), { target: { value: 'Final grade.' } });
+      fireEvent.change(screen.getByPlaceholderText("ex: Assessment of the user's performance over the entire conversation"), { target: { value: 'Provide a summary.' } });
+      fireEvent.change(screen.getByPlaceholderText("ex: A grade assessing the user's performance over the entire conversation"), { target: { value: 'Final grade.' } });
 
       fireEvent.submit(screen.getByText('Create Exercise').closest('form')!);
 

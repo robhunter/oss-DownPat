@@ -236,12 +236,12 @@ describe('ExerciseEditorPage', () => {
       fireEvent.change(screen.getByPlaceholderText('Instructions for the AI during conversation...'), {
         target: { value: 'Be helpful.' },
       });
-      fireEvent.change(screen.getByPlaceholderText('Description of expected conversation response for AI tool call...'), {
-        target: { value: 'Respond naturally.' },
+      fireEvent.change(screen.getByPlaceholderText("ex: Response to the user's message"), {
+        target: { value: 'A helpful response.' },
       });
 
       // Submit the form
-      fireEvent.click(screen.getByText('Create Exercise'));
+      fireEvent.submit(screen.getByText('Create Exercise').closest('form')!);
 
       await waitFor(() => {
         // Error appears in both error block and toast - check both exist
@@ -293,11 +293,11 @@ describe('ExerciseEditorPage', () => {
       fireEvent.change(screen.getByPlaceholderText('Instructions for the AI during conversation...'), {
         target: { value: 'Be helpful.' },
       });
-      fireEvent.change(screen.getByPlaceholderText('Description of expected conversation response for AI tool call...'), {
-        target: { value: 'Respond naturally.' },
+      fireEvent.change(screen.getByPlaceholderText("ex: Response to the user's message"), {
+        target: { value: 'A helpful response.' },
       });
 
-      fireEvent.click(screen.getByText('Create Exercise'));
+      fireEvent.submit(screen.getByText('Create Exercise').closest('form')!);
 
       await waitFor(() => {
         expect(screen.getByText('Exercise saved successfully')).toBeInTheDocument();
@@ -376,11 +376,11 @@ describe('ExerciseEditorPage', () => {
       fireEvent.change(screen.getByPlaceholderText('Instructions for the AI during conversation...'), {
         target: { value: 'Be helpful and concise.' },
       });
-      fireEvent.change(screen.getByPlaceholderText('Description of expected conversation response for AI tool call...'), {
-        target: { value: 'Respond naturally.' },
+      fireEvent.change(screen.getByPlaceholderText("ex: Response to the user's message"), {
+        target: { value: 'A helpful response.' },
       });
 
-      fireEvent.click(screen.getByText('Create Exercise'));
+      fireEvent.submit(screen.getByText('Create Exercise').closest('form')!);
 
       await waitFor(() => {
         expect(mockFetch).toHaveBeenCalledWith(
