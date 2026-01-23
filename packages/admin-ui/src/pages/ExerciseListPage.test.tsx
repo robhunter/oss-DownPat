@@ -176,42 +176,6 @@ describe('ExerciseListPage', () => {
   });
 
   describe('actions', () => {
-    it('should call publish API when publish clicked', async () => {
-      mockFetch
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: () => Promise.resolve(mockExercises),
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 204,
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: () => Promise.resolve(mockExercises),
-        });
-
-      renderWithProvider();
-
-      await waitFor(() => {
-        expect(screen.getByText('Test Exercise 1')).toBeInTheDocument();
-      });
-
-      // Find the table row containing "Test Exercise 1" and click its Publish button
-      const exerciseRow = screen.getByText('Test Exercise 1').closest('tr');
-      const publishButton = within(exerciseRow as HTMLElement).getByText('Publish');
-      fireEvent.click(publishButton);
-
-      await waitFor(() => {
-        expect(mockFetch).toHaveBeenCalledWith(
-          '/api/test/exercises/test-exercise-1/publish',
-          expect.objectContaining({ method: 'POST' })
-        );
-      });
-    });
-
     it('should call delete API when delete confirmed', async () => {
       mockFetch
         .mockResolvedValueOnce({

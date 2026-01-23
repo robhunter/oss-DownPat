@@ -41,42 +41,6 @@ export function ExerciseListPage(): React.JSX.Element {
     }
   }, [onTestExercise]);
 
-  const handlePublish = useCallback(async (slug: string) => {
-    setActionLoading(true);
-    try {
-      await api.publishExercise(slug);
-      await loadExercises();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to publish');
-    } finally {
-      setActionLoading(false);
-    }
-  }, [api, loadExercises]);
-
-  const handleUnpublish = useCallback(async (slug: string) => {
-    setActionLoading(true);
-    try {
-      await api.unpublishExercise(slug);
-      await loadExercises();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to unpublish');
-    } finally {
-      setActionLoading(false);
-    }
-  }, [api, loadExercises]);
-
-  const handleRestore = useCallback(async (slug: string) => {
-    setActionLoading(true);
-    try {
-      await api.restoreExercise(slug);
-      await loadExercises();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to restore');
-    } finally {
-      setActionLoading(false);
-    }
-  }, [api, loadExercises]);
-
   const handleDelete = useCallback(async (slug: string) => {
     setActionLoading(true);
     try {
@@ -122,9 +86,6 @@ export function ExerciseListPage(): React.JSX.Element {
         exercises={exercises}
         onEdit={handleEdit}
         onTest={onTestExercise ? handleTest : undefined}
-        onPublish={handlePublish}
-        onUnpublish={handleUnpublish}
-        onRestore={handleRestore}
         onDelete={handleDelete}
         isLoading={actionLoading}
       />

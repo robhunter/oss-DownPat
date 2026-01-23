@@ -13,12 +13,6 @@ export interface ExerciseListProps {
   onEdit: (exercise: Exercise) => void;
   /** Callback when test button is clicked */
   onTest?: (exercise: Exercise) => void;
-  /** Callback when publish button is clicked */
-  onPublish: (slug: string) => void;
-  /** Callback when unpublish button is clicked */
-  onUnpublish: (slug: string) => void;
-  /** Callback when restore button is clicked */
-  onRestore: (slug: string) => void;
   /** Callback when delete button is clicked */
   onDelete: (slug: string) => void;
   /** Additional CSS classes */
@@ -36,15 +30,11 @@ export function ExerciseList({
   exercises,
   onEdit,
   onTest,
-  onPublish,
-  onUnpublish,
-  onRestore,
   onDelete,
   className = '',
   isLoading = false,
 }: ExerciseListProps): React.JSX.Element {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
-  const [confirmRestore, setConfirmRestore] = useState<string | null>(null);
 
   const handleDelete = (slug: string) => {
     if (confirmDelete === slug) {
@@ -52,15 +42,6 @@ export function ExerciseList({
       setConfirmDelete(null);
     } else {
       setConfirmDelete(slug);
-    }
-  };
-
-  const handleRestore = (slug: string) => {
-    if (confirmRestore === slug) {
-      onRestore(slug);
-      setConfirmRestore(null);
-    } else {
-      setConfirmRestore(slug);
     }
   };
 
@@ -125,52 +106,6 @@ export function ExerciseList({
                         title="Test this exercise in a conversation"
                       >
                         Test
-                      </button>
-                    )}
-
-                    {isPublished ? (
-                      <>
-                        <button
-                          onClick={() => onUnpublish(slug)}
-                          disabled={isLoading}
-                          className="downpat-action-btn downpat-action-btn--unpublish"
-                        >
-                          Unpublish
-                        </button>
-                        {confirmRestore === slug ? (
-                          <div className="downpat-confirm-group">
-                            <button
-                              onClick={() => handleRestore(slug)}
-                              disabled={isLoading}
-                              className="downpat-action-btn downpat-action-btn--confirm-restore"
-                            >
-                              Confirm Restore
-                            </button>
-                            <button
-                              onClick={() => setConfirmRestore(null)}
-                              className="downpat-action-btn"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => handleRestore(slug)}
-                            disabled={isLoading}
-                            className="downpat-action-btn downpat-action-btn--restore"
-                            title="Restore draft from published version"
-                          >
-                            Restore
-                          </button>
-                        )}
-                      </>
-                    ) : (
-                      <button
-                        onClick={() => onPublish(slug)}
-                        disabled={isLoading}
-                        className="downpat-action-btn downpat-action-btn--publish"
-                      >
-                        Publish
                       </button>
                     )}
 

@@ -509,27 +509,13 @@
   color: var(--downpat-primary-600, #2563eb);
 }
 
-.downpat-action-btn--publish {
-  color: var(--downpat-admin-btn-success-color);
-}
-
-.downpat-action-btn--unpublish,
 .downpat-action-btn--delete {
   color: var(--downpat-admin-btn-danger-color);
-}
-
-.downpat-action-btn--restore {
-  color: #7c3aed;
 }
 
 .downpat-action-btn--confirm {
   background-color: var(--downpat-admin-btn-danger-bg);
   color: var(--downpat-admin-btn-danger-color);
-}
-
-.downpat-action-btn--confirm-restore {
-  background-color: var(--downpat-admin-status-draft-bg);
-  color: var(--downpat-admin-status-draft-color);
 }
 
 .downpat-confirm-group {
