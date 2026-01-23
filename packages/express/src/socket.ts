@@ -549,19 +549,18 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
             await conversationPromise;
 
             // 5. Save AI message
-            const aiRole = getConversationRole(conversation, conversationTask);
             await controller.addAIMessage(
               data.conversationId,
               {
                 type: MessageType.CONVERSATION,
-                role: aiRole,
+                role: getConversationRole(conversation, conversationTask),
                 content: fullContent,
               },
               socket.data.user!
             );
 
-            // 6. Emit message complete with role for UI
-            socket.emit('message-complete', { role: aiRole });
+            // 6. Emit message complete
+            socket.emit('message-complete');
 
             // 7. Wait for all commentary tasks to complete and save them
             const commentaryResults = await Promise.allSettled(commentaryPromises);
@@ -855,19 +854,18 @@ Be concise, supportive, and focused on helping them learn.`,
             await conversationPromise;
 
             // Save AI message
-            const aiRole = getConversationRole(conversation, conversationTask);
             await controller.addAIMessage(
               data.conversationId,
               {
                 type: MessageType.CONVERSATION,
-                role: aiRole,
+                role: getConversationRole(conversation, conversationTask),
                 content: fullContent,
               },
               socket.data.user!
             );
 
-            // Emit message complete with role for UI
-            socket.emit('message-complete', { role: aiRole });
+            // Emit message complete
+            socket.emit('message-complete');
 
             // Wait for all commentary tasks to complete and save them
             const commentaryResults = await Promise.allSettled(commentaryPromises);
@@ -921,7 +919,7 @@ Be concise, supportive, and focused on helping them learn.`,
         } else {
           // No AI adapter - signal completion so client doesn't hang waiting
           // Client adds a streaming placeholder on messages-truncated, so we need to signal it's done
-          socket.emit('message-complete', { role: 'AI' });
+          socket.emit('message-complete');
         }
       } catch (error) {
         socket.emit('error', {
@@ -1081,7 +1079,7 @@ interface ServerToClientEvents {
     isComplete: boolean;
   }) => void;
   'message-chunk': (data: { chunk: string }) => void;
-  'message-complete': (data: { role: string }) => void;
+  'message-complete': () => void;
   'commentary-chunk': (data: { chunk: string; role: string }) => void;
   'commentary-complete': (data: { role: string; content?: string; grade?: string }) => void;
   'coach-message-chunk': (data: { chunk: string }) => void;

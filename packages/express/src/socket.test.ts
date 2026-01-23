@@ -272,10 +272,10 @@ describe('Socket.io attachSocketIO', () => {
       // Verify chunks were received
       expect(chunks).toEqual(['Hello ', 'World!']);
 
-      // Verify message-complete is called with role argument
+      // CRITICAL: Verify message-complete is called with NO arguments
+      // This was the bug - client expected data but server sends none
       expect(messageCompleteReceived).toBe(true);
-      expect(messageCompleteArgs).toHaveLength(1);
-      expect(messageCompleteArgs[0]).toEqual({ role: 'AI' });
+      expect(messageCompleteArgs).toHaveLength(0);
     });
 
     it('emits error when AI fails', async () => {
