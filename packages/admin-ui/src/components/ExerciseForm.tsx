@@ -367,7 +367,7 @@ export function ExerciseForm({
       completionTasks,
       welcomeMessage: formData.welcomeMessage,
       guidelines: formData.guidelines,
-      starters: formData.starters.filter((s) => s.text.trim()),
+      starters: formData.starters.filter((s) => s.text.trim() || s.context.trim()),
     };
 
     onSubmit(finalExercise);
