@@ -41,7 +41,7 @@ export interface ExerciseEditorPageProps {
  * Page component for creating and editing exercises.
  */
 export function ExerciseEditorPage({ slug }: ExerciseEditorPageProps): React.JSX.Element {
-  const { navigate, availableModels } = useAdminContext();
+  const { navigate, availableModels, onTestExercise } = useAdminContext();
   const api = useAdminAPI();
 
   // Track whether we're creating vs editing - starts based on slug prop
@@ -230,10 +230,20 @@ export function ExerciseEditorPage({ slug }: ExerciseEditorPageProps): React.JSX
         />
       )}
 
-      {/* Publish/Unpublish/Restore Actions - only shown when editing */}
-      {!isNew && metadata && (
+      {/* Actions - only shown when editing */}
+      {!isNew && exercise && (
         <div className="downpat-publish-actions">
-          {canPublish && (
+          {onTestExercise && (
+            <button
+              type="button"
+              onClick={() => onTestExercise(exercise.exerciseId, exercise.slug)}
+              className="downpat-btn downpat-btn--secondary"
+              title="Test this exercise in a conversation"
+            >
+              Test
+            </button>
+          )}
+          {metadata && canPublish && (
             <button
               type="button"
               onClick={() => setConfirmAction('publish')}
@@ -243,7 +253,7 @@ export function ExerciseEditorPage({ slug }: ExerciseEditorPageProps): React.JSX
               Publish
             </button>
           )}
-          {canUnpublish && (
+          {metadata && canUnpublish && (
             <button
               type="button"
               onClick={() => setConfirmAction('unpublish')}
@@ -253,7 +263,7 @@ export function ExerciseEditorPage({ slug }: ExerciseEditorPageProps): React.JSX
               Unpublish
             </button>
           )}
-          {canRestore && (
+          {metadata && canRestore && (
             <button
               type="button"
               onClick={() => setConfirmAction('restore')}

@@ -618,4 +618,52 @@ describe('ExerciseEditorPage', () => {
       });
     });
   });
+
+  describe('test button', () => {
+    it('should not show Test button when onTestExercise is not provided', async () => {
+      mockEditModeResponses();
+
+      renderWithProvider({ slug: 'test-exercise' }, createConfig({ onTestExercise: undefined }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Edit: Test Exercise')).toBeInTheDocument();
+      });
+
+      expect(screen.queryByText('Test')).not.toBeInTheDocument();
+    });
+
+    it('should show Test button when onTestExercise is provided', async () => {
+      const onTestExercise = vi.fn();
+      mockEditModeResponses();
+
+      renderWithProvider({ slug: 'test-exercise' }, createConfig({ onTestExercise }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Test')).toBeInTheDocument();
+      });
+    });
+
+    it('should call onTestExercise with exerciseId and slug when Test clicked', async () => {
+      const onTestExercise = vi.fn();
+      mockEditModeResponses();
+
+      renderWithProvider({ slug: 'test-exercise' }, createConfig({ onTestExercise }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Test')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText('Test'));
+
+      expect(onTestExercise).toHaveBeenCalledWith('ex-1', 'test-exercise');
+    });
+
+    it('should not show Test button for new exercise', () => {
+      const onTestExercise = vi.fn();
+
+      renderWithProvider({}, createConfig({ onTestExercise }));
+
+      expect(screen.queryByText('Test')).not.toBeInTheDocument();
+    });
+  });
 });
