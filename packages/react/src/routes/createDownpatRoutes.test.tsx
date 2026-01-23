@@ -161,6 +161,36 @@ describe('ExerciseBrowserPage', () => {
     expect(screen.getByText('Exercise 2')).toBeInTheDocument();
   });
 
+  it('should render welcomeMessage as description when present', () => {
+    const mockExercises = [
+      {
+        exerciseId: 'ex-1',
+        exerciseName: 'Exercise 1',
+        slug: 'exercise-1',
+        welcomeMessage: 'Welcome to this practice session!',
+      },
+      {
+        exerciseId: 'ex-2',
+        exerciseName: 'Exercise 2',
+        slug: 'exercise-2',
+        welcomeMessage: '',
+      },
+    ];
+
+    vi.mocked(usePublishedExercises).mockReturnValue({
+      exercises: mockExercises,
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    renderAtPath('/downpat/exercises');
+
+    expect(screen.getByText('Welcome to this practice session!')).toBeInTheDocument();
+    // Empty welcomeMessage should not render
+    expect(screen.queryAllByText('Exercise 2').length).toBe(1);
+  });
+
   it('should show loading state', () => {
     vi.mocked(usePublishedExercises).mockReturnValue({
       exercises: [],

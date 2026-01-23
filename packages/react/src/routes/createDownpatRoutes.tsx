@@ -112,6 +112,9 @@ function ExerciseBrowserPage({ basePath }: { basePath: string }) {
               }}
             >
               <h2 className={styles.cardTitle}>{exercise.exerciseName}</h2>
+              {exercise.welcomeMessage && (
+                <p className={styles.cardDescription}>{exercise.welcomeMessage}</p>
+              )}
             </div>
           ))}
         </div>
