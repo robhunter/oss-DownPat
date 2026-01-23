@@ -257,5 +257,36 @@ describe('AdminAPIClient', () => {
         expect.objectContaining({ method: 'POST' })
       );
     });
+
+    it('should get exercise metadata by slug', async () => {
+      const mockExercises = [
+        { exercise: { slug: 'exercise-1' }, metadata: { draft: 'ex-1' } },
+        { exercise: { slug: 'exercise-2' }, metadata: { draft: 'ex-2', published: 'pub-2' } },
+      ];
+      (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(mockExercises),
+      });
+
+      const result = await client.getExerciseMetadata('exercise-2');
+
+      expect(result).toEqual({ draft: 'ex-2', published: 'pub-2' });
+    });
+
+    it('should return null for non-existent exercise metadata', async () => {
+      const mockExercises = [
+        { exercise: { slug: 'exercise-1' }, metadata: { draft: 'ex-1' } },
+      ];
+      (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(mockExercises),
+      });
+
+      const result = await client.getExerciseMetadata('non-existent');
+
+      expect(result).toBeNull();
+    });
   });
 });

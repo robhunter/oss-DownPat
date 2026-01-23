@@ -95,6 +95,9 @@ export function ExerciseEditorPage({ slug }: ExerciseEditorPageProps): React.JSX
       setToast({ message: 'Exercise saved successfully', type: 'success' });
       // Update local exercise state to reflect saved data
       setExercise(data);
+      // Refresh metadata so publish actions reflect current state
+      const meta = await api.getExerciseMetadata(data.slug);
+      setMetadata(meta);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to save exercise';
       setError(message);
