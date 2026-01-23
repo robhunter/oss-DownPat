@@ -72,7 +72,7 @@ describe('useConversation', () => {
         result.current.startNewConversation();
       });
 
-      expect(mockSocket.emit).toHaveBeenCalledWith('start-conversation', { slug: 'my-exercise' });
+      expect(mockSocket.emit).toHaveBeenCalledWith('start-conversation', { slug: 'my-exercise', forceNew: true });
     });
 
     it('resets isLoading to true when starting new conversation', async () => {

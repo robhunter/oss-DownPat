@@ -59,13 +59,19 @@ export function starterToMessages(starter: Starter): Message[] {
   // If context exists, create a CONTEXT message
   // This provides scenario context to the AI and is displayed as system message
   if (starter.context && starter.context.trim()) {
-    messages.push({
+    const contextMessage: Message = {
       messageId: generateId(),
       type: MessageType.CONTEXT,
       role: 'System',
       content: starter.context,
       timestamp,
-    });
+    };
+    // Store starter name in metadata so it can be used for AI response role
+    // (important for context-only starters that don't create a STARTER message)
+    if (starter.attributes?.name) {
+      contextMessage.metadata = { starterName: starter.attributes.name };
+    }
+    messages.push(contextMessage);
   }
 
   // Only create STARTER message if text exists (not empty)

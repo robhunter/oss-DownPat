@@ -10,6 +10,32 @@ import { ConversationController, MessageType, isCommentaryTask, isSummaryTask, i
 const DEFAULT_MODEL = 'gpt-4';
 
 /**
+ * Get the role name for AI conversation responses.
+ * Priority: starter name (from STARTER or CONTEXT metadata) > conversation task role > 'AI'
+ */
+function getConversationRole(conversation: Conversation, conversationTask?: ConversationTask): string {
+  // Look for a STARTER message in the conversation to get the character name
+  const starterMessage = conversation.messages.find((m) => m.type === MessageType.STARTER);
+  if (starterMessage && starterMessage.role && starterMessage.role !== 'Assistant') {
+    return starterMessage.role;
+  }
+
+  // For context-only starters, check CONTEXT message metadata for starter name
+  const contextMessage = conversation.messages.find((m) => m.type === MessageType.CONTEXT);
+  if (contextMessage?.metadata?.starterName && typeof contextMessage.metadata.starterName === 'string') {
+    return contextMessage.metadata.starterName;
+  }
+
+  // Fall back to conversation task role
+  if (conversationTask?.role) {
+    return conversationTask.role;
+  }
+
+  // Final fallback
+  return 'AI';
+}
+
+/**
  * Build the system prompt for a task.
  * For tasks with includeGuidelines=true, prepends exercise guidelines to the task prompt.
  */
@@ -527,7 +553,7 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
               data.conversationId,
               {
                 type: MessageType.CONVERSATION,
-                role: conversationTask?.role || 'AI',
+                role: getConversationRole(conversation, conversationTask),
                 content: fullContent,
               },
               socket.data.user!
@@ -832,7 +858,7 @@ Be concise, supportive, and focused on helping them learn.`,
               data.conversationId,
               {
                 type: MessageType.CONVERSATION,
-                role: conversationTask?.role || 'AI',
+                role: getConversationRole(conversation, conversationTask),
                 content: fullContent,
               },
               socket.data.user!
