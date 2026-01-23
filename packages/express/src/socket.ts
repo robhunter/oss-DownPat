@@ -276,7 +276,7 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
 
         // Use getOrStartConversation if userStateStorage is available (enables resumption)
         // The controller now handles adding welcome/starter messages for new conversations
-        // If forceNew is true, always create a new conversation (used by admin test mode)
+        // If forceNew is true, always create a new conversation (used by New Conversation button)
         if (config.userStateStorage && !data.forceNew) {
           const result = await controller.getOrStartConversation(
             exercise.exerciseId,
@@ -288,12 +288,20 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
           // isResumed is the inverse of wasCreated (resumed = not newly created)
           isResumed = !result.wasCreated;
         } else {
-          // Fall back to always creating new conversation (or forceNew requested)
+          // Create new conversation (forceNew requested or no userStateStorage)
           conversation = await controller.startConversation(
             exercise.exerciseId,
             socket.data.user,
             data.query
           );
+          // Update userStateStorage to track this as the active conversation
+          if (config.userStateStorage) {
+            await config.userStateStorage.setActiveConversation(
+              socket.data.user.userId,
+              exercise.exerciseId,
+              conversation.conversationId
+            );
+          }
         }
 
         // Join the conversation room
