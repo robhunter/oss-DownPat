@@ -51,6 +51,8 @@ export function ExerciseEditorPage({ slug }: ExerciseEditorPageProps): React.JSX
   const [exercise, setExercise] = useState<Exercise | undefined>(undefined);
   const [metadata, setMetadata] = useState<ExerciseMetadata | null>(null);
   const [isLoading, setIsLoading] = useState(!!slug);
+  // Counter to force form remount when exercise data is externally reset (e.g., restore)
+  const [formKey, setFormKey] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
@@ -157,9 +159,16 @@ export function ExerciseEditorPage({ slug }: ExerciseEditorPageProps): React.JSX
     setError(null);
     try {
       await api.restoreExercise(slug);
+      // Fetch new data directly (don't use loadExercise to avoid separate state batches)
+      const [data, meta] = await Promise.all([
+        api.getExercise(slug),
+        api.getExerciseMetadata(slug),
+      ]);
+      // Update all state together to ensure form remounts with new data
+      setExercise(data);
+      setMetadata(meta);
+      setFormKey((k) => k + 1);
       setToast({ message: 'Exercise restored from published version', type: 'success' });
-      // Reload both exercise and metadata to reflect new state
-      await loadExercise(slug);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to restore exercise';
       setError(message);
@@ -168,7 +177,7 @@ export function ExerciseEditorPage({ slug }: ExerciseEditorPageProps): React.JSX
       setIsActionPending(false);
       setConfirmAction(null);
     }
-  }, [api, slug, loadExercise]);
+  }, [api, slug]);
 
   const executeConfirmedAction = useCallback(() => {
     switch (confirmAction) {
@@ -317,6 +326,7 @@ export function ExerciseEditorPage({ slug }: ExerciseEditorPageProps): React.JSX
 
       <div className="downpat-admin-form-container">
         <ExerciseForm
+          key={formKey}
           exercise={exercise}
           availableModels={availableModels}
           onSubmit={handleSubmit}

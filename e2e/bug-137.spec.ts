@@ -120,4 +120,57 @@ test.describe('Bug #137: Button state after editing published exercise', () => {
     // Cleanup
     await deleteExercise(page, slug).catch(() => {});
   });
+
+  test('Bug 3: Form content should revert after restore', async ({ page }) => {
+    await loginAsAdmin(page);
+
+    // Create a fresh exercise with a known name
+    const testId3 = generateTestId();
+    const originalName = `Bug137 Revert Test ${testId3}`;
+    const modifiedName = `${originalName} MODIFIED`;
+
+    const slug = await createExercise(page, {
+      name: originalName,
+      welcomeMessage: 'Welcome to the revert test',
+      maxMessages: 10,
+      conversationTask: {
+        role: 'Assistant',
+        prompt: 'Respond helpfully.',
+        responseDescription: 'A helpful response.',
+      },
+    });
+
+    // Publish it
+    await publishExercise(page, slug);
+
+    // Go to edit page
+    await page.goto(`/downpat/admin/exercises/${slug}/edit`);
+    await expect(page.locator('h1').filter({ hasText: 'Edit:' })).toBeVisible({ timeout: 10000 });
+
+    // Verify original name is shown
+    const nameInput = page.getByPlaceholder('Enter exercise name');
+    await expect(nameInput).toHaveValue(originalName);
+
+    // Make a change to create a draft
+    await nameInput.fill(modifiedName);
+    await page.getByRole('button', { name: 'Update Exercise' }).click();
+    await expect(page.locator('.downpat-toast--success')).toBeVisible({ timeout: 10000 });
+    await page.waitForTimeout(500);
+
+    // Verify the modified name is in the form
+    await expect(nameInput).toHaveValue(modifiedName);
+
+    // Now restore from published
+    await page.getByRole('button', { name: 'Restore from Published', exact: true }).click();
+    await expect(page.locator('.downpat-modal')).toBeVisible();
+    await page.getByRole('button', { name: 'Confirm' }).click();
+    await expect(page.locator('.downpat-toast--success')).toBeVisible({ timeout: 10000 });
+    await page.waitForTimeout(500);
+
+    // BUG FIX: Form content should now show the original (published) name, not the modified name
+    await expect(nameInput).toHaveValue(originalName);
+
+    // Cleanup
+    await deleteExercise(page, slug).catch(() => {});
+  });
 });
