@@ -51,8 +51,11 @@ export function selectStarter(
  *
  * Context-only starters (no text) only produce a CONTEXT message.
  * The STARTER message JSON includes text, context, and attributes for the AI.
+ *
+ * @param starter - The starter to convert
+ * @param defaultRole - Role to use if starter doesn't have a name attribute (e.g., ConversationTask.role)
  */
-export function starterToMessages(starter: Starter): Message[] {
+export function starterToMessages(starter: Starter, defaultRole: string = 'Assistant'): Message[] {
   const messages: Message[] = [];
   const timestamp = new Date().toISOString();
 
@@ -68,9 +71,9 @@ export function starterToMessages(starter: Starter): Message[] {
     };
     // Store starter name in metadata so it can be used for AI response role
     // (important for context-only starters that don't create a STARTER message)
-    if (starter.attributes?.name) {
-      contextMessage.metadata = { starterName: starter.attributes.name };
-    }
+    // Use starter.attributes.name if available, otherwise use defaultRole
+    const starterName = starter.attributes?.name || defaultRole;
+    contextMessage.metadata = { starterName };
     messages.push(contextMessage);
   }
 
@@ -83,8 +86,8 @@ export function starterToMessages(starter: Starter): Message[] {
       ...starter.attributes,
     });
 
-    // Get role from attributes if 'name' is provided, otherwise default to 'Assistant'
-    const role = starter.attributes?.name || 'Assistant';
+    // Get role from attributes if 'name' is provided, otherwise use defaultRole
+    const role = starter.attributes?.name || defaultRole;
 
     messages.push({
       messageId: generateId(),

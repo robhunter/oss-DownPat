@@ -1,4 +1,4 @@
-import { Conversation, ConversationMetadata, Message, User } from '../types/index.js';
+import { Conversation, ConversationMetadata, Message, User, ConversationTask, Task, isConversationTask } from '../types/index.js';
 import { MessageType } from '../constants/index.js';
 import { ConversationStorage, ExerciseStorage, UserStateStorage } from '../interfaces/index.js';
 import {
@@ -60,8 +60,14 @@ export class ConversationController {
     if (exercise.starters && exercise.starters.length > 0) {
       const selectedStarter = selectStarter(exercise.starters, query);
       if (selectedStarter) {
+        // Find conversation task to get the default role for starter messages
+        const conversationTask = (exercise.continuationTasks || []).find(
+          (task: Task) => task.enabled && isConversationTask(task)
+        ) as ConversationTask | undefined;
+        const defaultRole = conversationTask?.role || 'Assistant';
+
         // starterToMessages returns array: [CONTEXT message (if context exists), STARTER message]
-        messages.push(...starterToMessages(selectedStarter));
+        messages.push(...starterToMessages(selectedStarter, defaultRole));
       }
     }
 
