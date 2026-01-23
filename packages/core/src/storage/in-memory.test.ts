@@ -54,6 +54,17 @@ describe('InMemoryExerciseStorage', () => {
       expect(metadata?.published).toBe('exercise-test-slug-published');
     });
 
+    it('should set status to published and publishedAt timestamp', async () => {
+      const exercise = createTestExercise('test-slug');
+      await storage.createExercise(exercise);
+      await storage.publishExercise('test-slug');
+
+      const published = await storage.getExerciseBySlug('test-slug', true);
+      expect(published?.status).toBe('published');
+      expect(published?.publishedAt).toBeDefined();
+      expect(typeof published?.publishedAt).toBe('string');
+    });
+
     it('should make exercise available via getPublishedExercises', async () => {
       const exercise = createTestExercise('test-slug');
       await storage.createExercise(exercise);
@@ -62,6 +73,8 @@ describe('InMemoryExerciseStorage', () => {
       const published = await storage.getPublishedExercises();
       expect(published).toHaveLength(1);
       expect(published[0].slug).toBe('test-slug');
+      expect(published[0].status).toBe('published');
+      expect(published[0].publishedAt).toBeDefined();
     });
 
     it('should throw if no draft exists', async () => {
@@ -103,6 +116,22 @@ describe('InMemoryExerciseStorage', () => {
       const metadata = await storage.getExerciseMetadata('test-slug');
       expect(metadata?.draft).toBe('exercise-test-slug');
       expect(metadata?.published).toBeUndefined();
+    });
+
+    it('should set status to draft and strip publishedAt', async () => {
+      const exercise = createTestExercise('test-slug');
+      await storage.createExercise(exercise);
+      await storage.publishExercise('test-slug');
+
+      // Verify published has publishedAt
+      const published = await storage.getExerciseBySlug('test-slug', true);
+      expect(published?.publishedAt).toBeDefined();
+
+      await storage.unpublishExercise('test-slug');
+
+      const draft = await storage.getExerciseBySlug('test-slug');
+      expect(draft?.status).toBe('draft');
+      expect(draft?.publishedAt).toBeUndefined();
     });
 
     it('should remove from published exercises', async () => {
@@ -173,6 +202,29 @@ describe('InMemoryExerciseStorage', () => {
       const metadata = await storage.getExerciseMetadata('test-slug');
       expect(metadata?.draft).toBe('exercise-test-slug');
       expect(metadata?.published).toBe('exercise-test-slug-published');
+    });
+
+    it('should set draft status and strip publishedAt', async () => {
+      const exercise = createTestExercise('test-slug');
+      await storage.createExercise(exercise);
+      await storage.publishExercise('test-slug');
+
+      // Verify published has publishedAt
+      const published = await storage.getExerciseBySlug('test-slug', true);
+      expect(published?.status).toBe('published');
+      expect(published?.publishedAt).toBeDefined();
+
+      await storage.createDraftFromPublished('test-slug');
+
+      // Draft should have draft status and no publishedAt
+      const draft = await storage.getExerciseBySlug('test-slug');
+      expect(draft?.status).toBe('draft');
+      expect(draft?.publishedAt).toBeUndefined();
+
+      // Published should still have its status and publishedAt
+      const publishedAfter = await storage.getExerciseBySlug('test-slug', true);
+      expect(publishedAfter?.status).toBe('published');
+      expect(publishedAfter?.publishedAt).toBeDefined();
     });
 
     it('should allow editing the draft independently', async () => {

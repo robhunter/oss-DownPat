@@ -208,6 +208,13 @@ describe('FirebaseExerciseStorage', () => {
       expect((mockMetadata.get('test-exercise') as ExerciseMetadata).draft).toBe('ex-123');
     });
 
+    it('sets status to draft on created exercise', async () => {
+      await storage.createExercise(testExercise);
+
+      const created = mockDocs.get('ex-123') as Exercise;
+      expect(created.status).toBe('draft');
+    });
+
     it('throws when slug already exists', async () => {
       mockMetadata.set('test-exercise', { draft: 'existing-id' });
 
@@ -246,6 +253,18 @@ describe('FirebaseExerciseStorage', () => {
       expect(metadata.draft).toBeUndefined();
     });
 
+    it('sets status to published and publishedAt timestamp', async () => {
+      mockDocs.set('ex-123', testExercise);
+      mockMetadata.set('test-exercise', { draft: 'ex-123' });
+
+      await storage.publishExercise('test-exercise');
+
+      const published = mockDocs.get('ex-123-published') as Exercise;
+      expect(published.status).toBe('published');
+      expect(published.publishedAt).toBeDefined();
+      expect(typeof published.publishedAt).toBe('string');
+    });
+
     it('throws when exercise not found', async () => {
       await expect(storage.publishExercise('non-existent')).rejects.toThrow(
         'Exercise not found'
@@ -278,6 +297,23 @@ describe('FirebaseExerciseStorage', () => {
       const metadata = mockMetadata.get('test-exercise') as ExerciseMetadata;
       expect(metadata.draft).toBe('ex-123');
       expect(metadata.published).toBeUndefined();
+    });
+
+    it('sets status to draft and strips publishedAt', async () => {
+      // Start with published exercise that has publishedAt
+      mockDocs.set('ex-123-published', {
+        ...testExercise,
+        exerciseId: 'ex-123-published',
+        status: 'published',
+        publishedAt: '2026-01-01T00:00:00.000Z',
+      });
+      mockMetadata.set('test-exercise', { published: 'ex-123-published' });
+
+      await storage.unpublishExercise('test-exercise');
+
+      const draft = mockDocs.get('ex-123') as Exercise;
+      expect(draft.status).toBe('draft');
+      expect(draft.publishedAt).toBeUndefined();
     });
 
     it('throws when not published', async () => {
@@ -355,6 +391,29 @@ describe('FirebaseExerciseStorage', () => {
       const metadata = mockMetadata.get('test-exercise') as ExerciseMetadata;
       expect(metadata.draft).toBe('ex-123');
       expect(metadata.published).toBe('ex-123-published');
+    });
+
+    it('sets draft status and strips publishedAt', async () => {
+      const publishedExercise = {
+        ...testExercise,
+        exerciseId: 'ex-123-published',
+        status: 'published' as const,
+        publishedAt: '2026-01-01T00:00:00.000Z',
+      };
+      mockDocs.set('ex-123-published', publishedExercise);
+      mockMetadata.set('test-exercise', { published: 'ex-123-published' });
+
+      await storage.createDraftFromPublished('test-exercise');
+
+      // Draft should have draft status and no publishedAt
+      const draft = mockDocs.get('ex-123') as Exercise;
+      expect(draft.status).toBe('draft');
+      expect(draft.publishedAt).toBeUndefined();
+
+      // Published should still have its status and publishedAt
+      const published = mockDocs.get('ex-123-published') as Exercise;
+      expect(published.status).toBe('published');
+      expect(published.publishedAt).toBe('2026-01-01T00:00:00.000Z');
     });
 
     it('throws when no published version', async () => {
