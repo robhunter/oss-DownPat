@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Fix toast to be proper floating notification with fixed positioning (#106)
 
 ### Changed
+- Phase 1: Storage model - delete draft on publish (#122)
 - Plan exercise import from inbound RTF files (#116)
 - Verify import with screenshots (#120)
 - Create import script and run import (#119)
