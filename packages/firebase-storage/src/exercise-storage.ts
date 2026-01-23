@@ -25,7 +25,12 @@ export class FirebaseExerciseStorage implements ExerciseStorage {
       return null;
     }
 
-    const exerciseId = publishedOnly ? metadata.published : metadata.draft;
+    if (publishedOnly) {
+      return metadata.published ? this.getExercise(metadata.published) : null;
+    }
+
+    // Return draft if exists, otherwise published (for editing published-only exercises)
+    const exerciseId = metadata.draft || metadata.published;
     if (!exerciseId) {
       return null;
     }
@@ -82,6 +87,10 @@ export class FirebaseExerciseStorage implements ExerciseStorage {
         throw new Error('Exercise not found');
       }
 
+      if (!metadata.draft) {
+        throw new Error('No draft to publish');
+      }
+
       // Copy draft to published document
       const draftRef = this.db.collection(this.exercisesCollection).doc(metadata.draft);
       const draftDoc = await txn.get(draftRef);
@@ -101,9 +110,9 @@ export class FirebaseExerciseStorage implements ExerciseStorage {
         publishedAt: new Date().toISOString(),
       });
 
-      // Update metadata
-      txn.update(metadataRef, {
-        draft: metadata.draft,
+      // Delete draft and update metadata to only have published
+      txn.delete(draftRef);
+      txn.set(metadataRef, {
         published: publishedId,
       });
     });
@@ -124,14 +133,28 @@ export class FirebaseExerciseStorage implements ExerciseStorage {
         throw new Error('Exercise is not published');
       }
 
-      // Remove published document
+      // Get published document data
       const publishedRef = this.db.collection(this.exercisesCollection).doc(metadata.published);
-      txn.delete(publishedRef);
+      const publishedDoc = await txn.get(publishedRef);
 
-      // Update metadata (remove published reference, keep draft)
-      txn.update(metadataRef, {
-        draft: metadata.draft,
-        published: null,
+      if (!publishedDoc.exists) {
+        throw new Error('Published exercise not found');
+      }
+
+      // Convert published to draft
+      const draftId = metadata.published.replace('-published', '');
+      const draftRef = this.db.collection(this.exercisesCollection).doc(draftId);
+      const publishedData = publishedDoc.data()!;
+
+      txn.set(draftRef, {
+        ...publishedData,
+        exerciseId: draftId,
+      });
+
+      // Delete published and update metadata
+      txn.delete(publishedRef);
+      txn.set(metadataRef, {
+        draft: draftId,
       });
     });
   }
@@ -144,10 +167,40 @@ export class FirebaseExerciseStorage implements ExerciseStorage {
       const metadata = metadataDoc.data() as ExerciseMetadata | undefined;
 
       if (!metadata?.published) {
-        throw new Error('No published version to restore from');
+        throw new Error('No published version');
       }
 
-      // Copy published data to draft
+      if (!metadata.draft) {
+        throw new Error('No draft to restore from');
+      }
+
+      // Simply delete the draft - published remains
+      const draftRef = this.db.collection(this.exercisesCollection).doc(metadata.draft);
+      txn.delete(draftRef);
+
+      // Update metadata to only have published
+      txn.set(metadataRef, {
+        published: metadata.published,
+      });
+    });
+  }
+
+  async createDraftFromPublished(slug: string): Promise<void> {
+    const metadataRef = this.db.collection(this.metadataCollection).doc(slug);
+
+    await this.db.runTransaction(async (txn) => {
+      const metadataDoc = await txn.get(metadataRef);
+      const metadata = metadataDoc.data() as ExerciseMetadata | undefined;
+
+      if (!metadata?.published) {
+        throw new Error('No published version');
+      }
+
+      if (metadata.draft) {
+        throw new Error('Draft already exists');
+      }
+
+      // Get published document data
       const publishedRef = this.db.collection(this.exercisesCollection).doc(metadata.published);
       const publishedDoc = await txn.get(publishedRef);
 
@@ -155,13 +208,19 @@ export class FirebaseExerciseStorage implements ExerciseStorage {
         throw new Error('Published exercise not found');
       }
 
-      const draftRef = this.db.collection(this.exercisesCollection).doc(metadata.draft);
+      // Create draft from published
+      const draftId = metadata.published.replace('-published', '');
+      const draftRef = this.db.collection(this.exercisesCollection).doc(draftId);
       const publishedData = publishedDoc.data()!;
 
       txn.set(draftRef, {
         ...publishedData,
-        exerciseId: metadata.draft,
-        restoredAt: new Date().toISOString(),
+        exerciseId: draftId,
+      });
+
+      // Update metadata to have both draft and published
+      txn.update(metadataRef, {
+        draft: draftId,
       });
     });
   }
@@ -172,16 +231,27 @@ export class FirebaseExerciseStorage implements ExerciseStorage {
   }
 
   async getExercises(): Promise<Exercise[]> {
-    // Get all metadata to find draft IDs
+    // Get all metadata to find editable exercise IDs (draft if exists, otherwise published)
     const metadataSnapshot = await this.db.collection(this.metadataCollection).get();
-    const draftIds = metadataSnapshot.docs.map((doc) => doc.data().draft as string);
 
-    if (draftIds.length === 0) {
+    if (metadataSnapshot.empty) {
       return [];
     }
 
-    // Fetch all draft exercises
-    const exerciseRefs = draftIds.map((id) =>
+    // Get the "editable" ID for each exercise (draft if exists, otherwise published)
+    const exerciseIds = metadataSnapshot.docs
+      .map((doc) => {
+        const data = doc.data() as ExerciseMetadata;
+        return data.draft || data.published;
+      })
+      .filter((id): id is string => !!id);
+
+    if (exerciseIds.length === 0) {
+      return [];
+    }
+
+    // Fetch all exercises
+    const exerciseRefs = exerciseIds.map((id) =>
       this.db.collection(this.exercisesCollection).doc(id)
     );
     const exerciseDocs = await this.db.getAll(...exerciseRefs);
@@ -199,20 +269,34 @@ export class FirebaseExerciseStorage implements ExerciseStorage {
 
     const result: Array<{ exercise: Exercise; metadata: ExerciseMetadata }> = [];
 
-    // Fetch draft exercises for each metadata entry
-    const draftIds = metadataSnapshot.docs.map((doc) => doc.data().draft as string);
-    const exerciseRefs = draftIds.map((id) =>
-      this.db.collection(this.exercisesCollection).doc(id)
-    );
+    // Get the "editable" ID for each exercise (draft if exists, otherwise published)
+    const exerciseIds = metadataSnapshot.docs.map((doc) => {
+      const data = doc.data() as ExerciseMetadata;
+      return data.draft || data.published;
+    });
+
+    const exerciseRefs = exerciseIds
+      .filter((id): id is string => !!id)
+      .map((id) => this.db.collection(this.exercisesCollection).doc(id));
+
+    if (exerciseRefs.length === 0) {
+      return [];
+    }
+
     const exerciseDocs = await this.db.getAll(...exerciseRefs);
 
-    metadataSnapshot.docs.forEach((metaDoc, index) => {
-      const exerciseDoc = exerciseDocs[index];
-      if (exerciseDoc.exists) {
-        result.push({
-          exercise: exerciseDoc.data() as Exercise,
-          metadata: metaDoc.data() as ExerciseMetadata,
-        });
+    let exerciseIndex = 0;
+    metadataSnapshot.docs.forEach((metaDoc) => {
+      const metadata = metaDoc.data() as ExerciseMetadata;
+      if (metadata.draft || metadata.published) {
+        const exerciseDoc = exerciseDocs[exerciseIndex];
+        if (exerciseDoc.exists) {
+          result.push({
+            exercise: exerciseDoc.data() as Exercise,
+            metadata,
+          });
+        }
+        exerciseIndex++;
       }
     });
 
@@ -250,9 +334,11 @@ export class FirebaseExerciseStorage implements ExerciseStorage {
         throw new Error('Exercise not found');
       }
 
-      // Delete draft exercise
-      const draftRef = this.db.collection(this.exercisesCollection).doc(metadata.draft);
-      txn.delete(draftRef);
+      // Delete draft exercise if exists
+      if (metadata.draft) {
+        const draftRef = this.db.collection(this.exercisesCollection).doc(metadata.draft);
+        txn.delete(draftRef);
+      }
 
       // Delete published exercise if exists
       if (metadata.published) {

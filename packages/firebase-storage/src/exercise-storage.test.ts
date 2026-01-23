@@ -187,6 +187,16 @@ describe('FirebaseExerciseStorage', () => {
 
       expect(result).toBeNull();
     });
+
+    it('returns published when only published exists', async () => {
+      const publishedExercise = { ...testExercise, exerciseId: 'ex-123-published' };
+      mockDocs.set('ex-123-published', publishedExercise);
+      mockMetadata.set('test-exercise', { published: 'ex-123-published' });
+
+      const result = await storage.getExerciseBySlug('test-exercise');
+
+      expect(result).toEqual(publishedExercise);
+    });
   });
 
   describe('createExercise', () => {
@@ -220,15 +230,20 @@ describe('FirebaseExerciseStorage', () => {
   });
 
   describe('publishExercise', () => {
-    it('creates published version from draft', async () => {
+    it('creates published version from draft and deletes draft', async () => {
       mockDocs.set('ex-123', testExercise);
       mockMetadata.set('test-exercise', { draft: 'ex-123' });
 
       await storage.publishExercise('test-exercise');
 
+      // Published version exists
       expect(mockDocs.has('ex-123-published')).toBe(true);
+      // Draft is deleted
+      expect(mockDocs.has('ex-123')).toBe(false);
+      // Metadata only has published
       const metadata = mockMetadata.get('test-exercise') as ExerciseMetadata;
       expect(metadata.published).toBe('ex-123-published');
+      expect(metadata.draft).toBeUndefined();
     });
 
     it('throws when exercise not found', async () => {
@@ -236,23 +251,37 @@ describe('FirebaseExerciseStorage', () => {
         'Exercise not found'
       );
     });
+
+    it('throws when no draft to publish', async () => {
+      mockDocs.set('ex-123-published', { ...testExercise, exerciseId: 'ex-123-published' });
+      mockMetadata.set('test-exercise', { published: 'ex-123-published' });
+
+      await expect(storage.publishExercise('test-exercise')).rejects.toThrow(
+        'No draft to publish'
+      );
+    });
   });
 
   describe('unpublishExercise', () => {
-    it('removes published version', async () => {
-      mockDocs.set('ex-123', testExercise);
+    it('converts published to draft', async () => {
+      // Start with published-only
       mockDocs.set('ex-123-published', { ...testExercise, exerciseId: 'ex-123-published' });
-      mockMetadata.set('test-exercise', { draft: 'ex-123', published: 'ex-123-published' });
+      mockMetadata.set('test-exercise', { published: 'ex-123-published' });
 
       await storage.unpublishExercise('test-exercise');
 
+      // Published is deleted
       expect(mockDocs.has('ex-123-published')).toBe(false);
+      // Draft is created
       expect(mockDocs.has('ex-123')).toBe(true);
+      // Metadata only has draft
       const metadata = mockMetadata.get('test-exercise') as ExerciseMetadata;
-      expect(metadata.published).toBeNull();
+      expect(metadata.draft).toBe('ex-123');
+      expect(metadata.published).toBeUndefined();
     });
 
     it('throws when not published', async () => {
+      mockDocs.set('ex-123', testExercise);
       mockMetadata.set('test-exercise', { draft: 'ex-123' });
 
       await expect(storage.unpublishExercise('test-exercise')).rejects.toThrow(
@@ -262,7 +291,7 @@ describe('FirebaseExerciseStorage', () => {
   });
 
   describe('restoreFromPublished', () => {
-    it('copies published to draft', async () => {
+    it('deletes draft and keeps published', async () => {
       const publishedExercise = {
         ...testExercise,
         exerciseId: 'ex-123-published',
@@ -274,16 +303,76 @@ describe('FirebaseExerciseStorage', () => {
 
       await storage.restoreFromPublished('test-exercise');
 
-      const draft = mockDocs.get('ex-123') as Exercise;
-      expect(draft.exerciseName).toBe('Published Name');
-      expect(draft.exerciseId).toBe('ex-123'); // ID should be the draft ID
+      // Draft is deleted
+      expect(mockDocs.has('ex-123')).toBe(false);
+      // Published remains
+      expect(mockDocs.has('ex-123-published')).toBe(true);
+      // Metadata only has published
+      const metadata = mockMetadata.get('test-exercise') as ExerciseMetadata;
+      expect(metadata.published).toBe('ex-123-published');
+      expect(metadata.draft).toBeUndefined();
     });
 
     it('throws when no published version', async () => {
+      mockDocs.set('ex-123', testExercise);
       mockMetadata.set('test-exercise', { draft: 'ex-123' });
 
       await expect(storage.restoreFromPublished('test-exercise')).rejects.toThrow(
-        'No published version to restore from'
+        'No published version'
+      );
+    });
+
+    it('throws when no draft to restore from', async () => {
+      mockDocs.set('ex-123-published', { ...testExercise, exerciseId: 'ex-123-published' });
+      mockMetadata.set('test-exercise', { published: 'ex-123-published' });
+
+      await expect(storage.restoreFromPublished('test-exercise')).rejects.toThrow(
+        'No draft to restore from'
+      );
+    });
+  });
+
+  describe('createDraftFromPublished', () => {
+    it('creates draft from published', async () => {
+      const publishedExercise = {
+        ...testExercise,
+        exerciseId: 'ex-123-published',
+        exerciseName: 'Published Name',
+      };
+      mockDocs.set('ex-123-published', publishedExercise);
+      mockMetadata.set('test-exercise', { published: 'ex-123-published' });
+
+      await storage.createDraftFromPublished('test-exercise');
+
+      // Draft is created with published content
+      expect(mockDocs.has('ex-123')).toBe(true);
+      const draft = mockDocs.get('ex-123') as Exercise;
+      expect(draft.exerciseName).toBe('Published Name');
+      expect(draft.exerciseId).toBe('ex-123');
+      // Published remains
+      expect(mockDocs.has('ex-123-published')).toBe(true);
+      // Metadata has both
+      const metadata = mockMetadata.get('test-exercise') as ExerciseMetadata;
+      expect(metadata.draft).toBe('ex-123');
+      expect(metadata.published).toBe('ex-123-published');
+    });
+
+    it('throws when no published version', async () => {
+      mockDocs.set('ex-123', testExercise);
+      mockMetadata.set('test-exercise', { draft: 'ex-123' });
+
+      await expect(storage.createDraftFromPublished('test-exercise')).rejects.toThrow(
+        'No published version'
+      );
+    });
+
+    it('throws when draft already exists', async () => {
+      mockDocs.set('ex-123', testExercise);
+      mockDocs.set('ex-123-published', { ...testExercise, exerciseId: 'ex-123-published' });
+      mockMetadata.set('test-exercise', { draft: 'ex-123', published: 'ex-123-published' });
+
+      await expect(storage.createDraftFromPublished('test-exercise')).rejects.toThrow(
+        'Draft already exists'
       );
     });
   });

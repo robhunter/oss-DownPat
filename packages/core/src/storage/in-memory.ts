@@ -39,7 +39,11 @@ export function createInMemoryStorage(): {
       if (publishedOnly) {
         return metadata.published ? exercises.get(metadata.published) || null : null;
       }
-      return exercises.get(metadata.draft) || null;
+      // Return draft if exists, otherwise published (for editing published-only exercises)
+      if (metadata.draft) {
+        return exercises.get(metadata.draft) || null;
+      }
+      return metadata.published ? exercises.get(metadata.published) || null : null;
     },
 
     async getExerciseMetadata(slug: string) {
@@ -47,19 +51,30 @@ export function createInMemoryStorage(): {
     },
 
     async getExercises() {
-      // Only return draft exercises, not published copies
-      const allExercises = Array.from(exercises.values());
-      return allExercises.filter((e) =>
-        e.exerciseId && !e.exerciseId.endsWith('-published')
-      );
+      // Return the "editable" version of each exercise (draft if exists, otherwise published)
+      const result: Exercise[] = [];
+      for (const metadata of exerciseMetadata.values()) {
+        if (metadata.draft) {
+          const draft = exercises.get(metadata.draft);
+          if (draft) result.push(draft);
+        } else if (metadata.published) {
+          const published = exercises.get(metadata.published);
+          if (published) result.push(published);
+        }
+      }
+      return result;
     },
 
     async getExercisesWithMetadata() {
       const result: Array<{ exercise: Exercise; metadata: ExerciseMetadata }> = [];
-      for (const [_slug, metadata] of exerciseMetadata.entries()) {
-        const exercise = exercises.get(metadata.draft);
-        if (exercise) {
-          result.push({ exercise, metadata });
+      for (const metadata of exerciseMetadata.values()) {
+        // Return draft if exists, otherwise published
+        const exerciseId = metadata.draft || metadata.published;
+        if (exerciseId) {
+          const exercise = exercises.get(exerciseId);
+          if (exercise) {
+            result.push({ exercise, metadata });
+          }
         }
       }
       return result;
@@ -67,7 +82,7 @@ export function createInMemoryStorage(): {
 
     async getPublishedExercises() {
       const publishedExercises: Exercise[] = [];
-      for (const [_slug, metadata] of exerciseMetadata.entries()) {
+      for (const metadata of exerciseMetadata.values()) {
         if (metadata.published) {
           const exercise = exercises.get(metadata.published);
           if (exercise) {
@@ -92,33 +107,61 @@ export function createInMemoryStorage(): {
     async publishExercise(slug: string) {
       const metadata = exerciseMetadata.get(slug);
       if (!metadata) throw new Error('Exercise not found');
+      if (!metadata.draft) throw new Error('No draft to publish');
       const draft = exercises.get(metadata.draft);
       if (!draft) throw new Error('Draft exercise not found');
-      const publishedId = `${metadata.draft}-published`;
-      // Set exerciseId to publishedId so filtering works correctly
+
+      // Create or update published version
+      const publishedId = metadata.published || `${metadata.draft}-published`;
       exercises.set(publishedId, { ...draft, exerciseId: publishedId });
-      exerciseMetadata.set(slug, { ...metadata, published: publishedId });
+
+      // Delete draft and update metadata
+      exercises.delete(metadata.draft);
+      exerciseMetadata.set(slug, { published: publishedId });
     },
 
     async unpublishExercise(slug: string) {
       const metadata = exerciseMetadata.get(slug);
       if (!metadata?.published) throw new Error('Exercise not published');
+      const published = exercises.get(metadata.published);
+      if (!published) throw new Error('Published exercise not found');
+
+      // Convert published to draft
+      const draftId = metadata.published.replace('-published', '');
+      exercises.set(draftId, { ...published, exerciseId: draftId });
+
+      // Delete published and update metadata
       exercises.delete(metadata.published);
-      exerciseMetadata.set(slug, { draft: metadata.draft });
+      exerciseMetadata.set(slug, { draft: draftId });
     },
 
     async restoreFromPublished(slug: string) {
       const metadata = exerciseMetadata.get(slug);
       if (!metadata?.published) throw new Error('No published version');
+      if (!metadata.draft) throw new Error('No draft to restore from');
+
+      // Simply delete the draft - published remains
+      exercises.delete(metadata.draft);
+      exerciseMetadata.set(slug, { published: metadata.published });
+    },
+
+    async createDraftFromPublished(slug: string) {
+      const metadata = exerciseMetadata.get(slug);
+      if (!metadata?.published) throw new Error('No published version');
+      if (metadata.draft) throw new Error('Draft already exists');
       const published = exercises.get(metadata.published);
       if (!published) throw new Error('Published exercise not found');
-      exercises.set(metadata.draft, { ...published, exerciseId: metadata.draft });
+
+      // Create draft from published
+      const draftId = metadata.published.replace('-published', '');
+      exercises.set(draftId, { ...published, exerciseId: draftId });
+      exerciseMetadata.set(slug, { ...metadata, draft: draftId });
     },
 
     async deleteExercise(slug: string) {
       const metadata = exerciseMetadata.get(slug);
       if (metadata) {
-        exercises.delete(metadata.draft);
+        if (metadata.draft) exercises.delete(metadata.draft);
         if (metadata.published) exercises.delete(metadata.published);
         exerciseMetadata.delete(slug);
       }
@@ -130,7 +173,8 @@ export function createInMemoryStorage(): {
       const conversation = conversations.get(conversationId);
       if (!conversation) return null;
       // Return metadata without messages
-      const { messages: _messages, ...metadata } = conversation;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { messages: _, ...metadata } = conversation;
       return metadata;
     },
 

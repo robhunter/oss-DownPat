@@ -35,24 +35,38 @@ export interface ExerciseStorage {
 
   /**
    * Publish draft to published version.
-   * Creates or updates the published version with current draft content.
+   * Creates or updates the published version with current draft content,
+   * then deletes the draft. After this, only the published version exists.
    * @param slug - The exercise slug
+   * @throws if no draft exists
    */
   publishExercise(slug: string): Promise<void>;
 
   /**
-   * Unpublish exercise (remove published version, keep draft).
+   * Unpublish exercise by converting published to draft.
+   * After this, only the draft version exists (no published).
    * @param slug - The exercise slug
+   * @throws if no published version exists
    */
   unpublishExercise(slug: string): Promise<void>;
 
   /**
-   * Restore draft from published version.
-   * Overwrites draft with published content.
+   * Restore to published version by deleting draft.
+   * After this operation, only the published version exists.
    * @param slug - The exercise slug
    * @throws if no published version exists
+   * @throws if no draft exists (nothing to restore from)
    */
   restoreFromPublished(slug: string): Promise<void>;
+
+  /**
+   * Create a draft from the published version for editing.
+   * Use this when editing a published-only exercise.
+   * @param slug - The exercise slug
+   * @throws if no published version exists
+   * @throws if draft already exists
+   */
+  createDraftFromPublished(slug: string): Promise<void>;
 
   /**
    * Get exercise metadata by slug.
