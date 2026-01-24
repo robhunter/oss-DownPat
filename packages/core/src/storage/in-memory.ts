@@ -106,7 +106,7 @@ export function createInMemoryStorage(): {
       // If updating a published-only exercise, create a draft first
       if (metadata && !metadata.draft && metadata.published === exercise.exerciseId) {
         // Create new draft from the updated data
-        const draftId = metadata.published.replace('-published', '');
+        const draftId = metadata.published.replace(/-published$/, '');
         exercises.set(draftId, { ...exercise, exerciseId: draftId, status: 'draft' });
         exerciseMetadata.set(exercise.slug, { ...metadata, draft: draftId });
       } else {
@@ -145,7 +145,7 @@ export function createInMemoryStorage(): {
       if (!published) throw new Error('Published exercise not found');
 
       // Convert published to draft - strip publishedAt since drafts shouldn't have it
-      const draftId = metadata.published.replace('-published', '');
+      const draftId = metadata.published.replace(/-published$/, '');
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { publishedAt: _stripped, ...publishedData } = published;
       exercises.set(draftId, { ...publishedData, exerciseId: draftId, status: 'draft' });
@@ -173,7 +173,7 @@ export function createInMemoryStorage(): {
       if (!published) throw new Error('Published exercise not found');
 
       // Create draft from published - strip publishedAt since drafts shouldn't have it
-      const draftId = metadata.published.replace('-published', '');
+      const draftId = metadata.published.replace(/-published$/, '');
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { publishedAt: _stripped, ...publishedData } = published;
       exercises.set(draftId, { ...publishedData, exerciseId: draftId, status: 'draft' });

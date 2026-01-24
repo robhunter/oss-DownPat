@@ -74,7 +74,7 @@ export class FirebaseExerciseStorage implements ExerciseStorage {
       // If updating a published-only exercise, create a draft first
       if (metadata && !metadata.draft && metadata.published === exercise.exerciseId) {
         // Create new draft from the updated data
-        const draftId = metadata.published.replace('-published', '');
+        const draftId = metadata.published.replace(/-published$/, '');
         const draftRef = this.db.collection(this.exercisesCollection).doc(draftId);
 
         txn.set(draftRef, {
@@ -168,7 +168,7 @@ export class FirebaseExerciseStorage implements ExerciseStorage {
       }
 
       // Convert published to draft - strip publishedAt since drafts shouldn't have it
-      const draftId = metadata.published.replace('-published', '');
+      const draftId = metadata.published.replace(/-published$/, '');
       const draftRef = this.db.collection(this.exercisesCollection).doc(draftId);
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { publishedAt: _stripped, ...publishedData } = publishedDoc.data()!;
@@ -237,7 +237,7 @@ export class FirebaseExerciseStorage implements ExerciseStorage {
       }
 
       // Create draft from published - strip publishedAt since drafts shouldn't have it
-      const draftId = metadata.published.replace('-published', '');
+      const draftId = metadata.published.replace(/-published$/, '');
       const draftRef = this.db.collection(this.exercisesCollection).doc(draftId);
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { publishedAt: _stripped, ...publishedData } = publishedDoc.data()!;

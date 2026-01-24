@@ -59,13 +59,19 @@ export function ExerciseEditorPage({ slug }: ExerciseEditorPageProps): React.JSX
   const [confirmAction, setConfirmAction] = useState<'publish' | 'unpublish' | 'restore' | null>(null);
   const [isActionPending, setIsActionPending] = useState(false);
 
+  // Helper to fetch exercise data (used by loadExercise and handleRestore)
+  const fetchExerciseData = useCallback(async (exerciseSlug: string) => {
+    const [data, meta] = await Promise.all([
+      api.getExercise(exerciseSlug),
+      api.getExerciseMetadata(exerciseSlug),
+    ]);
+    return { exercise: data, metadata: meta };
+  }, [api]);
+
   const loadExercise = useCallback(async (exerciseSlug: string) => {
     try {
       setError(null);
-      const [data, meta] = await Promise.all([
-        api.getExercise(exerciseSlug),
-        api.getExerciseMetadata(exerciseSlug),
-      ]);
+      const { exercise: data, metadata: meta } = await fetchExerciseData(exerciseSlug);
       setExercise(data);
       setMetadata(meta);
     } catch (err) {
@@ -73,7 +79,7 @@ export function ExerciseEditorPage({ slug }: ExerciseEditorPageProps): React.JSX
     } finally {
       setIsLoading(false);
     }
-  }, [api]);
+  }, [fetchExerciseData]);
 
   useEffect(() => {
     if (!isNew && slug) {
@@ -159,11 +165,7 @@ export function ExerciseEditorPage({ slug }: ExerciseEditorPageProps): React.JSX
     setError(null);
     try {
       await api.restoreExercise(slug);
-      // Fetch new data directly (don't use loadExercise to avoid separate state batches)
-      const [data, meta] = await Promise.all([
-        api.getExercise(slug),
-        api.getExerciseMetadata(slug),
-      ]);
+      const { exercise: data, metadata: meta } = await fetchExerciseData(slug);
       // Update all state together to ensure form remounts with new data
       setExercise(data);
       setMetadata(meta);
@@ -177,7 +179,7 @@ export function ExerciseEditorPage({ slug }: ExerciseEditorPageProps): React.JSX
       setIsActionPending(false);
       setConfirmAction(null);
     }
-  }, [api, slug]);
+  }, [api, slug, fetchExerciseData]);
 
   const executeConfirmedAction = useCallback(() => {
     switch (confirmAction) {
