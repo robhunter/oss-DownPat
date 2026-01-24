@@ -36,16 +36,16 @@ test.describe('Bug #137: Button state after editing published exercise', () => {
 
     // Now go to edit page - should be published-only (no draft)
     await page.goto(`/downpat/admin/exercises/${testSlug}/edit`);
-    await page.waitForTimeout(2000);
+    await expect(page.locator('h1').filter({ hasText: 'Edit:' })).toBeVisible({ timeout: 10000 });
 
     const publishBtn = page.getByRole('button', { name: 'Publish', exact: true });
     const unpublishBtn = page.getByRole('button', { name: 'Unpublish', exact: true });
     const restoreBtn = page.getByRole('button', { name: 'Restore from Published', exact: true });
 
-    // Should only see Unpublish button (no draft exists)
-    expect(await publishBtn.isVisible()).toBe(false);
-    expect(await unpublishBtn.isVisible()).toBe(true);
-    expect(await restoreBtn.isVisible()).toBe(false);
+    // Should only see Unpublish button (no draft exists) - wait for it to be visible first
+    await expect(unpublishBtn).toBeVisible({ timeout: 10000 });
+    await expect(publishBtn).not.toBeVisible();
+    await expect(restoreBtn).not.toBeVisible();
 
     // Make a change
     const nameInput = page.getByPlaceholder('Enter exercise name');
@@ -57,14 +57,12 @@ test.describe('Bug #137: Button state after editing published exercise', () => {
     // Wait for success toast
     await expect(page.locator('.downpat-toast--success')).toBeVisible({ timeout: 10000 });
 
-    // Wait for React to re-render with updated metadata
-    await page.waitForTimeout(1000);
-
     // BUG: After save, we should see Publish, Unpublish, AND Restore buttons
     // because now there's both a draft and a published version
-    expect(await publishBtn.isVisible(), 'Publish should be visible after creating draft').toBe(true);
-    expect(await unpublishBtn.isVisible(), 'Unpublish should still be visible').toBe(true);
-    expect(await restoreBtn.isVisible(), 'Restore should be visible after creating draft').toBe(true);
+    // Wait for the Publish button to appear (indicates metadata refresh completed)
+    await expect(publishBtn).toBeVisible({ timeout: 10000 });
+    await expect(unpublishBtn).toBeVisible();
+    await expect(restoreBtn).toBeVisible();
   });
 
   test('Bug 2: Save after restore should not 404', async ({ page }) => {
@@ -95,14 +93,19 @@ test.describe('Bug #137: Button state after editing published exercise', () => {
     await nameInput.fill(`Bug137 Restore Test ${testId2} MODIFIED`);
     await page.getByRole('button', { name: 'Update Exercise' }).click();
     await expect(page.locator('.downpat-toast--success')).toBeVisible({ timeout: 10000 });
-    await page.waitForTimeout(500);
+
+    // Wait for Restore button to appear (indicates draft was created)
+    const restoreBtn = page.getByRole('button', { name: 'Restore from Published', exact: true });
+    await expect(restoreBtn).toBeVisible({ timeout: 10000 });
 
     // Now restore from published
-    await page.getByRole('button', { name: 'Restore from Published', exact: true }).click();
+    await restoreBtn.click();
     await expect(page.locator('.downpat-modal')).toBeVisible();
     await page.getByRole('button', { name: 'Confirm' }).click();
     await expect(page.locator('.downpat-toast--success')).toBeVisible({ timeout: 10000 });
-    await page.waitForTimeout(500);
+
+    // Wait for form to be ready after restore (input should be enabled)
+    await expect(nameInput).toBeEnabled({ timeout: 10000 });
 
     // Make another change after restore
     await nameInput.fill(`Bug137 Restore Test ${testId2} AFTER RESTORE`);
@@ -155,20 +158,23 @@ test.describe('Bug #137: Button state after editing published exercise', () => {
     await nameInput.fill(modifiedName);
     await page.getByRole('button', { name: 'Update Exercise' }).click();
     await expect(page.locator('.downpat-toast--success')).toBeVisible({ timeout: 10000 });
-    await page.waitForTimeout(500);
+
+    // Wait for Restore button to appear (indicates draft was created and metadata refreshed)
+    const restoreBtn = page.getByRole('button', { name: 'Restore from Published', exact: true });
+    await expect(restoreBtn).toBeVisible({ timeout: 10000 });
 
     // Verify the modified name is in the form
     await expect(nameInput).toHaveValue(modifiedName);
 
     // Now restore from published
-    await page.getByRole('button', { name: 'Restore from Published', exact: true }).click();
+    await restoreBtn.click();
     await expect(page.locator('.downpat-modal')).toBeVisible();
     await page.getByRole('button', { name: 'Confirm' }).click();
     await expect(page.locator('.downpat-toast--success')).toBeVisible({ timeout: 10000 });
-    await page.waitForTimeout(500);
 
     // BUG FIX: Form content should now show the original (published) name, not the modified name
-    await expect(nameInput).toHaveValue(originalName);
+    // The assertion itself waits for the value to match
+    await expect(nameInput).toHaveValue(originalName, { timeout: 10000 });
 
     // Cleanup
     await deleteExercise(page, slug).catch(() => {});
