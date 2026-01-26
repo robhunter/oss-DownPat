@@ -78,6 +78,120 @@ You should commit changes as you progress.  Each commit should ideally address o
 
 CRITICAL: DO NOT EDIT GIT HISTORY WITHOUT EXPLICIT USER PERMISSION. EVERY GIT HISTORY EDIT NEEDS NEW, EXPLICIT PERMISSION.
 
+### Stacked PRs (Preferred Workflow)
+
+For multi-part features, use **stacked PRs** instead of one large PR:
+
+**Why stack PRs:**
+- Smaller PRs are easier to review (target 200-400 lines of diff)
+- Reviewers can approve early parts while later parts are still in progress
+- Feedback on one layer doesn't block progress on others
+- Each PR has a focused scope and clear purpose
+
+**When to split into stacked PRs:**
+- Feature touches multiple layers (data model → business logic → API → tests)
+- Total diff would exceed 500 lines
+- Logical separation exists (e.g., "add module" vs "integrate module")
+- Different parts could be reviewed by different people
+
+**How to create a stack:**
+```bash
+# Start from main
+git checkout main && git pull
+
+# Create first PR branch
+git checkout -b feature-1-foundation
+# ... make changes, commit, push
+gh pr create --base main --title "Add foundation for X"
+
+# Create second PR branch FROM the first
+git checkout -b feature-2-integration
+# ... make changes, commit, push
+gh pr create --base feature-1-foundation --title "Integrate X into Y"
+
+# Create third PR branch FROM the second
+git checkout -b feature-3-tests
+# ... make changes, commit, push
+gh pr create --base feature-2-integration --title "Add tests for X integration"
+```
+
+**Naming convention:** `feature-N-description` where N indicates stack order.
+
+**When earlier PRs change:**
+If PR #1 needs changes after review, update the entire stack:
+```bash
+# Fix issues on PR #1's branch
+git checkout feature-1-foundation
+# ... make fixes, commit, push
+
+# Rebase PR #2 onto updated PR #1
+git checkout feature-2-integration
+git rebase feature-1-foundation
+git push --force-with-lease
+
+# Rebase PR #3 onto updated PR #2
+git checkout feature-3-tests
+git rebase feature-2-integration
+git push --force-with-lease
+```
+
+**Merging order:** PRs must merge bottom-up. After PR #1 merges to main, update PR #2's base to main. GitHub will auto-update the diff.
+
+
+### Self-Review Workflow
+
+When a PR is ready for review, run the automated review process before asking the user.
+
+**Running Reviews:**
+```bash
+# Initial review (can approve if no blockers)
+.claude-tools/scripts/review-pr.sh start <pr-url>
+
+# Follow-up review (cannot approve, for iteration)
+.claude-tools/scripts/review-pr.sh continue <pr-url>
+```
+
+**Review Loop:**
+1. Push branch, create PR
+2. Run `.claude-tools/scripts/review-pr.sh start <pr-url>`
+3. Parse output for blockers/nits/acks
+4. **Assess validity** of each comment:
+   - Is it correct or hallucinated?
+   - Is it already addressed?
+   - Is it a real issue or style preference?
+5. Fix valid issues; prefer fixing partially-valid over deferring
+6. Post overview comment summarizing changes/rationale
+7. Reply to **every** inline comment (even "not addressing because X")
+8. Push fixes
+9. Run `.claude-tools/scripts/review-pr.sh start <pr-url>` again
+10. Repeat until exit condition
+
+**Exit Conditions:**
+- **Success**: `start review` returns no blockers → ready to merge
+- **Circuit breaker**: 5 `start review` iterations → escalate to user
+- **Impasse**: hallucinations, repetitions, fundamental disagreement → escalate with summary
+
+**When to Escalate vs Self-Resolve:**
+
+| Self-resolve | Escalate |
+|--------------|----------|
+| Clear bugs, missing null checks | Design disagreements |
+| Valid style feedback | Ambiguous requirements |
+| Missing tests | Reviewer asks for changes you believe are wrong |
+| Partially-valid issues (prefer fix) | After 5 iterations |
+
+**Responding to Comments:**
+- Post ONE overview comment summarizing all changes and rationale
+- Reply to EVERY inline comment individually:
+  - If fixed: "Fixed in <commit>"
+  - If not fixing: Explain why (design choice, out of scope, disagree)
+  - If partially fixed: Explain what was done and what wasn't
+- Use `gh pr comment` for overview, `gh api` for inline replies
+
+**Credential Separation:**
+The review script uses separate GitHub credentials for Gemini, stored at `~/.config/gemini-gh-token` (override with `GEMINI_GH_TOKEN_FILE` env var). This keeps Claude's and Gemini's GitHub access isolated.
+
+
 ---
 
 ## Test Coverage (MANDATORY)

@@ -136,3 +136,7 @@ docs/.cache/
 
 .chainlink/issues.db
 code_review.md
+
+.claude-tools/
+
+.env.gemini
