@@ -1,7 +1,7 @@
 # NPM Publishing Checklist
 
 ## 1. Documentation
-- [ ] Add quickstart README.md to each package with:
+- [x] Add quickstart README.md to each package with:
   - Installation instructions
   - Basic usage examples
   - API overview
@@ -14,15 +14,15 @@
 
 ## 3. Package.json Enhancements
 Add missing fields to each package:
-- [ ] `repository` - GitHub repo URL
+- [x] `repository` - GitHub repo URL
 - [ ] `author` - maintainer info
-- [ ] `bugs` - issue tracker URL
-- [ ] `homepage` - docs/project URL
-- [ ] `keywords` - for discoverability (only `ai-adapters` has these currently)
-- [ ] `publishConfig.access: "public"` - required for scoped packages
+- [x] `bugs` - issue tracker URL
+- [x] `homepage` - docs/project URL
+- [x] `keywords` - for discoverability
+- [x] `publishConfig.access: "public"` - required for scoped packages
 
 ## 4. Dependency Version Pinning
-- [ ] Replace `"@downpat/core": "*"` with real versions (e.g., `"^0.0.1"`)
+- [x] Replace `"@downpat/core": "*"` with real versions (e.g., `"^0.0.1"`)
 - [ ] Consider using **changesets** or **lerna** for coordinated versioning across packages
 
 ## 5. Pre-publish Verification
@@ -34,11 +34,10 @@ Add missing fields to each package:
 ## 6. Publishing Order
 Must publish in dependency order:
 1. `@downpat/core` (no internal deps)
-2. `@downpat/firebase-storage`
-3. `@downpat/express`
-4. `@downpat/ui-components`
-5. `@downpat/admin-ui`
-6. `@downpat/ai-adapters`
+2. `@downpat/api-client`, `@downpat/ai-adapters`, `@downpat/firebase-storage`, `@downpat/ui-components` (depend only on core)
+3. `@downpat/express` (depends on core, ai-adapters)
+4. `@downpat/admin-ui` (depends on core, api-client)
+5. `@downpat/react` (depends on core, api-client, ui-components, admin-ui)
 
 ## 7. Optional but Recommended
 - [ ] Add CHANGELOG.md per package

@@ -21,7 +21,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@downpat/core": "*",
+    "@downpat/core": "^0.0.1",
     "openai": "^4.0.0",
     "@anthropic-ai/sdk": "^0.20.0",
     "@google/generative-ai": "^0.2.0"
@@ -31,6 +31,15 @@
     "typescript": "^5.3.0",
     "vitest": "^1.6.0"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/robhunter/oss-DownPat.git",
+    "directory": "packages/ai-adapters"
+  },
+  "bugs": {
+    "url": "https://github.com/robhunter/oss-DownPat/issues"
+  },
+  "homepage": "https://github.com/robhunter/oss-DownPat/tree/main/packages/ai-adapters#readme",
   "keywords": [
     "downpat",
     "ai",
@@ -38,7 +47,12 @@
     "anthropic",
     "gemini",
     "llm",
-    "chatbot"
+    "chatbot",
+    "gpt",
+    "claude"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "license": "MIT"
 }

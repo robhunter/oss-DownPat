@@ -18,15 +18,32 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@downpat/core": "0.0.1"
+    "@downpat/core": "^0.0.1"
   },
   "devDependencies": {
     "typescript": "^5.3.3",
     "vitest": "^1.2.0"
   },
-  "peerDependencies": {},
   "files": [
-    "dist",
-    "src"
-  ]
+    "dist"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/robhunter/oss-DownPat.git",
+    "directory": "packages/api-client"
+  },
+  "bugs": {
+    "url": "https://github.com/robhunter/oss-DownPat/issues"
+  },
+  "homepage": "https://github.com/robhunter/oss-DownPat/tree/main/packages/api-client#readme",
+  "keywords": [
+    "downpat",
+    "api",
+    "client",
+    "http"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "MIT"
 }

@@ -24,8 +24,8 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@downpat/api-client": "0.0.1",
-    "@downpat/core": "*"
+    "@downpat/api-client": "^0.0.1",
+    "@downpat/core": "^0.0.1"
   },
   "peerDependencies": {
     "react": "^18.0.0",
@@ -46,6 +46,26 @@
     "react-dom": "^18.2.0",
     "typescript": "^5.3.0",
     "vitest": "^1.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/robhunter/oss-DownPat.git",
+    "directory": "packages/admin-ui"
+  },
+  "bugs": {
+    "url": "https://github.com/robhunter/oss-DownPat/issues"
+  },
+  "homepage": "https://github.com/robhunter/oss-DownPat/tree/main/packages/admin-ui#readme",
+  "keywords": [
+    "downpat",
+    "react",
+    "admin",
+    "ui",
+    "dashboard",
+    "exercises"
+  ],
+  "publishConfig": {
+    "access": "public"
   },
   "license": "MIT"
 }

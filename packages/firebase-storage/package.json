@@ -22,12 +22,31 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@downpat/core": "*",
+    "@downpat/core": "^0.0.1",
     "firebase-admin": "^12.0.0"
   },
   "devDependencies": {
     "typescript": "^5.3.0",
     "vitest": "^1.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/robhunter/oss-DownPat.git",
+    "directory": "packages/firebase-storage"
+  },
+  "bugs": {
+    "url": "https://github.com/robhunter/oss-DownPat/issues"
+  },
+  "homepage": "https://github.com/robhunter/oss-DownPat/tree/main/packages/firebase-storage#readme",
+  "keywords": [
+    "downpat",
+    "firebase",
+    "firestore",
+    "storage",
+    "database"
+  ],
+  "publishConfig": {
+    "access": "public"
   },
   "license": "MIT"
 }
