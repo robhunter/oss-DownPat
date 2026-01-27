@@ -122,7 +122,7 @@ if (isMainModule) {
 // For testing - start server on demand
 let server: ReturnType<typeof import('http').createServer> | null = null;
 
-export function startTestServer(port = PORT): void {
+export function startTestServer(): void {
   if (server) return;
   startServer().then((s) => {
     server = s;

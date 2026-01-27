@@ -36,7 +36,7 @@ function AppRoutes() {
               // Read from localStorage directly to avoid race condition with React state.
               // localStorage is populated immediately on login, while React state
               // requires effect execution which may lag behind initial API requests.
-              getAuthToken={() => localStorage.getItem(TOKEN_KEY)}
+              getAuthToken={async () => localStorage.getItem(TOKEN_KEY)}
             />
           }
         />
