@@ -40,6 +40,7 @@ export function AdminProvider({
   const contextValue = useMemo<AdminUIContextValue>(() => ({
     ...config,
     basePath: config.basePath || '/admin',
+    availableModels: config.availableModels || ['gpt-4o', 'gpt-4o-mini', 'claude-3-5-sonnet'],
     currentPath,
     navigate,
   }), [config, currentPath, navigate]);

@@ -31,9 +31,9 @@ export interface AdminUIConfig {
   /**
    * Available AI models for exercise configuration.
    * These are shown in the model dropdown when creating/editing exercises.
-   * Must contain at least one model.
+   * @default ['gpt-4o', 'gpt-4o-mini', 'claude-3-5-sonnet']
    */
-  availableModels: string[];
+  availableModels?: string[];
 
   /**
    * Base path for admin routes (e.g., '/admin').
@@ -70,8 +70,19 @@ export interface AdminUIConfig {
 
 /**
  * Context for accessing admin configuration throughout the admin UI.
+ * Note: Optional config fields are guaranteed to have values in context (defaults applied).
  */
-export interface AdminUIContextValue extends AdminUIConfig {
+export interface AdminUIContextValue extends Omit<AdminUIConfig, 'availableModels' | 'basePath'> {
+  /**
+   * Available AI models (default applied if not provided in config)
+   */
+  availableModels: string[];
+
+  /**
+   * Base path for admin routes (default applied if not provided in config)
+   */
+  basePath: string;
+
   /**
    * Current path within the admin UI (relative to basePath)
    */
