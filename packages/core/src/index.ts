@@ -3,6 +3,8 @@ export {
   MessageType,
   VISIBLE_MESSAGE_TYPES,
   COACHING_MESSAGE_TYPES,
+  DEFAULT_AVAILABLE_MODELS,
+  type DefaultAvailableModel,
 } from './constants/index.js';
 
 // Types

@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Changed
+- Make availableModels optional in mountAdminUI (#139)
 - Fix minor type issues in example-app (#138)
 - Bug: Exercise not found error when editing restored exercise (#136)
 

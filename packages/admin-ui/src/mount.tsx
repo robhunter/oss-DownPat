@@ -50,7 +50,7 @@ export interface MountedAdminUI {
  *   target: '#admin-root',
  *   apiBaseUrl: '/api/downpat',
  *   getAuthToken: async () => localStorage.getItem('token'),
- *   // availableModels is optional, defaults to ['gpt-4o', 'gpt-4o-mini', 'claude-3-5-sonnet']
+ *   // availableModels is optional, defaults to DEFAULT_AVAILABLE_MODELS from @downpat/core
  * });
  *
  * // Later, to unmount:

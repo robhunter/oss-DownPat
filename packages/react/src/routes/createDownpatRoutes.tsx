@@ -1,6 +1,7 @@
 import React from 'react';
 import { useRoutes, useParams, useNavigate, useLocation } from 'react-router-dom';
 import type { RouteObject } from 'react-router-dom';
+import { DEFAULT_AVAILABLE_MODELS } from '@downpat/core';
 import { ConversationPage } from '@downpat/ui-components';
 import { ControlledAdminApp } from '@downpat/admin-ui';
 import type { AdminUIConfig } from '@downpat/admin-ui';
@@ -202,7 +203,7 @@ export function createDownpatRouteObjects(config: DownpatRoutesConfig): RouteObj
     basePath = '/downpat',
     apiBaseUrl = '/api/downpat',
     getAuthToken,
-    availableModels = ['gpt-4o', 'gpt-4o-mini', 'claude-3-5-sonnet'],
+    availableModels = [...DEFAULT_AVAILABLE_MODELS],
   } = config;
 
   // Routes are relative - they're rendered inside a parent route at basePath/*
