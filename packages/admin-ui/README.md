@@ -98,7 +98,7 @@ function AdminPage() {
 |----------|------|----------|-------------|
 | `apiBaseUrl` | `string` | Yes | Base URL for API requests (e.g., `/api/downpat`) |
 | `getAuthToken` | `() => Promise<string \| null>` | Yes | Function to get the current auth token |
-| `availableModels` | `string[]` | No | AI models available for exercise configuration (default: `['gpt-4o', 'gpt-4o-mini', 'claude-3-5-sonnet']`) |
+| `availableModels` | `string[]` | No | AI models available for exercise configuration (default: `DEFAULT_AVAILABLE_MODELS` from `@downpat/core`) |
 | `basePath` | `string` | No | Base path for admin routes (default: `/admin`) |
 | `onNavigate` | `(path: string) => void` | No | Callback when navigation occurs |
 | `onTestExercise` | `(exerciseId: string, slug: string) => void` | No | Callback when user clicks "Test" on an exercise |

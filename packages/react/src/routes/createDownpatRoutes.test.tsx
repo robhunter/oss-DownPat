@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import React from 'react';
+import { DEFAULT_AVAILABLE_MODELS } from '@downpat/core';
 
 // Mock the hooks module
 vi.mock('../hooks/index.js', () => ({
@@ -34,9 +35,10 @@ vi.mock('@downpat/ui-components', () => ({
 
 // Mock ControlledAdminApp from admin-ui
 vi.mock('@downpat/admin-ui', () => ({
-  ControlledAdminApp: vi.fn(({ config, path }: { config: unknown; path: string }) => (
+  ControlledAdminApp: vi.fn(({ config, path }: { config: { availableModels?: string[] }; path: string }) => (
     <div data-testid="admin-app">
       <span data-testid="admin-path">{path}</span>
+      <span data-testid="admin-available-models">{(config.availableModels || []).join(',')}</span>
     </div>
   )),
 }));
@@ -329,6 +331,29 @@ describe('AdminWrapper', () => {
     renderAtPath('/downpat/admin/exercises');
 
     expect(screen.getByTestId('admin-auth-wrapper')).toBeInTheDocument();
+  });
+
+  it('should use DEFAULT_AVAILABLE_MODELS when availableModels not provided', () => {
+    const configWithoutModels: DownpatRoutesConfig = {
+      authWrapper: TestAuthWrapper,
+      adminAuthWrapper: TestAdminAuthWrapper,
+      basePath: '/downpat',
+      apiBaseUrl: '/api/downpat',
+      getAuthToken: async () => 'test-token',
+      // availableModels not provided - should use default
+    };
+
+    render(
+      <MemoryRouter initialEntries={['/downpat/admin/exercises']}>
+        <Routes>
+          <Route path="/downpat/*" element={<DownpatRoutes {...configWithoutModels} />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(screen.getByTestId('admin-available-models')).toHaveTextContent(
+      DEFAULT_AVAILABLE_MODELS.join(',')
+    );
   });
 });
 

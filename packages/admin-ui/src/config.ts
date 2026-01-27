@@ -31,7 +31,7 @@ export interface AdminUIConfig {
   /**
    * Available AI models for exercise configuration.
    * These are shown in the model dropdown when creating/editing exercises.
-   * @default ['gpt-4o', 'gpt-4o-mini', 'claude-3-5-sonnet']
+   * @default DEFAULT_AVAILABLE_MODELS from @downpat/core
    */
   availableModels?: string[];
 
