@@ -24,7 +24,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@downpat/core": "*",
+    "@downpat/core": "^0.0.1",
     "markdown-to-jsx": "^9.6.1",
     "socket.io-client": "^4.7.0"
   },
@@ -42,6 +42,26 @@
     "react-dom": "^18.2.0",
     "typescript": "^5.3.0",
     "vitest": "^1.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/robhunter/oss-DownPat.git",
+    "directory": "packages/ui-components"
+  },
+  "bugs": {
+    "url": "https://github.com/robhunter/oss-DownPat/issues"
+  },
+  "homepage": "https://github.com/robhunter/oss-DownPat/tree/main/packages/ui-components#readme",
+  "keywords": [
+    "downpat",
+    "react",
+    "ui",
+    "components",
+    "chat",
+    "conversation"
+  ],
+  "publishConfig": {
+    "access": "public"
   },
   "license": "MIT"
 }
