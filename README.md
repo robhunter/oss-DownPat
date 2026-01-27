@@ -10,54 +10,55 @@ DownPat provides a complete toolkit for building AI-powered training application
 
 | Package | Description |
 |---------|-------------|
-| `@downpat/core` | Core types, interfaces, and controllers |
+| `@downpat/express` | Express router, Socket.io, and AI adapters (server) |
+| `@downpat/react` | React components, hooks, and routing (client) |
 | `@downpat/firebase-storage` | Firebase Firestore storage implementation |
-| `@downpat/express` | Express router and Socket.io integration |
-| `@downpat/ui-components` | React UI components for conversations |
-| `@downpat/admin-ui` | Admin interface components |
-| `@downpat/ai-adapters` | OpenAI, Anthropic, and Gemini adapters |
+| `@downpat/core` | Core types and interfaces (included automatically) |
+| `@downpat/ai-adapters` | OpenAI, Anthropic, and Gemini adapters (included in express) |
+| `@downpat/ui-components` | React UI components (included in react) |
+| `@downpat/admin-ui` | Admin interface components (included in react) |
+| `@downpat/api-client` | API client for server communication (included in react) |
 
 ## Quick Start
 
 ### Installation
 
 ```bash
-# Install core packages
-npm install @downpat/core @downpat/express @downpat/ui-components
+# Server
+npm install @downpat/express @downpat/firebase-storage
 
-# Optional: Install storage and AI adapters
-npm install @downpat/firebase-storage @downpat/ai-adapters
+# Client
+npm install @downpat/react
 ```
+
+That's it! All other packages are included as dependencies.
 
 ### Server Setup
 
 ```typescript
 import express from 'express';
-import { createServer } from 'http';
-import { createDownpatRouter, attachSocketIO } from '@downpat/express';
-import { FirebaseExerciseStorage, FirebaseConversationStorage } from '@downpat/firebase-storage';
+import { createDownpatServer, createMockAuthProvider } from '@downpat/express';
+import { createFirebaseStorage } from '@downpat/firebase-storage';
+import { createAdapterRegistryFromEnv } from '@downpat/ai-adapters';
 
 const app = express();
-const httpServer = createServer(app);
+app.use(express.json());
 
-// Initialize storage
-const exerciseStorage = new FirebaseExerciseStorage(firestoreDb);
-const conversationStorage = new FirebaseConversationStorage(firestoreDb);
+// Create storage
+const { exerciseStorage, conversationStorage, userStateStorage } = createFirebaseStorage();
 
-// Create and mount DownPat router
-const downpat = createDownpatRouter({
-  serverAuth: yourAuthProvider,
+// Create AI adapter registry (auto-detects API keys from environment)
+const aiAdapters = await createAdapterRegistryFromEnv();
+
+// Initialize DownPat with all dependencies
+const { httpServer } = await createDownpatServer({
+  app,
+  basePath: '/api/downpat',
+  serverAuth: createMockAuthProvider(), // Replace with real auth in production
   exerciseStorage,
   conversationStorage,
-});
-
-app.use('/api/downpat', downpat.router);
-
-// Enable real-time updates
-attachSocketIO(httpServer, {
-  serverAuth: yourAuthProvider,
-  exerciseStorage,
-  conversationStorage,
+  userStateStorage,
+  aiAdapters,
 });
 
 httpServer.listen(3001);
@@ -66,16 +67,33 @@ httpServer.listen(3001);
 ### Client Setup
 
 ```tsx
-import { MessageList, generateTheme, applyTheme } from '@downpat/ui-components';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { DownpatRoutes } from '@downpat/react';
 import '@downpat/ui-components/styles';
+import '@downpat/admin-ui/styles';
 
-// Apply a custom theme
-const theme = generateTheme({ primary: '#3b82f6' });
-applyTheme(theme);
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        {/* Your app routes */}
+        <Route path="/" element={<Home />} />
 
-// Render messages
-function Conversation({ messages }) {
-  return <MessageList messages={messages} />;
+        {/* DownPat routes */}
+        <Route
+          path="/downpat/*"
+          element={
+            <DownpatRoutes
+              authWrapper={YourProtectedRoute}
+              adminAuthWrapper={YourAdminRoute}
+              basePath="/downpat"
+              getAuthToken={async () => localStorage.getItem('token')}
+            />
+          }
+        />
+      </Routes>
+    </BrowserRouter>
+  );
 }
 ```
 
