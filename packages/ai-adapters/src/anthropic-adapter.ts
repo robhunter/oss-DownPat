@@ -6,7 +6,12 @@ import type {
 } from '@downpat/core';
 import type { Anthropic } from '@anthropic-ai/sdk';
 
-const DEFAULT_ANTHROPIC_MODELS = ['claude-3-opus-20240229', 'claude-3-sonnet-20240229', 'claude-3-haiku-20240307'];
+const DEFAULT_ANTHROPIC_MODELS = [
+  'claude-3-5-sonnet',
+  'claude-3-opus-20240229',
+  'claude-3-sonnet-20240229',
+  'claude-3-haiku-20240307',
+];
 
 /**
  * Anthropic adapter for Claude models.
