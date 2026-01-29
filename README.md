@@ -6,22 +6,47 @@ Open source conversational AI training platform for building immersive learning 
 
 DownPat provides a complete toolkit for building AI-powered training applications where users practice conversations with AI coaches. It supports multiple message types (conversation, commentary, summaries), real-time updates via Socket.io, and comprehensive admin tools.
 
-## Packages
+![Sample Conversation](docs/images/coach-conversation.png)  
+![Edit Exercise](docs/images/edit-conversation.png)  
 
-| Package | Description |
-|---------|-------------|
-| `@downpat/express` | Express router, Socket.io, and AI adapters (server) |
-| `@downpat/react` | React components, hooks, and routing (client) |
-| `@downpat/firebase-storage` | Firebase Firestore storage implementation |
-| `@downpat/core` | Core types and interfaces (included automatically) |
-| `@downpat/ai-adapters` | OpenAI, Anthropic, and Gemini adapters (included in express) |
-| `@downpat/ui-components` | React UI components (included in react) |
-| `@downpat/admin-ui` | Admin interface components (included in react) |
-| `@downpat/api-client` | API client for server communication (included in react) |
+## Quickstart Demo
 
-## Quick Start
+The fastest way to see DownPat in action is to run the example app.
 
-### Installation
+### Prerequisites
+
+- Node.js 18+
+- At least one AI provider API key (OpenAI, Anthropic, or Google Gemini). OpenAI key required for moderation.
+
+### Steps
+
+```bash
+# Clone the repo
+git clone https://github.com/robhunter/oss-DownPat.git
+cd oss-DownPat
+
+# Install dependencies
+npm install
+
+# Copy the example environment file and add your API key(s)
+cp .env.example .env
+# Edit .env — at minimum, set one AI provider key (e.g. OPENAI_API_KEY)
+
+# Build all packages
+npm run build
+
+# Start the dev server and client
+npm run dev
+```
+
+Open http://localhost:5173 in your browser. The example app uses in-memory storage and mock authentication, so no Firebase setup is needed to try it out.
+
+- **Login as Admin** to create and manage exercises
+- **Login as User** to practice conversations
+
+## Installation
+
+To integrate DownPat into your own application:
 
 ```bash
 # Server
@@ -31,9 +56,86 @@ npm install @downpat/express @downpat/firebase-storage
 npm install @downpat/react
 ```
 
-That's it! All other packages are included as dependencies.
+All other packages (`@downpat/core`, `@downpat/ai-adapters`, `@downpat/ui-components`, `@downpat/admin-ui`, `@downpat/api-client`) are included as transitive dependencies.
 
-### Server Setup
+## Firebase
+
+By default, DownPat uses Firebase Firestore for storage of exercises, conversations, and user state. Our rationale is that it's easier for you to set up a dedicated datastore for DownPat rather than try to integrate our data model into your existing database, and it's easier for us to maintain a single storage adapter. The happy path is for you to set up your own Firebase project and provide credentials, though you're welcome to replace the storage adapter to use whatever datastore you'd like.
+
+### Firebase Setup
+
+1. **Create a Firebase project** at https://console.firebase.google.com
+2. **Create a Firestore database** in your project (start in production mode)
+3. **Generate a service account key**: Project Settings → Service Accounts → Generate New Private Key
+4. **Save the JSON file** to your project (e.g. `./service-account.json`) and add it to `.gitignore`
+5. **Set environment variables** in your `.env`:
+
+```bash
+FIREBASE_PROJECT_ID=your-project-id
+
+# Option 1: Path to service account JSON (local development)
+GOOGLE_APPLICATION_CREDENTIALS=./service-account.json
+
+# Option 2: Base64-encoded service account (Docker/CI)
+# FIREBASE_SERVICE_ACCOUNT_BASE64=$(cat service-account.json | base64)
+```
+
+Then in your server code:
+
+```typescript
+import { createFirebaseStorage } from '@downpat/firebase-storage';
+
+const { exerciseStorage, conversationStorage, userStateStorage } = createFirebaseStorage();
+```
+
+`createFirebaseStorage()` reads credentials from environment variables automatically. In test environments (`NODE_ENV=test`), it falls back to in-memory storage so your tests don't need Firebase access.
+
+## Authentication
+
+DownPat assumes that you already have some kind of user authentication set up, and that you want to control which users have access to your exercises. You'll need to implement two methods — `validateToken` and `getDemoUser` — by providing an object that satisfies the `ServerAuthProvider` interface:
+
+```typescript
+import type { ServerAuthProvider, User } from '@downpat/core';
+
+const myAuthProvider: ServerAuthProvider = {
+  // Validate a Bearer token from the request and return user info.
+  // Throw an error if the token is invalid.
+  async validateToken(token: string): Promise<User> {
+    const session = await yourSessionStore.verify(token);
+    return {
+      userId: session.userId,
+      displayName: session.name,
+      isAdmin: session.role === 'admin',
+      isSubscriber: session.hasSubscription,
+    };
+  },
+
+  // Return a fallback user for unauthenticated/demo access.
+  getDemoUser(): User {
+    return {
+      userId: 'demo',
+      displayName: 'Guest',
+      isAdmin: false,
+      isSubscriber: false,
+    };
+  },
+};
+```
+
+Pass your auth provider when creating the server:
+
+```typescript
+const { httpServer } = await createDownpatServer({
+  app,
+  basePath: '/api/downpat',
+  serverAuth: myAuthProvider,
+  // ...other options
+});
+```
+
+For development and testing, `@downpat/express` exports a `createMockAuthProvider()` that accepts hardcoded tokens (`demo-token` and `admin-token`).
+
+## Server Setup
 
 ```typescript
 import express from 'express';
@@ -64,7 +166,7 @@ const { httpServer } = await createDownpatServer({
 httpServer.listen(3001);
 ```
 
-### Client Setup
+## Client Setup
 
 ```tsx
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
@@ -97,7 +199,7 @@ function App() {
 }
 ```
 
-### AI Integration
+## AI Integration
 
 ```typescript
 import { createAdapterRegistry } from '@downpat/ai-adapters';
@@ -140,43 +242,34 @@ Exercises support a draft/published workflow - changes are saved to drafts, then
 
 ## Development
 
-### Prerequisites
-
-- Node.js 18+
-- npm 8+
-
 ### Setup
 
 ```bash
-# Clone and install
-git clone https://github.com/your-org/downpat.git
-cd downpat
+git clone https://github.com/robhunter/oss-DownPat.git
+cd oss-DownPat
 npm install
-
-# Build all packages
-npm run build --workspaces
-
-# Run tests (191 tests across all packages)
-npm test --workspaces
+npm run build
+npm test
 ```
-
-### Running the Example App
-
-```bash
-# Start the development server (port 3001)
-npm run dev:server
-
-# In another terminal, start the client (port 5173)
-npm run dev:client
-```
-
-Open http://localhost:5173 in your browser.
 
 ## Environment Variables
 
 - `OPENAI_API_KEY` - OpenAI API key for GPT models and moderation
 - `ANTHROPIC_API_KEY` - Anthropic API key for Claude models
 - `GEMINI_API_KEY` - Google API key for Gemini models
+
+## Packages
+
+| Package | Description |
+|---------|-------------|
+| `@downpat/express` | Express router, Socket.io, and AI adapters (server) |
+| `@downpat/react` | React components, hooks, and routing (client) |
+| `@downpat/firebase-storage` | Firebase Firestore storage implementation |
+| `@downpat/core` | Core types and interfaces (included automatically) |
+| `@downpat/ai-adapters` | OpenAI, Anthropic, and Gemini adapters (included in express) |
+| `@downpat/ui-components` | React UI components (included in react) |
+| `@downpat/admin-ui` | Admin interface components (included in react) |
+| `@downpat/api-client` | API client for server communication (included in react) |
 
 ## Project Structure
 
