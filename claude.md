@@ -78,6 +78,8 @@ You should commit changes as you progress.  Each commit should ideally address o
 
 CRITICAL: DO NOT EDIT GIT HISTORY WITHOUT EXPLICIT USER PERMISSION. EVERY GIT HISTORY EDIT NEEDS NEW, EXPLICIT PERMISSION.
 
+CRITICAL: NEVER run `gh auth setup-git` or modify the global git config (`~/.gitconfig`). The global git config is shared with the user's host machine via the container filesystem. Modifying it (e.g., adding a credential helper) will break the user's local git setup (SSH auth, credentials, etc.). If you need to push via `gh`, use `gh pr create` or `gh api` directly — these use `gh`'s own auth token without modifying git config.
+
 ### Stacked PRs (Preferred Workflow)
 
 For multi-part features, use **stacked PRs** instead of one large PR:
@@ -349,3 +351,4 @@ rm -rf node_modules package-lock.json && npm install
 - When making API-level changes, consider if UI changes are also needed
 - When configuring test behavior, check both unit tests (vitest) AND e2e tests (playwright)
 - Debug root causes rather than adding fallbacks/workarounds
+- NEVER run `gh auth setup-git` or modify `~/.gitconfig` — it's shared with the user's host machine and will break their local git auth

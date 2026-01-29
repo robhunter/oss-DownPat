@@ -7,6 +7,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Changed
+- Add GPT-4.1 mini and nano variants, fix model dropdown order (#148)
+- Add GPT-4.1 model support (#147)
 - Move Talk to Coach button from floating to inline next to Send (#145)
 - NPM publishing prep: READMEs, package.json metadata, dependency versions (#143)
 - Add claude-3-5-sonnet to Anthropic adapter and add model coverage test (#141)
