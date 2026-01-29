@@ -70,6 +70,7 @@ interface SummaryFields {
 }
 
 // Default values for new exercises
+const DEFAULT_MAX_USER_MESSAGES = 200;
 const DEFAULT_RESPONSE_DESCRIPTION = "Response to the user's message";
 const DEFAULT_COMMENTARY_ROLE = 'Coach';
 const DEFAULT_COMMENTARY_DESCRIPTION = "Assessment of the user's last message";
@@ -140,7 +141,7 @@ export function ExerciseForm({
     exerciseId: exercise?.exerciseId || generateId(),
     exerciseName: exercise?.exerciseName || '',
     slug: exercise?.slug || '',
-    maxUserMessages: exercise?.maxUserMessages || 200,
+    maxUserMessages: exercise?.maxUserMessages || DEFAULT_MAX_USER_MESSAGES,
     model: exercise?.model || (hasModels ? availableModels[0] : ''),
     talkToCoachEnabled: exercise?.talkToCoachEnabled || false,
     welcomeMessage: exercise?.welcomeMessage || '',
@@ -603,7 +604,7 @@ export function ExerciseForm({
       slug: prev.slug,
       // Reset to defaults, then override with imported values
       exerciseName: parsed.exerciseName as string,
-      maxUserMessages: typeof parsed.maxUserMessages === 'number' ? parsed.maxUserMessages : 200,
+      maxUserMessages: typeof parsed.maxUserMessages === 'number' ? parsed.maxUserMessages : DEFAULT_MAX_USER_MESSAGES,
       model: typeof parsed.model === 'string' ? parsed.model : defaultModel,
       talkToCoachEnabled: typeof parsed.talkToCoachEnabled === 'boolean' ? parsed.talkToCoachEnabled : false,
       welcomeMessage: typeof parsed.welcomeMessage === 'string' ? parsed.welcomeMessage : '',

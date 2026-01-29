@@ -439,6 +439,19 @@ test.describe('Exercise Import/Export', () => {
     await loginAsAdmin(page);
   });
 
+  test.afterEach(async ({ page }) => {
+    // Clean up test exercises even if the test fails midway
+    for (const slug of [exportSlug, importSlug]) {
+      if (slug) {
+        try {
+          await deleteExercise(page, slug);
+        } catch {
+          // Exercise may already be deleted or never created
+        }
+      }
+    }
+  });
+
   test('can export exercise JSON and import into another exercise', async ({ page }) => {
     const exerciseName = `Export Source ${testId}`;
     const welcomeMessage = `Welcome to export source ${testId}!`;
@@ -519,9 +532,5 @@ test.describe('Exercise Import/Export', () => {
 
     // Slug should NOT have changed (preserved from import target)
     await expect(page.getByPlaceholder('exercise-slug')).toHaveValue(importSlug);
-
-    // Cleanup
-    await deleteExercise(page, exportSlug);
-    await deleteExercise(page, importSlug);
   });
 });
