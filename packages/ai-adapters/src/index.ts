@@ -206,24 +206,12 @@ export class ModelRouter implements AIAdapter {
 
   async completeWithTool(options: AIToolCompletionOptions): Promise<AIToolCompletionResult> {
     const adapter = this.resolveAdapter(options.model);
-    if (adapter.completeWithTool) {
-      return adapter.completeWithTool(options);
+    if (!adapter.completeWithTool) {
+      throw new Error(
+        `Adapter '${adapter.provider}' does not support tool calling for model '${options.model}'`
+      );
     }
-    // Fallback for adapters without tool calling: use complete() and
-    // return the content as the first tool parameter.
-    const result = await adapter.complete({
-      model: options.model,
-      messages: options.messages,
-      maxTokens: options.maxTokens,
-      temperature: options.temperature,
-      signal: options.signal,
-    });
-    const firstParam = Object.keys(options.tool.parameters)[0];
-    return {
-      arguments: firstParam ? { [firstParam]: result.content } : {},
-      finishReason: result.finishReason,
-      usage: result.usage,
-    };
+    return adapter.completeWithTool(options);
   }
 
   private resolveAdapter(model: string): AIAdapter {

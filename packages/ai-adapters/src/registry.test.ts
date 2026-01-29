@@ -321,7 +321,7 @@ describe('ModelRouter', () => {
     expect(openaiAdapter.completeWithTool).toHaveBeenCalled();
   });
 
-  it('falls back to complete() when adapter lacks completeWithTool', async () => {
+  it('throws when adapter lacks completeWithTool', async () => {
     const registry = new AIAdapterRegistry();
     const adapter = createMockAdapter('anthropic', ['claude-3-opus']);
     // adapter has no completeWithTool method
@@ -330,10 +330,10 @@ describe('ModelRouter', () => {
     const router = registry.createModelRouter();
 
     const tool = { name: 'test', description: 'test', parameters: { answer: { type: 'string' as const } } };
-    const result = await router.completeWithTool!({ model: 'claude-3-opus', messages: [], tool });
 
-    expect(adapter.complete).toHaveBeenCalled();
-    expect(result.arguments).toEqual({ answer: 'response from anthropic' });
+    await expect(
+      router.completeWithTool!({ model: 'claude-3-opus', messages: [], tool })
+    ).rejects.toThrow("Adapter 'anthropic' does not support tool calling for model 'claude-3-opus'");
   });
 
   it('returns ModelRouter instance from createModelRouter()', () => {
