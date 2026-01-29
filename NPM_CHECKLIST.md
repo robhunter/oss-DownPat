@@ -6,7 +6,7 @@
   - Basic usage examples
   - API overview
   - Link to main repo docs
-- [ ] Ensure root README.md is up to date
+- [x] Ensure root README.md is up to date
 
 ## 2. npm Organization Setup
 - [ ] Create `@downpat` organization on npmjs.com
@@ -15,7 +15,7 @@
 ## 3. Package.json Enhancements
 Add missing fields to each package:
 - [x] `repository` - GitHub repo URL
-- [ ] `author` - maintainer info
+- [x] `author` - maintainer info
 - [x] `bugs` - issue tracker URL
 - [x] `homepage` - docs/project URL
 - [x] `keywords` - for discoverability

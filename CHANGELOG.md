@@ -7,6 +7,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Changed
+- Update main README: quickstart demo, Firebase, and Auth sections (#146)
+- Add author field to all package.json files (#144)
 - Fallback to in-memory storage when Firebase credentials missing + UI warning banner
 - Add GPT-4.1 mini and nano variants, fix model dropdown order (#148)
 - Add GPT-4.1 model support (#147)
