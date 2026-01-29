@@ -168,11 +168,15 @@ export function createFirebaseStorage(options: CreateFirebaseStorageOptions = {}
   try {
     db = initializeFirebaseFromEnv(options);
   } catch (error) {
+    if (process.env.NODE_ENV === 'production') {
+      throw error;
+    }
     const message = error instanceof Error ? error.message : String(error);
     console.warn(
       `[DownPat] Firebase initialization failed, falling back to in-memory storage.\n` +
       `  Reason: ${message}\n` +
-      `  Data will be lost on server restart.`
+      `  Data will be lost on server restart.\n` +
+      `  NOTE: In production (NODE_ENV=production), this error will not be caught.`
     );
     return { ...createInMemoryStorage(), storageMode: 'in-memory' };
   }

@@ -74,6 +74,11 @@ async function startServer() {
   const aiAdapter = aiRegistry.getDefaultAdapter();
   const moderationAdapter = aiRegistry.getModerationAdapter();
 
+  // Expose storage mode for client warning banners (app-level concern, not framework)
+  app.get('/api/downpat/storage-info', (_req, res) => {
+    res.json({ storageMode });
+  });
+
   // Create DownPat server with all routes and Socket.io
   const { httpServer } = createDownpatServer(app, {
     serverAuth: mockAuthProvider,
@@ -84,7 +89,6 @@ async function startServer() {
     moderationAdapter: moderationAdapter ?? undefined,
     defaultModel: 'gpt-4',
     availableModels,
-    storageMode,
   });
 
   // Start listening

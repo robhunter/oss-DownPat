@@ -205,8 +205,8 @@ describe('createFirebaseStorage', () => {
     });
   });
 
-  it('should fallback to in-memory storage when Firebase init fails', () => {
-    process.env.NODE_ENV = 'production';
+  it('should fallback to in-memory storage when Firebase init fails in development', () => {
+    process.env.NODE_ENV = 'development';
     delete process.env.FIREBASE_PROJECT_ID;
     delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
     delete process.env.FIREBASE_SERVICE_ACCOUNT_BASE64;
@@ -224,7 +224,7 @@ describe('createFirebaseStorage', () => {
     warnSpy.mockRestore();
   });
 
-  it('should fallback to in-memory when credentials file is missing', () => {
+  it('should fallback to in-memory when credentials file is missing in development', () => {
     process.env.NODE_ENV = 'development';
     process.env.FIREBASE_PROJECT_ID = 'test-project';
     process.env.GOOGLE_APPLICATION_CREDENTIALS = '/nonexistent/path.json';
@@ -241,5 +241,14 @@ describe('createFirebaseStorage', () => {
     );
 
     warnSpy.mockRestore();
+  });
+
+  it('should throw in production when Firebase init fails', () => {
+    process.env.NODE_ENV = 'production';
+    delete process.env.FIREBASE_PROJECT_ID;
+    delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    delete process.env.FIREBASE_SERVICE_ACCOUNT_BASE64;
+
+    expect(() => createFirebaseStorage()).toThrow('Firebase project ID is required');
   });
 });
