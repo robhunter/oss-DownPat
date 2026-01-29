@@ -316,7 +316,7 @@ describe('ModelRouter', () => {
     const router = registry.createModelRouter();
 
     const tool = { name: 'test', description: 'test', parameters: { result: { type: 'string' as const } } };
-    await router.completeWithTool!({ model: 'gpt-4', messages: [], tool });
+    await router.completeWithTool({ model: 'gpt-4', messages: [], tool });
 
     expect(openaiAdapter.completeWithTool).toHaveBeenCalled();
   });
@@ -332,7 +332,7 @@ describe('ModelRouter', () => {
     const tool = { name: 'test', description: 'test', parameters: { answer: { type: 'string' as const } } };
 
     await expect(
-      router.completeWithTool!({ model: 'claude-3-opus', messages: [], tool })
+      router.completeWithTool({ model: 'claude-3-opus', messages: [], tool })
     ).rejects.toThrow("Adapter 'anthropic' does not support tool calling for model 'claude-3-opus'");
   });
 
