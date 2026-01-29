@@ -23,13 +23,13 @@ Add missing fields to each package:
 
 ## 4. Dependency Version Pinning
 - [x] Replace `"@downpat/core": "*"` with real versions (e.g., `"^0.0.1"`)
-- [ ] Consider using **changesets** or **lerna** for coordinated versioning across packages
+- [x] Set up **changesets** for coordinated versioning across packages
 
 ## 5. Pre-publish Verification
-- [ ] Run `npm test --workspaces` - all tests pass
-- [ ] Run `npm run build --workspaces` - clean builds
-- [ ] Run `npm pack` in each package to verify contents
-- [ ] Verify `files` field excludes test files, source maps, etc.
+- [x] Run `npm test --workspaces` - all tests pass (676/676)
+- [x] Run `npm run build --workspaces` - clean builds (except ai-adapters, see #153)
+- [x] Run `npm pack` in each package to verify contents
+- [x] Verify `files` field excludes test files, source maps, etc.
 
 ## 6. Publishing Order
 Must publish in dependency order:
