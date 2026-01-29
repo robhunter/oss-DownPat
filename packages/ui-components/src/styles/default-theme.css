@@ -98,12 +98,6 @@
   border-radius: 4px;
 }
 
-/* Hover effects */
-.downpat-coach-toggle:hover {
-  transform: scale(1.05);
-  background-color: var(--downpat-primary-600) !important;
-}
-
 /* Focus styles */
 .downpat-coach-sidebar textarea:focus,
 .downpat-coach-sidebar button:focus {

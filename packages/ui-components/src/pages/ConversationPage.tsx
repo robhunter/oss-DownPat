@@ -166,6 +166,20 @@ export function ConversationPage({
             >
               {isStreaming ? 'Sending...' : 'Send'}
             </button>
+            {talkToCoachEnabled && (
+              <button
+                type="button"
+                onClick={() => setShowCoach(!showCoach)}
+                style={{
+                  ...styles.coachBtn,
+                  ...(showCoach ? styles.coachBtnActive : {}),
+                }}
+                aria-label="Talk to Coach"
+                title="Talk to Coach"
+              >
+                ✋
+              </button>
+            )}
           </form>
         )}
       </div>
@@ -339,5 +353,19 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: '600',
     borderRadius: '4px',
     textTransform: 'uppercase',
+  },
+  coachBtn: {
+    padding: '12px 16px',
+    backgroundColor: 'white',
+    border: '1px solid var(--downpat-neutral-300, #d1d5db)',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontSize: '1.25rem',
+    lineHeight: 1,
+    transition: 'background-color 0.2s',
+  },
+  coachBtnActive: {
+    backgroundColor: 'var(--downpat-primary-50, #eff6ff)',
+    borderColor: 'var(--downpat-primary-500, #3b82f6)',
   },
 };

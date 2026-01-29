@@ -31,7 +31,7 @@ export function TalkToCoachSidebar({
   isLoading = false,
   placeholder = 'Ask the coach...',
   className = '',
-}: TalkToCoachSidebarProps): React.JSX.Element {
+}: TalkToCoachSidebarProps): React.JSX.Element | null {
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -71,36 +71,9 @@ export function TalkToCoachSidebar({
     }
   };
 
-  // Collapsed button
+  // Don't render anything when closed - the toggle button is rendered inline by the parent
   if (!isOpen) {
-    return (
-      <button
-        onClick={onToggle}
-        className={`downpat-coach-toggle ${className}`}
-        style={{
-          position: 'fixed',
-          right: '16px',
-          bottom: '16px',
-          width: '56px',
-          height: '56px',
-          borderRadius: '50%',
-          backgroundColor: 'var(--downpat-primary-500, #3b82f6)',
-          color: 'white',
-          border: 'none',
-          cursor: 'pointer',
-          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '24px',
-          transition: 'transform 0.2s, background-color 0.2s',
-        }}
-        aria-label="Open Talk to Coach"
-        title="Talk to Coach"
-      >
-        💬
-      </button>
-    );
+    return null;
   }
 
   // Expanded sidebar
