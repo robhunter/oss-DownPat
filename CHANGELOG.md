@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Add Test button to ExerciseEditorPage (#131)
 
 ### Fixed
+- Fix create exercise stays on /new after save instead of navigating to edit page (GH #17)
 - Fix edit/save flow issues - buttons not refreshing, 404 after restore (#137)
 - Fix updating published exercise creates draft instead of modifying published (#134)
 - Fix toast to be proper floating notification with fixed positioning (#106)
