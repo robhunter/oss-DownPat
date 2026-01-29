@@ -45,5 +45,6 @@
   "publishConfig": {
     "access": "public"
   },
+  "author": "Rob Hunter",
   "license": "MIT"
 }
