@@ -7,6 +7,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Changed
+- Address PR #14 review comments (#12)
+- Exercise Import/Export to JSON (#11)
 - Pre-publish verification and changesets setup (#150)
 - Set up changesets for coordinated versioning (#152)
 - Run pre-publish verification: tests, builds, npm pack, check tarball contents (#151)

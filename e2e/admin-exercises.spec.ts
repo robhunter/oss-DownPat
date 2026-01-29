@@ -250,7 +250,7 @@ test.describe('Exercise with Starters', () => {
     // Fill Conversation Task (always visible in new form)
     await page.getByPlaceholder('Who is the user talking to?').fill('Assistant');
     await page.getByPlaceholder('Instructions for the AI during conversation...').fill('Respond helpfully.');
-    await page.getByPlaceholder('ex: Response to the user's message').fill('A helpful response.');
+    await page.getByPlaceholder("ex: Response to the user's message").fill('A helpful response.');
 
     // Create the exercise
     await page.getByRole('button', { name: 'Create Exercise' }).click();
@@ -483,6 +483,7 @@ test.describe('Exercise Import/Export', () => {
       name: importName,
       welcomeMessage: 'Placeholder welcome.',
       guidelines: 'Placeholder guidelines.',
+      maxMessages: 5,
       conversationTask: {
         role: 'Placeholder',
         prompt: 'Placeholder prompt.',

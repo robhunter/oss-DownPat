@@ -98,7 +98,7 @@ export async function createExercise(page: Page, options: {
   };
   await page.getByPlaceholder('Who is the user talking to?').fill(conversationTask.role);
   await page.getByPlaceholder('Instructions for the AI during conversation...').fill(conversationTask.prompt);
-  await page.getByPlaceholder('ex: Response to the user's message').fill(conversationTask.responseDescription);
+  await page.getByPlaceholder("ex: Response to the user's message").fill(conversationTask.responseDescription);
 
   // Add Commentary Task if specified
   if (options.commentaryTask) {
