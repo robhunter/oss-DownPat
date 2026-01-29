@@ -66,6 +66,13 @@ export interface CreateDownpatServerConfig {
   availableModels?: string[];
 
   /**
+   * Storage backend in use: 'firebase' or 'in-memory'.
+   * Used to expose storage info to the client for warning banners.
+   * If not provided, defaults to 'firebase'.
+   */
+  storageMode?: 'firebase' | 'in-memory';
+
+  /**
    * Mount path for DownPat routes.
    * @default '/api/downpat'
    */
@@ -157,6 +164,7 @@ export function createDownpatServer(
     moderationAdapter,
     defaultModel,
     availableModels = [],
+    storageMode = 'firebase',
     mountPath = '/api/downpat',
     corsOrigin,
   } = config;
@@ -175,6 +183,11 @@ export function createDownpatServer(
   // GET /models - Returns available AI models
   app.get(`${mountPath}/models`, (_req, res) => {
     res.json(availableModels);
+  });
+
+  // GET /storage-info - Returns storage backend info (for client warning banners)
+  app.get(`${mountPath}/storage-info`, (_req, res) => {
+    res.json({ storageMode });
   });
 
   // GET /stats - Returns exercise statistics

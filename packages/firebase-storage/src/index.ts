@@ -9,4 +9,5 @@ export {
   type InitializeFirebaseOptions,
   type CreateFirebaseStorageOptions,
   type DownpatStorage,
+  type StorageMode,
 } from './helpers.js';
