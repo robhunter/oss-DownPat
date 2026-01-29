@@ -812,8 +812,42 @@
   line-height: 1.5;
 }
 
+.downpat-modal--wide {
+  max-width: 640px;
+}
+
 .downpat-modal-actions {
   display: flex;
   gap: var(--downpat-spacing-md, 16px);
   justify-content: flex-end;
+}
+
+/* Import/Export button row */
+.downpat-import-export-row {
+  display: flex;
+  gap: var(--downpat-spacing-sm, 8px);
+  margin-bottom: var(--downpat-spacing-md, 16px);
+}
+
+/* Monospace textarea for JSON display */
+.downpat-textarea--monospace {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  tab-size: 2;
+}
+
+/* Copy button success state */
+.downpat-btn--copy-success {
+  color: var(--downpat-admin-btn-success-color);
+}
+
+/* Import error display */
+.downpat-import-error {
+  color: #dc2626;
+  font-size: 13px;
+  margin-top: var(--downpat-spacing-sm, 8px);
+  padding: 8px 12px;
+  background-color: #fee2e2;
+  border-radius: var(--downpat-radius-sm, 4px);
 }

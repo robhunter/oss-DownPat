@@ -929,4 +929,363 @@ describe('ExerciseForm', () => {
       expect(commentaryTasks[0].prompt).toBe('Updated first commentary.');
     });
   });
+
+  describe('import/export', () => {
+    it('should show Import and Export buttons', () => {
+      const onSubmit = vi.fn();
+      render(<ExerciseForm onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
+
+      expect(screen.getByText('Import JSON')).toBeInTheDocument();
+      expect(screen.getByText('Export JSON')).toBeInTheDocument();
+    });
+
+    it('should open export modal with JSON when Export is clicked', () => {
+      const onSubmit = vi.fn();
+      const exercise = createExercise();
+      const { container } = render(<ExerciseForm exercise={exercise} onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
+
+      fireEvent.click(screen.getByText('Export JSON'));
+
+      expect(screen.getByText('Export Exercise')).toBeInTheDocument();
+      expect(screen.getByText('Copy to Clipboard')).toBeInTheDocument();
+      expect(screen.getByText('Close')).toBeInTheDocument();
+
+      // Verify JSON content via the export textarea class
+      const textarea = container.querySelector('.downpat-export-textarea') as HTMLTextAreaElement;
+      expect(textarea).toBeTruthy();
+      const parsed = JSON.parse(textarea.value);
+      expect(parsed.exerciseName).toBe('Test Exercise');
+      expect(parsed.welcomeMessage).toBe('Welcome!');
+      expect(parsed.model).toBe('gpt-4');
+    });
+
+    it('should export content-only JSON without identity fields', () => {
+      const onSubmit = vi.fn();
+      const exercise = createExercise();
+      const { container } = render(<ExerciseForm exercise={exercise} onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
+
+      fireEvent.click(screen.getByText('Export JSON'));
+
+      const textarea = container.querySelector('.downpat-export-textarea') as HTMLTextAreaElement;
+      const parsed = JSON.parse(textarea.value);
+
+      // Should NOT have identity/metadata fields
+      expect(parsed.exerciseId).toBeUndefined();
+      expect(parsed.slug).toBeUndefined();
+      expect(parsed.status).toBeUndefined();
+      expect(parsed.createdAt).toBeUndefined();
+
+      // Tasks should NOT have taskId
+      expect(parsed.continuationTasks[0].taskId).toBeUndefined();
+
+      // Should have content fields
+      expect(parsed.exerciseName).toBe('Test Exercise');
+      expect(parsed.continuationTasks).toHaveLength(1);
+      expect(parsed.continuationTasks[0].responseType).toBe(MessageType.CONVERSATION);
+    });
+
+    it('should close export modal when Close is clicked', () => {
+      const onSubmit = vi.fn();
+      render(<ExerciseForm onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
+
+      fireEvent.click(screen.getByText('Export JSON'));
+      expect(screen.getByText('Export Exercise')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByText('Close'));
+      expect(screen.queryByText('Export Exercise')).not.toBeInTheDocument();
+    });
+
+    it('should open import modal when Import is clicked', () => {
+      const onSubmit = vi.fn();
+      render(<ExerciseForm onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
+
+      fireEvent.click(screen.getByText('Import JSON'));
+
+      expect(screen.getByText('Import Exercise')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Paste exported exercise JSON here...')).toBeInTheDocument();
+      expect(screen.getByText('Import')).toBeInTheDocument();
+    });
+
+    it('should show error for invalid JSON on import', () => {
+      const onSubmit = vi.fn();
+      render(<ExerciseForm onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
+
+      fireEvent.click(screen.getByText('Import JSON'));
+
+      const textarea = screen.getByPlaceholderText('Paste exported exercise JSON here...');
+      fireEvent.change(textarea, { target: { value: 'not valid json{' } });
+
+      fireEvent.click(screen.getByText('Import'));
+
+      expect(screen.getByText('Invalid JSON syntax.')).toBeInTheDocument();
+    });
+
+    it('should show error when exerciseName is missing on import', () => {
+      const onSubmit = vi.fn();
+      render(<ExerciseForm onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
+
+      fireEvent.click(screen.getByText('Import JSON'));
+
+      const textarea = screen.getByPlaceholderText('Paste exported exercise JSON here...');
+      fireEvent.change(textarea, { target: { value: JSON.stringify({ model: 'gpt-4' }) } });
+
+      fireEvent.click(screen.getByText('Import'));
+
+      expect(screen.getByText('Missing required field: exerciseName (string).')).toBeInTheDocument();
+    });
+
+    it('should show error when JSON is an array', () => {
+      const onSubmit = vi.fn();
+      render(<ExerciseForm onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
+
+      fireEvent.click(screen.getByText('Import JSON'));
+
+      const textarea = screen.getByPlaceholderText('Paste exported exercise JSON here...');
+      fireEvent.change(textarea, { target: { value: '[]' } });
+
+      fireEvent.click(screen.getByText('Import'));
+
+      expect(screen.getByText('JSON must be an object.')).toBeInTheDocument();
+    });
+
+    it('should populate form fields on valid import', () => {
+      const onSubmit = vi.fn();
+      render(<ExerciseForm onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
+
+      const importData = {
+        exerciseName: 'Imported Exercise',
+        maxUserMessages: 50,
+        model: 'gpt-3.5-turbo',
+        talkToCoachEnabled: true,
+        welcomeMessage: 'Welcome to the imported exercise!',
+        guidelines: 'Imported guidelines.',
+        starters: [{ text: 'Imported starter', context: 'Imported context', attributes: {} }],
+        continuationTasks: [{
+          name: 'Conversation',
+          responseType: MessageType.CONVERSATION,
+          role: 'Imported Role',
+          prompt: 'Imported prompt.',
+          responseSchema: { conversation: 'Imported response desc.' },
+          enabled: true,
+        }],
+        completionTasks: [],
+      };
+
+      fireEvent.click(screen.getByText('Import JSON'));
+      const textarea = screen.getByPlaceholderText('Paste exported exercise JSON here...');
+      fireEvent.change(textarea, { target: { value: JSON.stringify(importData) } });
+      fireEvent.click(screen.getByText('Import'));
+
+      // Modal should close
+      expect(screen.queryByText('Import Exercise')).not.toBeInTheDocument();
+
+      // Form fields should be populated
+      expect(screen.getByDisplayValue('Imported Exercise')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('50')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Welcome to the imported exercise!')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Imported guidelines.')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Imported Role')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Imported prompt.')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Imported response desc.')).toBeInTheDocument();
+    });
+
+    it('should preserve exerciseId and slug on import', () => {
+      const onSubmit = vi.fn();
+      const exercise = createExercise();
+      render(<ExerciseForm exercise={exercise} onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
+
+      const importData = {
+        exerciseName: 'Imported Name',
+        continuationTasks: [{
+          name: 'Conversation',
+          responseType: MessageType.CONVERSATION,
+          role: 'Role',
+          prompt: 'Prompt.',
+          responseSchema: { conversation: 'Desc.' },
+          enabled: true,
+        }],
+        completionTasks: [],
+        welcomeMessage: 'Welcome!',
+        guidelines: '',
+        starters: [],
+      };
+
+      fireEvent.click(screen.getByText('Import JSON'));
+      fireEvent.change(screen.getByPlaceholderText('Paste exported exercise JSON here...'), {
+        target: { value: JSON.stringify(importData) },
+      });
+      fireEvent.click(screen.getByText('Import'));
+
+      // Slug should be preserved from the original exercise
+      expect(screen.getByDisplayValue('test-exercise')).toBeInTheDocument();
+
+      // Submit and verify exerciseId is preserved
+      // Fill remaining required fields to pass validation
+      fireEvent.submit(screen.getByText('Update Exercise').closest('form')!);
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          exerciseId: 'ex-123',
+          slug: 'test-exercise',
+          exerciseName: 'Imported Name',
+        })
+      );
+    });
+
+    it('should enable commentary section when import contains commentary task', () => {
+      const onSubmit = vi.fn();
+      render(<ExerciseForm onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
+
+      // Initially no commentary section
+      expect(screen.queryByText('Commentary Task')).not.toBeInTheDocument();
+
+      const importData = {
+        exerciseName: 'With Commentary',
+        welcomeMessage: 'Welcome!',
+        guidelines: '',
+        starters: [],
+        continuationTasks: [
+          {
+            name: 'Conversation',
+            responseType: MessageType.CONVERSATION,
+            role: 'Role',
+            prompt: 'Prompt.',
+            responseSchema: { conversation: 'Desc.' },
+            enabled: true,
+          },
+          {
+            name: 'Commentary',
+            responseType: MessageType.COMMENTARY,
+            role: 'Imported Coach',
+            prompt: 'Imported commentary prompt.',
+            responseSchema: { commentary: 'Imported commentary desc.', grade: 'Imported grade.' },
+            includeGuidelines: true,
+            enabled: true,
+          },
+        ],
+        completionTasks: [],
+      };
+
+      fireEvent.click(screen.getByText('Import JSON'));
+      fireEvent.change(screen.getByPlaceholderText('Paste exported exercise JSON here...'), {
+        target: { value: JSON.stringify(importData) },
+      });
+      fireEvent.click(screen.getByText('Import'));
+
+      // Commentary section should now be visible
+      expect(screen.getByText('Commentary Task')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Imported Coach')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Imported commentary prompt.')).toBeInTheDocument();
+    });
+
+    it('should enable summary section when import contains summary task', () => {
+      const onSubmit = vi.fn();
+      render(<ExerciseForm onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
+
+      // Initially no summary section
+      expect(screen.queryByText('Summary Task')).not.toBeInTheDocument();
+
+      const importData = {
+        exerciseName: 'With Summary',
+        welcomeMessage: 'Welcome!',
+        guidelines: '',
+        starters: [],
+        continuationTasks: [{
+          name: 'Conversation',
+          responseType: MessageType.CONVERSATION,
+          role: 'Role',
+          prompt: 'Prompt.',
+          responseSchema: { conversation: 'Desc.' },
+          enabled: true,
+        }],
+        completionTasks: [{
+          name: 'Summary',
+          responseType: MessageType.SUMMARY,
+          role: 'Imported Evaluator',
+          prompt: 'Imported summary prompt.',
+          responseSchema: { summary: 'Imported summary desc.', grade: 'Imported grade.' },
+          includeGuidelines: true,
+          enabled: true,
+        }],
+      };
+
+      fireEvent.click(screen.getByText('Import JSON'));
+      fireEvent.change(screen.getByPlaceholderText('Paste exported exercise JSON here...'), {
+        target: { value: JSON.stringify(importData) },
+      });
+      fireEvent.click(screen.getByText('Import'));
+
+      // Summary section should now be visible
+      expect(screen.getByText('Summary Task')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Imported Evaluator')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Imported summary prompt.')).toBeInTheDocument();
+    });
+
+    it('should round-trip: export then import produces same form state', () => {
+      const onSubmit = vi.fn();
+      const exercise = createExercise();
+      exercise.continuationTasks.push(createCommentaryTask());
+      exercise.completionTasks.push(createSummaryTask());
+
+      const result1 = render(
+        <ExerciseForm exercise={exercise} onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />
+      );
+
+      // Export
+      fireEvent.click(screen.getByText('Export JSON'));
+      const exportTextarea = result1.container.querySelector('.downpat-export-textarea') as HTMLTextAreaElement;
+      const exportedJson = exportTextarea.value;
+      fireEvent.click(screen.getByText('Close'));
+
+      // Unmount and remount fresh form
+      result1.unmount();
+      render(<ExerciseForm onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
+
+      // Import the exported JSON
+      fireEvent.click(screen.getByText('Import JSON'));
+      fireEvent.change(screen.getByPlaceholderText('Paste exported exercise JSON here...'), {
+        target: { value: exportedJson },
+      });
+      fireEvent.click(screen.getByText('Import'));
+
+      // Verify key fields match the original exercise
+      expect(screen.getByDisplayValue('Test Exercise')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Welcome!')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Assistant')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('You are helpful.')).toBeInTheDocument();
+
+      // Commentary section should be visible
+      expect(screen.getByText('Commentary Task')).toBeInTheDocument();
+      // Summary section should be visible
+      expect(screen.getByText('Summary Task')).toBeInTheDocument();
+    });
+
+    it('should clear import error when text changes', () => {
+      const onSubmit = vi.fn();
+      render(<ExerciseForm onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
+
+      fireEvent.click(screen.getByText('Import JSON'));
+      const textarea = screen.getByPlaceholderText('Paste exported exercise JSON here...');
+
+      // Trigger error
+      fireEvent.change(textarea, { target: { value: 'bad json' } });
+      fireEvent.click(screen.getByText('Import'));
+      expect(screen.getByText('Invalid JSON syntax.')).toBeInTheDocument();
+
+      // Typing should clear the error
+      fireEvent.change(textarea, { target: { value: '{"exerciseName": "test"}' } });
+      expect(screen.queryByText('Invalid JSON syntax.')).not.toBeInTheDocument();
+    });
+
+    it('should disable Import button when textarea is empty', () => {
+      const onSubmit = vi.fn();
+      render(<ExerciseForm onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
+
+      fireEvent.click(screen.getByText('Import JSON'));
+
+      const importBtn = screen.getAllByText('Import').find(
+        (el) => el.closest('.downpat-modal-actions')
+      );
+      expect(importBtn).toBeDisabled();
+    });
+  });
 });
