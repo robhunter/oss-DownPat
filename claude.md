@@ -153,7 +153,7 @@ When a PR is ready for review, run the automated review process before asking th
 .claude-tools/scripts/review-pr.sh continue <pr-url>
 ```
 
-**Review Loop:**
+**Review Loop: Repeat until exit condition**
 1. Push branch, create PR
 2. Run `.claude-tools/scripts/review-pr.sh start <pr-url>`
 3. Parse output for blockers/nits/acks
@@ -165,8 +165,7 @@ When a PR is ready for review, run the automated review process before asking th
 6. Post overview comment summarizing changes/rationale
 7. Reply to **every** inline comment (even "not addressing because X")
 8. Push fixes
-9. Run `.claude-tools/scripts/review-pr.sh start <pr-url>` again
-10. Repeat until exit condition
+9. Run `.claude-tools/scripts/review-pr.sh continue <pr-url>` to get feedback on fixes. If your fixes were accepted, go to step 2.  If your fixes were not accepted or other blockers were presented, go to step 3.
 
 **Exit Conditions:**
 - **Success**: `start review` returns no blockers → ready to merge
