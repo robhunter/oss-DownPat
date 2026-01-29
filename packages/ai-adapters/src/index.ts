@@ -5,7 +5,15 @@
  * Supports OpenAI, Anthropic, and Google Gemini.
  */
 
-import type { AIAdapter, AIProviderConfig, ModerationAdapter } from '@downpat/core';
+import type {
+  AIAdapter,
+  AICompletionOptions,
+  AICompletionResult,
+  AIProviderConfig,
+  AIToolCompletionOptions,
+  AIToolCompletionResult,
+  ModerationAdapter,
+} from '@downpat/core';
 
 // Export adapters
 export { OpenAIAdapter, OpenAIModerationAdapter, createOpenAIAdapter } from './openai-adapter.js';
@@ -161,6 +169,72 @@ export class AIAdapterRegistry {
     // Fall back to any available adapter
     const firstAdapter = this.adapters.values().next();
     return firstAdapter.done ? undefined : firstAdapter.value;
+  }
+
+  /**
+   * Create a model-routing adapter that dispatches calls to the correct
+   * provider based on the model name in each request.
+   *
+   * Use this instead of getDefaultAdapter() when exercises may use
+   * models from different providers (e.g. GPT-4 and Claude).
+   */
+  createModelRouter(): ModelRouter {
+    return new ModelRouter(this);
+  }
+}
+
+/**
+ * An AIAdapter that routes each request to the correct provider
+ * based on the model name. Created via AIAdapterRegistry.createModelRouter().
+ */
+export class ModelRouter implements AIAdapter {
+  readonly provider = 'multi';
+
+  constructor(private registry: AIAdapterRegistry) {}
+
+  getModels(): string[] {
+    return this.registry.getAllModels();
+  }
+
+  supportsModel(model: string): boolean {
+    return this.registry.getAdapterForModel(model) !== undefined;
+  }
+
+  async complete(options: AICompletionOptions): Promise<AICompletionResult> {
+    return this.resolveAdapter(options.model).complete(options);
+  }
+
+  async completeWithTool(options: AIToolCompletionOptions): Promise<AIToolCompletionResult> {
+    const adapter = this.resolveAdapter(options.model);
+    if (adapter.completeWithTool) {
+      return adapter.completeWithTool(options);
+    }
+    // Fallback for adapters without tool calling: use complete() and
+    // return the content as the first tool parameter.
+    const result = await adapter.complete({
+      model: options.model,
+      messages: options.messages,
+      maxTokens: options.maxTokens,
+      temperature: options.temperature,
+      signal: options.signal,
+    });
+    const firstParam = Object.keys(options.tool.parameters)[0];
+    return {
+      arguments: firstParam ? { [firstParam]: result.content } : {},
+      finishReason: result.finishReason,
+      usage: result.usage,
+    };
+  }
+
+  private resolveAdapter(model: string): AIAdapter {
+    const adapter = this.registry.getAdapterForModel(model);
+    if (!adapter) {
+      const available = this.registry.getAllModels();
+      throw new Error(
+        `No adapter found for model '${model}'. Available models: ${available.join(', ') || '(none)'}`
+      );
+    }
+    return adapter;
   }
 }
 

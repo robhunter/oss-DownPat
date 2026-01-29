@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   AIAdapterRegistry,
+  ModelRouter,
   createAdapterRegistryFromEnv,
   DEFAULT_PROVIDER_PREFERENCE,
   ENV_VAR_NAMES,
@@ -229,6 +230,117 @@ describe('createAdapterRegistryFromEnv', () => {
     });
 
     expect(registry.getProviders()).toContain('openai');
+  });
+});
+
+describe('ModelRouter', () => {
+  const createMockAdapter = (provider: string, models: string[]): AIAdapter => ({
+    provider,
+    getModels: () => models,
+    supportsModel: (model) => models.includes(model),
+    complete: vi.fn().mockResolvedValue({
+      content: `response from ${provider}`,
+      finishReason: 'stop',
+      usage: { promptTokens: 10, completionTokens: 20, totalTokens: 30 },
+    }),
+  });
+
+  it('returns all models from all providers', () => {
+    const registry = new AIAdapterRegistry();
+    registry.registerAdapter(createMockAdapter('openai', ['gpt-4', 'gpt-4o']));
+    registry.registerAdapter(createMockAdapter('anthropic', ['claude-3-opus']));
+
+    const router = registry.createModelRouter();
+
+    expect(router.getModels()).toEqual(['gpt-4', 'gpt-4o', 'claude-3-opus']);
+  });
+
+  it('reports provider as "multi"', () => {
+    const registry = new AIAdapterRegistry();
+    const router = registry.createModelRouter();
+
+    expect(router.provider).toBe('multi');
+  });
+
+  it('supports models from any registered provider', () => {
+    const registry = new AIAdapterRegistry();
+    registry.registerAdapter(createMockAdapter('openai', ['gpt-4']));
+    registry.registerAdapter(createMockAdapter('anthropic', ['claude-3-opus']));
+
+    const router = registry.createModelRouter();
+
+    expect(router.supportsModel('gpt-4')).toBe(true);
+    expect(router.supportsModel('claude-3-opus')).toBe(true);
+    expect(router.supportsModel('unknown-model')).toBe(false);
+  });
+
+  it('routes complete() to the correct provider based on model', async () => {
+    const registry = new AIAdapterRegistry();
+    const openaiAdapter = createMockAdapter('openai', ['gpt-4']);
+    const anthropicAdapter = createMockAdapter('anthropic', ['claude-3-opus']);
+
+    registry.registerAdapter(openaiAdapter);
+    registry.registerAdapter(anthropicAdapter);
+
+    const router = registry.createModelRouter();
+
+    await router.complete({ model: 'gpt-4', messages: [] });
+    expect(openaiAdapter.complete).toHaveBeenCalledWith({ model: 'gpt-4', messages: [] });
+    expect(anthropicAdapter.complete).not.toHaveBeenCalled();
+
+    await router.complete({ model: 'claude-3-opus', messages: [] });
+    expect(anthropicAdapter.complete).toHaveBeenCalledWith({ model: 'claude-3-opus', messages: [] });
+  });
+
+  it('throws descriptive error for unsupported model', async () => {
+    const registry = new AIAdapterRegistry();
+    registry.registerAdapter(createMockAdapter('openai', ['gpt-4']));
+
+    const router = registry.createModelRouter();
+
+    await expect(router.complete({ model: 'nonexistent', messages: [] })).rejects.toThrow(
+      "No adapter found for model 'nonexistent'. Available models: gpt-4"
+    );
+  });
+
+  it('routes completeWithTool() to the correct provider', async () => {
+    const registry = new AIAdapterRegistry();
+    const openaiAdapter = createMockAdapter('openai', ['gpt-4']);
+    openaiAdapter.completeWithTool = vi.fn().mockResolvedValue({
+      arguments: { result: 'tool result' },
+      finishReason: 'tool_calls',
+      usage: { promptTokens: 10, completionTokens: 20, totalTokens: 30 },
+    });
+
+    registry.registerAdapter(openaiAdapter);
+    const router = registry.createModelRouter();
+
+    const tool = { name: 'test', description: 'test', parameters: { result: { type: 'string' as const } } };
+    await router.completeWithTool!({ model: 'gpt-4', messages: [], tool });
+
+    expect(openaiAdapter.completeWithTool).toHaveBeenCalled();
+  });
+
+  it('falls back to complete() when adapter lacks completeWithTool', async () => {
+    const registry = new AIAdapterRegistry();
+    const adapter = createMockAdapter('anthropic', ['claude-3-opus']);
+    // adapter has no completeWithTool method
+
+    registry.registerAdapter(adapter);
+    const router = registry.createModelRouter();
+
+    const tool = { name: 'test', description: 'test', parameters: { answer: { type: 'string' as const } } };
+    const result = await router.completeWithTool!({ model: 'claude-3-opus', messages: [], tool });
+
+    expect(adapter.complete).toHaveBeenCalled();
+    expect(result.arguments).toEqual({ answer: 'response from anthropic' });
+  });
+
+  it('returns ModelRouter instance from createModelRouter()', () => {
+    const registry = new AIAdapterRegistry();
+    const router = registry.createModelRouter();
+
+    expect(router).toBeInstanceOf(ModelRouter);
   });
 });
 

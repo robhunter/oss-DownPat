@@ -70,8 +70,8 @@ async function startServer() {
     console.log('No AI providers configured. Set OPENAI_API_KEY, ANTHROPIC_API_KEY, or GEMINI_API_KEY.');
   }
 
-  // Get AI adapter (uses preference order: openai > anthropic > gemini)
-  const aiAdapter = aiRegistry.getDefaultAdapter();
+  // Create model-routing adapter that dispatches to the correct provider per model
+  const aiAdapter = availableModels.length > 0 ? aiRegistry.createModelRouter() : undefined;
   const moderationAdapter = aiRegistry.getModerationAdapter();
 
   // Expose storage mode for client warning banners (app-level concern, not framework)
