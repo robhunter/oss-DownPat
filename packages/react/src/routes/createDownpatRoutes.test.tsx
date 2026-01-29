@@ -1,8 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, act, waitFor } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import React from 'react';
-import { DEFAULT_AVAILABLE_MODELS } from '@downpat/core';
 
 // Mock the hooks module
 vi.mock('../hooks/index.js', () => ({
@@ -41,6 +40,15 @@ vi.mock('@downpat/admin-ui', () => ({
       <span data-testid="admin-available-models">{(config.availableModels || []).join(',')}</span>
     </div>
   )),
+}));
+
+// Mock DownpatContext — DownpatProvider renders children, useDownpatClient returns mock client
+const mockGetAvailableModels = vi.fn(() => Promise.resolve([] as string[]));
+vi.mock('../client/DownpatContext.js', () => ({
+  DownpatProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  useDownpatClient: () => ({
+    getAvailableModels: mockGetAvailableModels,
+  }),
 }));
 
 import { usePublishedExercises } from '../hooks/index.js';
@@ -333,27 +341,60 @@ describe('AdminWrapper', () => {
     expect(screen.getByTestId('admin-auth-wrapper')).toBeInTheDocument();
   });
 
-  it('should use DEFAULT_AVAILABLE_MODELS when availableModels not provided', () => {
+  it('should show server models when availableModels not provided', async () => {
+    mockGetAvailableModels.mockResolvedValue(['gpt-4', 'gpt-4o']);
+
     const configWithoutModels: DownpatRoutesConfig = {
       authWrapper: TestAuthWrapper,
       adminAuthWrapper: TestAdminAuthWrapper,
       basePath: '/downpat',
       apiBaseUrl: '/api/downpat',
       getAuthToken: async () => 'test-token',
-      // availableModels not provided - should use default
+      // availableModels not provided - should show all server models
     };
 
-    render(
-      <MemoryRouter initialEntries={['/downpat/admin/exercises']}>
-        <Routes>
-          <Route path="/downpat/*" element={<DownpatRoutes {...configWithoutModels} />} />
-        </Routes>
-      </MemoryRouter>
-    );
+    await act(async () => {
+      render(
+        <MemoryRouter initialEntries={['/downpat/admin/exercises']}>
+          <Routes>
+            <Route path="/downpat/*" element={<DownpatRoutes {...configWithoutModels} />} />
+          </Routes>
+        </MemoryRouter>
+      );
+    });
 
-    expect(screen.getByTestId('admin-available-models')).toHaveTextContent(
-      DEFAULT_AVAILABLE_MODELS.join(',')
-    );
+    await waitFor(() => {
+      expect(screen.getByTestId('admin-available-models')).toHaveTextContent('gpt-4,gpt-4o');
+    });
+  });
+
+  it('should intersect allowlist with server models', async () => {
+    mockGetAvailableModels.mockResolvedValue(['gpt-4', 'gpt-4o']);
+
+    const configWithWhitelist: DownpatRoutesConfig = {
+      authWrapper: TestAuthWrapper,
+      adminAuthWrapper: TestAdminAuthWrapper,
+      basePath: '/downpat',
+      apiBaseUrl: '/api/downpat',
+      getAuthToken: async () => 'test-token',
+      // Whitelist includes gpt-4o and claude-3-5-sonnet, but server only has gpt-4 and gpt-4o
+      availableModels: ['gpt-4o', 'claude-3-5-sonnet'],
+    };
+
+    await act(async () => {
+      render(
+        <MemoryRouter initialEntries={['/downpat/admin/exercises']}>
+          <Routes>
+            <Route path="/downpat/*" element={<DownpatRoutes {...configWithWhitelist} />} />
+          </Routes>
+        </MemoryRouter>
+      );
+    });
+
+    await waitFor(() => {
+      // Only gpt-4o should appear — it's in both allowlist and server list
+      expect(screen.getByTestId('admin-available-models')).toHaveTextContent('gpt-4o');
+    });
   });
 });
 

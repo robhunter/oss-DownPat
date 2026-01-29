@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
-import { DEFAULT_AVAILABLE_MODELS } from '@downpat/core';
 import type { AdminUIConfig, AdminUIContextValue } from './config.js';
 import { createAdminAPIClient, type AdminAPIClient } from './api-client.js';
 
@@ -41,7 +40,7 @@ export function AdminProvider({
   const contextValue = useMemo<AdminUIContextValue>(() => ({
     ...config,
     basePath: config.basePath || '/admin',
-    availableModels: config.availableModels || [...DEFAULT_AVAILABLE_MODELS],
+    availableModels: config.availableModels || [],
     currentPath,
     navigate,
   }), [config, currentPath, navigate]);
