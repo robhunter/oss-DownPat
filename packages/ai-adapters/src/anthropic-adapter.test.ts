@@ -55,15 +55,18 @@ describe('AnthropicAdapter', () => {
 
   it('completes streaming request', async () => {
     const events = [
+      {
+        type: 'message_start',
+        message: { usage: { input_tokens: 10 } },
+      },
       { type: 'content_block_delta', delta: { type: 'text_delta', text: 'Hello' } },
       { type: 'content_block_delta', delta: { type: 'text_delta', text: ' from Claude!' } },
       {
-        type: 'message_stop',
-        message: {
-          stop_reason: 'end_turn',
-          usage: { input_tokens: 10, output_tokens: 5 },
-        },
+        type: 'message_delta',
+        delta: { stop_reason: 'end_turn', stop_sequence: null },
+        usage: { output_tokens: 5 },
       },
+      { type: 'message_stop' },
     ];
 
     mockClient.messages.stream.mockReturnValue(
@@ -86,6 +89,11 @@ describe('AnthropicAdapter', () => {
     expect(result.content).toBe('Hello from Claude!');
     expect(result.finishReason).toBe('stop');
     expect(receivedChunks).toEqual(['Hello', ' from Claude!']);
+    expect(result.usage).toEqual({
+      promptTokens: 10,
+      completionTokens: 5,
+      totalTokens: 15,
+    });
   });
 
   it('handles max_tokens stop reason', async () => {
