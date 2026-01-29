@@ -1,7 +1,8 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import type {
   Exercise,
   Starter,
+  Task,
   ConversationTask,
   CommentaryTask,
   SummaryTask,
@@ -69,6 +70,7 @@ interface SummaryFields {
 }
 
 // Default values for new exercises
+const DEFAULT_MAX_USER_MESSAGES = 200;
 const DEFAULT_RESPONSE_DESCRIPTION = "Response to the user's message";
 const DEFAULT_COMMENTARY_ROLE = 'Coach';
 const DEFAULT_COMMENTARY_DESCRIPTION = "Assessment of the user's last message";
@@ -139,7 +141,7 @@ export function ExerciseForm({
     exerciseId: exercise?.exerciseId || generateId(),
     exerciseName: exercise?.exerciseName || '',
     slug: exercise?.slug || '',
-    maxUserMessages: exercise?.maxUserMessages || 200,
+    maxUserMessages: exercise?.maxUserMessages || DEFAULT_MAX_USER_MESSAGES,
     model: exercise?.model || (hasModels ? availableModels[0] : ''),
     talkToCoachEnabled: exercise?.talkToCoachEnabled || false,
     welcomeMessage: exercise?.welcomeMessage || '',
@@ -170,6 +172,15 @@ export function ExerciseForm({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+
+  // Import/Export modal state
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [exportJson, setExportJson] = useState('');
+  const [importText, setImportText] = useState('');
+  const [importError, setImportError] = useState<string | null>(null);
+  const [copyFeedback, setCopyFeedback] = useState(false);
+  const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const validateField = useCallback((field: string, value: unknown): string | null => {
     switch (field) {
@@ -397,6 +408,248 @@ export function ExerciseForm({
     updateField('starters', newStarters.length > 0 ? newStarters : [createEmptyStarter()]);
   };
 
+  /** Strip taskId from a task for export */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const stripTaskId = ({ taskId, ...rest }: Task): Omit<Task, 'taskId'> => rest;
+
+  /** Build content-only JSON for export */
+  const buildExportJson = useCallback((): string => {
+    const continuationTasks: Omit<Task, 'taskId'>[] = [];
+
+    // Conversation task (always present)
+    continuationTasks.push(stripTaskId(createConversationTask(
+      'tmp',
+      conversationFields.role,
+      conversationFields.prompt,
+      conversationFields.responseDescription,
+    )));
+
+    // Commentary task (optional)
+    if (showCommentary) {
+      continuationTasks.push(stripTaskId(createCommentaryTask(
+        'tmp',
+        commentaryFields.role,
+        commentaryFields.prompt,
+        commentaryFields.commentaryDescription,
+        commentaryFields.gradeDescription,
+      )));
+    }
+
+    const completionTasks: Omit<Task, 'taskId'>[] = [];
+
+    // Summary task (optional)
+    if (showSummary) {
+      completionTasks.push(stripTaskId(createSummaryTask(
+        'tmp',
+        summaryFields.role,
+        summaryFields.prompt,
+        summaryFields.summaryDescription,
+        summaryFields.gradeDescription,
+      )));
+    }
+
+    const exportData = {
+      exerciseName: formData.exerciseName,
+      maxUserMessages: formData.maxUserMessages,
+      model: formData.model,
+      talkToCoachEnabled: formData.talkToCoachEnabled,
+      welcomeMessage: formData.welcomeMessage,
+      guidelines: formData.guidelines,
+      starters: formData.starters,
+      continuationTasks,
+      completionTasks,
+    };
+
+    return JSON.stringify(exportData, null, 2);
+  }, [formData, conversationFields, commentaryFields, summaryFields, showCommentary, showSummary]);
+
+  const handleExport = () => {
+    setExportJson(buildExportJson());
+    setShowExportModal(true);
+    setCopyFeedback(false);
+  };
+
+  const handleCopyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(exportJson);
+      setCopyFeedback(true);
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+      copyTimeoutRef.current = setTimeout(() => setCopyFeedback(false), 2000);
+    } catch {
+      // Fallback for environments without clipboard API (e.g. non-HTTPS)
+      const textarea = document.querySelector('.downpat-export-textarea') as HTMLTextAreaElement | null;
+      if (textarea) {
+        textarea.select();
+        document.execCommand('copy');
+        setCopyFeedback(true);
+        if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+        copyTimeoutRef.current = setTimeout(() => setCopyFeedback(false), 2000);
+      }
+    }
+  };
+
+  const handleImportOpen = () => {
+    setImportText('');
+    setImportError(null);
+    setShowImportModal(true);
+  };
+
+  /** Validate that a value is a Starter with the correct shape */
+  const isValidStarter = (s: unknown): s is Starter => {
+    if (typeof s !== 'object' || s === null) return false;
+    const obj = s as Record<string, unknown>;
+    return typeof obj.text === 'string' &&
+      typeof obj.context === 'string' &&
+      typeof obj.attributes === 'object' && obj.attributes !== null && !Array.isArray(obj.attributes);
+  };
+
+  /** Type guard: validates that a value has the required base task fields */
+  const isValidTaskShape = (t: unknown): t is Pick<Task, 'name' | 'responseType' | 'role' | 'prompt'> & Record<string, unknown> => {
+    if (typeof t !== 'object' || t === null) return false;
+    const obj = t as Record<string, unknown>;
+    return typeof obj.name === 'string' &&
+      typeof obj.responseType === 'string' &&
+      typeof obj.role === 'string' &&
+      typeof obj.prompt === 'string';
+  };
+
+  const handleImport = () => {
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(importText);
+    } catch {
+      setImportError('Invalid JSON syntax.');
+      return;
+    }
+
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      setImportError('JSON must be an object.');
+      return;
+    }
+
+    if (!parsed.exerciseName || typeof parsed.exerciseName !== 'string') {
+      setImportError('Missing required field: exerciseName (string).');
+      return;
+    }
+
+    // Validate field types when present
+    if ('maxUserMessages' in parsed && typeof parsed.maxUserMessages !== 'number') {
+      setImportError('Field "maxUserMessages" must be a number.');
+      return;
+    }
+    if ('model' in parsed && typeof parsed.model !== 'string') {
+      setImportError('Field "model" must be a string.');
+      return;
+    }
+    if ('talkToCoachEnabled' in parsed && typeof parsed.talkToCoachEnabled !== 'boolean') {
+      setImportError('Field "talkToCoachEnabled" must be a boolean.');
+      return;
+    }
+    if ('welcomeMessage' in parsed && typeof parsed.welcomeMessage !== 'string') {
+      setImportError('Field "welcomeMessage" must be a string.');
+      return;
+    }
+    if ('guidelines' in parsed && typeof parsed.guidelines !== 'string') {
+      setImportError('Field "guidelines" must be a string.');
+      return;
+    }
+
+    // Validate starters array and each starter's shape
+    if ('starters' in parsed) {
+      if (!Array.isArray(parsed.starters)) {
+        setImportError('Field "starters" must be an array.');
+        return;
+      }
+      for (let i = 0; i < parsed.starters.length; i++) {
+        if (!isValidStarter(parsed.starters[i])) {
+          setImportError(`Invalid starter at index ${i}: must have text (string), context (string), and attributes (object).`);
+          return;
+        }
+      }
+    }
+
+    // Validate continuationTasks
+    if ('continuationTasks' in parsed) {
+      if (!Array.isArray(parsed.continuationTasks)) {
+        setImportError('Field "continuationTasks" must be an array.');
+        return;
+      }
+      for (let i = 0; i < parsed.continuationTasks.length; i++) {
+        if (!isValidTaskShape(parsed.continuationTasks[i])) {
+          setImportError(`Invalid task at continuationTasks[${i}]: must have name, responseType, role, and prompt (all strings).`);
+          return;
+        }
+      }
+    }
+
+    // Validate completionTasks
+    if ('completionTasks' in parsed) {
+      if (!Array.isArray(parsed.completionTasks)) {
+        setImportError('Field "completionTasks" must be an array.');
+        return;
+      }
+      for (let i = 0; i < parsed.completionTasks.length; i++) {
+        if (!isValidTaskShape(parsed.completionTasks[i])) {
+          setImportError(`Invalid task at completionTasks[${i}]: must have name, responseType, role, and prompt (all strings).`);
+          return;
+        }
+      }
+    }
+
+    // Reset form to defaults, then apply imported values (preserving identity fields)
+    const defaultModel = hasModels ? availableModels[0] : '';
+    setFormData((prev) => ({
+      // Preserve identity fields
+      exerciseId: prev.exerciseId,
+      slug: prev.slug,
+      // Reset to defaults, then override with imported values
+      exerciseName: parsed.exerciseName as string,
+      maxUserMessages: typeof parsed.maxUserMessages === 'number' ? parsed.maxUserMessages : DEFAULT_MAX_USER_MESSAGES,
+      model: typeof parsed.model === 'string' ? parsed.model : defaultModel,
+      talkToCoachEnabled: typeof parsed.talkToCoachEnabled === 'boolean' ? parsed.talkToCoachEnabled : false,
+      welcomeMessage: typeof parsed.welcomeMessage === 'string' ? parsed.welcomeMessage : '',
+      guidelines: typeof parsed.guidelines === 'string' ? parsed.guidelines : '',
+      starters: Array.isArray(parsed.starters) ? parsed.starters as Starter[] : [createEmptyStarter()],
+    }));
+
+    // Decompose imported tasks using the same extract functions used at initialization
+    const importedContinuation = Array.isArray(parsed.continuationTasks)
+      ? parsed.continuationTasks as Task[]
+      : [];
+    const importedCompletion = Array.isArray(parsed.completionTasks)
+      ? parsed.completionTasks as Task[]
+      : [];
+
+    // Conversation task
+    const convResult = extractConversationTask(importedContinuation as ConversationTask[], false);
+    setConversationFields(convResult.fields);
+
+    // Commentary task
+    const commentResult = extractCommentaryTask(importedContinuation as CommentaryTask[]);
+    if (commentResult) {
+      setShowCommentary(true);
+      setCommentaryFields(commentResult.fields);
+    } else {
+      setShowCommentary(false);
+      setCommentaryFields({ role: '', prompt: '', commentaryDescription: '', gradeDescription: '' });
+    }
+
+    // Summary task
+    const sumResult = extractSummaryTask(importedCompletion as SummaryTask[]);
+    if (sumResult) {
+      setShowSummary(true);
+      setSummaryFields(sumResult.fields);
+    } else {
+      setShowSummary(false);
+      setSummaryFields({ role: '', prompt: '', summaryDescription: '', gradeDescription: '' });
+    }
+
+    // Clear validation state
+    setErrors({});
+    setTouched({});
+    setShowImportModal(false);
+  };
+
   const handleAddCommentary = () => {
     setShowCommentary(true);
     setCommentaryFields({
@@ -463,6 +716,16 @@ export function ExerciseForm({
       <h2>
         {exercise ? 'Edit Exercise' : 'Create New Exercise'}
       </h2>
+
+      {/* Import/Export */}
+      <div className="downpat-import-export-row">
+        <button type="button" onClick={handleImportOpen} className="downpat-btn downpat-btn--secondary downpat-btn--small">
+          Import JSON
+        </button>
+        <button type="button" onClick={handleExport} className="downpat-btn downpat-btn--secondary downpat-btn--small">
+          Export JSON
+        </button>
+      </div>
 
       {/* Basic Info */}
       <section className="downpat-form-section">
@@ -852,6 +1115,76 @@ export function ExerciseForm({
           </button>
         )}
       </div>
+
+      {/* Export Modal */}
+      {showExportModal && (
+        <div className="downpat-modal-overlay" onClick={() => setShowExportModal(false)}>
+          <div className="downpat-modal downpat-modal--wide" onClick={(e) => e.stopPropagation()}>
+            <h3 className="downpat-modal-title">Export Exercise</h3>
+            <textarea
+              readOnly
+              value={exportJson}
+              rows={18}
+              className="downpat-textarea downpat-textarea--monospace downpat-export-textarea"
+            />
+            <div className="downpat-modal-actions" style={{ marginTop: '16px' }}>
+              <button
+                type="button"
+                onClick={handleCopyToClipboard}
+                className={`downpat-btn downpat-btn--secondary downpat-btn--small${copyFeedback ? ' downpat-btn--copy-success' : ''}`}
+              >
+                {copyFeedback ? 'Copied!' : 'Copy to Clipboard'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowExportModal(false)}
+                className="downpat-btn downpat-btn--secondary downpat-btn--small"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Import Modal */}
+      {showImportModal && (
+        <div className="downpat-modal-overlay" onClick={() => setShowImportModal(false)}>
+          <div className="downpat-modal downpat-modal--wide" onClick={(e) => e.stopPropagation()}>
+            <h3 className="downpat-modal-title">Import Exercise</h3>
+            <p className="downpat-modal-message">
+              Paste exercise JSON below. This will overwrite all form fields (except slug and ID).
+            </p>
+            <textarea
+              value={importText}
+              onChange={(e) => { setImportText(e.target.value); setImportError(null); }}
+              placeholder="Paste exported exercise JSON here..."
+              rows={18}
+              className={`downpat-textarea downpat-textarea--monospace${importError ? ' downpat-textarea--error' : ''}`}
+            />
+            {importError && (
+              <div className="downpat-import-error">{importError}</div>
+            )}
+            <div className="downpat-modal-actions" style={{ marginTop: '16px' }}>
+              <button
+                type="button"
+                onClick={handleImport}
+                disabled={!importText.trim()}
+                className="downpat-btn downpat-btn--primary downpat-btn--small"
+              >
+                Import
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowImportModal(false)}
+                className="downpat-btn downpat-btn--secondary downpat-btn--small"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </form>
   );
 }

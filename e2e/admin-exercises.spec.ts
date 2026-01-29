@@ -250,7 +250,7 @@ test.describe('Exercise with Starters', () => {
     // Fill Conversation Task (always visible in new form)
     await page.getByPlaceholder('Who is the user talking to?').fill('Assistant');
     await page.getByPlaceholder('Instructions for the AI during conversation...').fill('Respond helpfully.');
-    await page.getByPlaceholder('ex: Response to the user's message').fill('A helpful response.');
+    await page.getByPlaceholder("ex: Response to the user's message").fill('A helpful response.');
 
     // Create the exercise
     await page.getByRole('button', { name: 'Create Exercise' }).click();
@@ -427,5 +427,110 @@ test.describe('Exercise with Welcome Message', () => {
 
     // Cleanup
     await deleteExercise(page, welcomeSlug);
+  });
+});
+
+test.describe('Exercise Import/Export', () => {
+  let exportSlug: string;
+  let importSlug: string;
+  const testId = generateTestId();
+
+  test.beforeEach(async ({ page }) => {
+    await loginAsAdmin(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    // Clean up test exercises even if the test fails midway
+    for (const slug of [exportSlug, importSlug]) {
+      if (slug) {
+        try {
+          await deleteExercise(page, slug);
+        } catch {
+          // Exercise may already be deleted or never created
+        }
+      }
+    }
+  });
+
+  test('can export exercise JSON and import into another exercise', async ({ page }) => {
+    const exerciseName = `Export Source ${testId}`;
+    const welcomeMessage = `Welcome to export source ${testId}!`;
+    const guidelines = 'Source guidelines for export test.';
+
+    // Create source exercise
+    exportSlug = await createExercise(page, {
+      name: exerciseName,
+      welcomeMessage,
+      guidelines,
+      maxMessages: 8,
+      conversationTask: {
+        role: 'Expert',
+        prompt: 'Respond as an expert.',
+        responseDescription: 'An expert response.',
+      },
+    });
+
+    // Navigate to edit the exercise
+    await goToAdminExercises(page);
+    const exerciseRow = page.locator('tr').filter({ hasText: `/${exportSlug}` });
+    await exerciseRow.getByRole('button', { name: 'Edit' }).click();
+    await expect(page.locator('h2').filter({ hasText: 'Edit Exercise' })).toBeVisible();
+
+    // Click Export JSON
+    await page.getByRole('button', { name: 'Export JSON' }).click();
+    await expect(page.getByText('Export Exercise')).toBeVisible();
+
+    // Get the exported JSON from the readonly textarea
+    const exportTextarea = page.locator('.downpat-export-textarea');
+    const exportedJson = await exportTextarea.inputValue();
+    expect(exportedJson).toContain(exerciseName);
+    expect(exportedJson).toContain(welcomeMessage);
+
+    // Close export modal
+    await page.getByRole('button', { name: 'Close' }).click();
+    await expect(page.getByText('Export Exercise')).not.toBeVisible();
+
+    // Create a new exercise to import into
+    const importName = `Import Target ${testId}`;
+    importSlug = await createExercise(page, {
+      name: importName,
+      welcomeMessage: 'Placeholder welcome.',
+      guidelines: 'Placeholder guidelines.',
+      maxMessages: 5,
+      conversationTask: {
+        role: 'Placeholder',
+        prompt: 'Placeholder prompt.',
+        responseDescription: 'Placeholder response.',
+      },
+    });
+
+    // Navigate to edit the import target exercise
+    await goToAdminExercises(page);
+    const importRow = page.locator('tr').filter({ hasText: `/${importSlug}` });
+    await importRow.getByRole('button', { name: 'Edit' }).click();
+    await expect(page.locator('h2').filter({ hasText: 'Edit Exercise' })).toBeVisible();
+
+    // Click Import JSON
+    await page.getByRole('button', { name: 'Import JSON' }).click();
+    await expect(page.getByText('Import Exercise')).toBeVisible();
+
+    // Paste the exported JSON
+    await page.getByPlaceholder('Paste exported exercise JSON here...').fill(exportedJson);
+
+    // Click Import button
+    await page.locator('.downpat-modal-actions').getByRole('button', { name: 'Import' }).click();
+
+    // Modal should close
+    await expect(page.getByText('Import Exercise')).not.toBeVisible();
+
+    // Verify form fields now match the exported exercise
+    await expect(page.getByPlaceholder('Enter exercise name')).toHaveValue(exerciseName);
+    await expect(page.getByPlaceholder('Message shown when conversation starts...')).toHaveValue(welcomeMessage);
+    await expect(page.getByPlaceholder('Shared guidelines for coaching tasks...')).toHaveValue(guidelines);
+    await expect(page.getByPlaceholder('Who is the user talking to?')).toHaveValue('Expert');
+    await expect(page.getByPlaceholder('Instructions for the AI during conversation...')).toHaveValue('Respond as an expert.');
+
+    // Slug should NOT have changed (preserved from import target)
+    await expect(page.getByPlaceholder('exercise-slug')).toHaveValue(importSlug);
   });
 });
