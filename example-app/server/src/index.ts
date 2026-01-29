@@ -62,16 +62,17 @@ async function startServer() {
   // Create AI adapter registry (auto-detects API keys from environment)
   const aiRegistry = await createAdapterRegistryFromEnv();
 
-  // Log available AI models
+  // Require at least one AI provider
   const availableModels = aiRegistry.getAllModels();
-  if (availableModels.length > 0) {
-    console.log('Available AI models:', availableModels.join(', '));
-  } else {
-    console.log('No AI providers configured. Set OPENAI_API_KEY, ANTHROPIC_API_KEY, or GEMINI_API_KEY.');
+  if (availableModels.length === 0) {
+    throw new Error(
+      'No AI providers configured. Set at least one of: OPENAI_API_KEY, ANTHROPIC_API_KEY, or GEMINI_API_KEY.'
+    );
   }
+  console.log('Available AI models:', availableModels.join(', '));
 
-  // Get AI adapter (uses preference order: openai > anthropic > gemini)
-  const aiAdapter = aiRegistry.getDefaultAdapter();
+  // Create model-routing adapter that dispatches to the correct provider per model
+  const aiAdapter = aiRegistry.createModelRouter();
   const moderationAdapter = aiRegistry.getModerationAdapter();
 
   // Expose storage mode for client warning banners (app-level concern, not framework)
@@ -100,9 +101,7 @@ async function startServer() {
     } else {
       console.log('Storage: Firebase Firestore');
     }
-    if (aiAdapter) {
-      console.log('AI adapter configured for conversations');
-    }
+    console.log('AI adapter configured for conversations');
     if (moderationAdapter) {
       console.log('Moderation adapter configured for content filtering');
     } else {
