@@ -103,7 +103,7 @@ describe('createDownpatServer', () => {
         .get('/api/downpat/models')
         .expect(200);
 
-      expect(response.body).toEqual({ models });
+      expect(response.body).toEqual(models);
     });
 
     it('should return empty array when no models configured', async () => {
@@ -117,7 +117,7 @@ describe('createDownpatServer', () => {
         .get('/api/downpat/models')
         .expect(200);
 
-      expect(response.body).toEqual({ models: [] });
+      expect(response.body).toEqual([]);
     });
 
     it('should work with custom mount path', async () => {
@@ -133,7 +133,7 @@ describe('createDownpatServer', () => {
         .get('/custom/api/models')
         .expect(200);
 
-      expect(response.body).toEqual({ models: ['gpt-4'] });
+      expect(response.body).toEqual(['gpt-4']);
     });
   });
 

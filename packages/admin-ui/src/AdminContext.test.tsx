@@ -1,7 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
-import { DEFAULT_AVAILABLE_MODELS } from '@downpat/core';
 import { AdminProvider, useAdminContext, useAdminAPI } from './AdminContext.js';
 import type { AdminUIConfig } from './config.js';
 
@@ -57,7 +56,7 @@ describe('AdminProvider', () => {
     expect(screen.getByTestId('base-path').textContent).toBe('/admin');
   });
 
-  it('should default availableModels to DEFAULT_AVAILABLE_MODELS from core', () => {
+  it('should default availableModels to empty array when not provided', () => {
     const configWithoutModels = { ...mockConfig, availableModels: undefined };
     render(
       <AdminProvider config={configWithoutModels}>
@@ -65,7 +64,7 @@ describe('AdminProvider', () => {
       </AdminProvider>
     );
 
-    expect(screen.getByTestId('models').textContent).toBe(DEFAULT_AVAILABLE_MODELS.join(','));
+    expect(screen.getByTestId('models').textContent).toBe('');
   });
 
   it('should start with initialPath', () => {

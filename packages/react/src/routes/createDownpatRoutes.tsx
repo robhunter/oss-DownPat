@@ -1,12 +1,11 @@
-import React from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useRoutes, useParams, useNavigate, useLocation } from 'react-router-dom';
 import type { RouteObject } from 'react-router-dom';
-import { DEFAULT_AVAILABLE_MODELS } from '@downpat/core';
 import { ConversationPage } from '@downpat/ui-components';
 import { ControlledAdminApp } from '@downpat/admin-ui';
 import type { AdminUIConfig } from '@downpat/admin-ui';
 import { usePublishedExercises } from '../hooks/index.js';
-import { DownpatProvider } from '../client/DownpatContext.js';
+import { DownpatProvider, useDownpatClient } from '../client/DownpatContext.js';
 import styles from './styles/ExerciseBrowser.module.css';
 
 /**
@@ -62,8 +61,10 @@ export interface DownpatRoutesConfig {
   getAuthToken: () => Promise<string | null>;
 
   /**
-   * Available AI models for exercise configuration.
-   * If not provided, defaults to common models.
+   * Optional allowlist of AI models for exercise configuration.
+   * When provided, only models that are both in this list AND supported
+   * by the server (i.e., have a configured API key) will be shown.
+   * When omitted, all server-supported models are shown.
    */
   availableModels?: string[];
 }
@@ -153,20 +154,43 @@ function ConversationPageWrapper({
 
 /**
  * Wrapper for admin UI that integrates with React Router.
+ * Fetches available models from the server and optionally intersects
+ * with a client-side allowlist.
  */
 function AdminWrapper({
   basePath,
   apiBaseUrl,
-  availableModels,
+  availableModels: modelAllowlist,
   getAuthToken,
 }: {
   basePath: string;
   apiBaseUrl: string;
-  availableModels: string[];
+  availableModels?: string[];
   getAuthToken: () => Promise<string | null>;
 }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const client = useDownpatClient();
+
+  // Fetch server-supported models on mount
+  const [serverModels, setServerModels] = useState<string[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    client.getAvailableModels().then((models) => {
+      if (!cancelled) setServerModels(models);
+    }).catch(() => {
+      // If fetch fails, serverModels stays empty — form will show config message
+    });
+    return () => { cancelled = true; };
+  }, [client]);
+
+  // If allowlist provided, show only models in both lists (preserving allowlist order).
+  // Otherwise, show all server models.
+  const effectiveModels = useMemo(() => {
+    if (!modelAllowlist) return serverModels;
+    const serverSet = new Set(serverModels);
+    return modelAllowlist.filter((m) => serverSet.has(m));
+  }, [modelAllowlist, serverModels]);
 
   // Extract the admin-relative path
   const adminBasePath = `${basePath}/admin`;
@@ -176,7 +200,7 @@ function AdminWrapper({
 
   const config: AdminUIConfig = {
     apiBaseUrl,
-    availableModels,
+    availableModels: effectiveModels,
     getAuthToken,
     onNavigate: (path: string) => {
       // AdminApp sends paths like /admin/exercises, /admin/exercises/new
@@ -203,7 +227,7 @@ export function createDownpatRouteObjects(config: DownpatRoutesConfig): RouteObj
     basePath = '/downpat',
     apiBaseUrl = '/api/downpat',
     getAuthToken,
-    availableModels = [...DEFAULT_AVAILABLE_MODELS],
+    availableModels,
   } = config;
 
   // Routes are relative - they're rendered inside a parent route at basePath/*

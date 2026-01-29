@@ -174,7 +174,7 @@ export function createDownpatServer(
 
   // GET /models - Returns available AI models
   app.get(`${mountPath}/models`, (_req, res) => {
-    res.json({ models: availableModels });
+    res.json(availableModels);
   });
 
   // GET /stats - Returns exercise statistics
