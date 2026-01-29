@@ -408,9 +408,8 @@ export function ExerciseForm({
   };
 
   /** Strip taskId from a task for export */
-  const stripTaskId = (task: Task): Omit<Task, 'taskId'> => {
-    return omitKeys(task as unknown as Record<string, unknown>, ['taskId']) as unknown as Omit<Task, 'taskId'>;
-  };
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const stripTaskId = ({ taskId, ...rest }: Task): Omit<Task, 'taskId'> => rest;
 
   /** Build content-only JSON for export */
   const buildExportJson = useCallback((): string => {
@@ -476,10 +475,14 @@ export function ExerciseForm({
       if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
       copyTimeoutRef.current = setTimeout(() => setCopyFeedback(false), 2000);
     } catch {
-      // Fallback: select the textarea content
+      // Fallback for environments without clipboard API (e.g. non-HTTPS)
       const textarea = document.querySelector('.downpat-export-textarea') as HTMLTextAreaElement | null;
       if (textarea) {
         textarea.select();
+        document.execCommand('copy');
+        setCopyFeedback(true);
+        if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+        copyTimeoutRef.current = setTimeout(() => setCopyFeedback(false), 2000);
       }
     }
   };
@@ -488,6 +491,25 @@ export function ExerciseForm({
     setImportText('');
     setImportError(null);
     setShowImportModal(true);
+  };
+
+  /** Validate that a value is a Starter with the correct shape */
+  const isValidStarter = (s: unknown): s is Starter => {
+    if (typeof s !== 'object' || s === null) return false;
+    const obj = s as Record<string, unknown>;
+    return typeof obj.text === 'string' &&
+      typeof obj.context === 'string' &&
+      typeof obj.attributes === 'object' && obj.attributes !== null && !Array.isArray(obj.attributes);
+  };
+
+  /** Validate that a value looks like a task object (has required base fields) */
+  const isValidTaskShape = (t: unknown): boolean => {
+    if (typeof t !== 'object' || t === null) return false;
+    const obj = t as Record<string, unknown>;
+    return typeof obj.name === 'string' &&
+      typeof obj.responseType === 'string' &&
+      typeof obj.role === 'string' &&
+      typeof obj.prompt === 'string';
   };
 
   const handleImport = () => {
@@ -509,16 +531,84 @@ export function ExerciseForm({
       return;
     }
 
-    // Update basic form fields (preserve identity fields)
+    // Validate field types when present
+    if ('maxUserMessages' in parsed && typeof parsed.maxUserMessages !== 'number') {
+      setImportError('Field "maxUserMessages" must be a number.');
+      return;
+    }
+    if ('model' in parsed && typeof parsed.model !== 'string') {
+      setImportError('Field "model" must be a string.');
+      return;
+    }
+    if ('talkToCoachEnabled' in parsed && typeof parsed.talkToCoachEnabled !== 'boolean') {
+      setImportError('Field "talkToCoachEnabled" must be a boolean.');
+      return;
+    }
+    if ('welcomeMessage' in parsed && typeof parsed.welcomeMessage !== 'string') {
+      setImportError('Field "welcomeMessage" must be a string.');
+      return;
+    }
+    if ('guidelines' in parsed && typeof parsed.guidelines !== 'string') {
+      setImportError('Field "guidelines" must be a string.');
+      return;
+    }
+
+    // Validate starters array and each starter's shape
+    if ('starters' in parsed) {
+      if (!Array.isArray(parsed.starters)) {
+        setImportError('Field "starters" must be an array.');
+        return;
+      }
+      for (let i = 0; i < parsed.starters.length; i++) {
+        if (!isValidStarter(parsed.starters[i])) {
+          setImportError(`Invalid starter at index ${i}: must have text (string), context (string), and attributes (object).`);
+          return;
+        }
+      }
+    }
+
+    // Validate continuationTasks
+    if ('continuationTasks' in parsed) {
+      if (!Array.isArray(parsed.continuationTasks)) {
+        setImportError('Field "continuationTasks" must be an array.');
+        return;
+      }
+      for (let i = 0; i < parsed.continuationTasks.length; i++) {
+        if (!isValidTaskShape(parsed.continuationTasks[i])) {
+          setImportError(`Invalid task at continuationTasks[${i}]: must have name, responseType, role, and prompt (all strings).`);
+          return;
+        }
+      }
+    }
+
+    // Validate completionTasks
+    if ('completionTasks' in parsed) {
+      if (!Array.isArray(parsed.completionTasks)) {
+        setImportError('Field "completionTasks" must be an array.');
+        return;
+      }
+      for (let i = 0; i < parsed.completionTasks.length; i++) {
+        if (!isValidTaskShape(parsed.completionTasks[i])) {
+          setImportError(`Invalid task at completionTasks[${i}]: must have name, responseType, role, and prompt (all strings).`);
+          return;
+        }
+      }
+    }
+
+    // Reset form to defaults, then apply imported values (preserving identity fields)
+    const defaultModel = hasModels ? availableModels[0] : '';
     setFormData((prev) => ({
-      ...prev,
-      exerciseName: (parsed.exerciseName as string) || prev.exerciseName,
-      maxUserMessages: typeof parsed.maxUserMessages === 'number' ? parsed.maxUserMessages : prev.maxUserMessages,
-      model: typeof parsed.model === 'string' ? parsed.model : prev.model,
-      talkToCoachEnabled: typeof parsed.talkToCoachEnabled === 'boolean' ? parsed.talkToCoachEnabled : prev.talkToCoachEnabled,
-      welcomeMessage: typeof parsed.welcomeMessage === 'string' ? parsed.welcomeMessage : prev.welcomeMessage,
-      guidelines: typeof parsed.guidelines === 'string' ? parsed.guidelines : prev.guidelines,
-      starters: Array.isArray(parsed.starters) ? parsed.starters as Starter[] : prev.starters,
+      // Preserve identity fields
+      exerciseId: prev.exerciseId,
+      slug: prev.slug,
+      // Reset to defaults, then override with imported values
+      exerciseName: parsed.exerciseName as string,
+      maxUserMessages: typeof parsed.maxUserMessages === 'number' ? parsed.maxUserMessages : 200,
+      model: typeof parsed.model === 'string' ? parsed.model : defaultModel,
+      talkToCoachEnabled: typeof parsed.talkToCoachEnabled === 'boolean' ? parsed.talkToCoachEnabled : false,
+      welcomeMessage: typeof parsed.welcomeMessage === 'string' ? parsed.welcomeMessage : '',
+      guidelines: typeof parsed.guidelines === 'string' ? parsed.guidelines : '',
+      starters: Array.isArray(parsed.starters) ? parsed.starters as Starter[] : [createEmptyStarter()],
     }));
 
     // Decompose imported tasks using the same extract functions used at initialization

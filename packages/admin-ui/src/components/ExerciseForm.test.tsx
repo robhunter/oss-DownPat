@@ -1276,6 +1276,97 @@ describe('ExerciseForm', () => {
       expect(screen.queryByText('Invalid JSON syntax.')).not.toBeInTheDocument();
     });
 
+    it('should show error when maxUserMessages is not a number', () => {
+      const onSubmit = vi.fn();
+      render(<ExerciseForm onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
+
+      fireEvent.click(screen.getByText('Import JSON'));
+      const textarea = screen.getByPlaceholderText('Paste exported exercise JSON here...');
+      fireEvent.change(textarea, { target: { value: JSON.stringify({ exerciseName: 'Test', maxUserMessages: 'fifty' }) } });
+      fireEvent.click(screen.getByText('Import'));
+
+      expect(screen.getByText('Field "maxUserMessages" must be a number.')).toBeInTheDocument();
+    });
+
+    it('should show error when continuationTasks is not an array', () => {
+      const onSubmit = vi.fn();
+      render(<ExerciseForm onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
+
+      fireEvent.click(screen.getByText('Import JSON'));
+      const textarea = screen.getByPlaceholderText('Paste exported exercise JSON here...');
+      fireEvent.change(textarea, { target: { value: JSON.stringify({ exerciseName: 'Test', continuationTasks: 'not an array' }) } });
+      fireEvent.click(screen.getByText('Import'));
+
+      expect(screen.getByText('Field "continuationTasks" must be an array.')).toBeInTheDocument();
+    });
+
+    it('should show error when a task in continuationTasks has invalid shape', () => {
+      const onSubmit = vi.fn();
+      render(<ExerciseForm onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
+
+      fireEvent.click(screen.getByText('Import JSON'));
+      const textarea = screen.getByPlaceholderText('Paste exported exercise JSON here...');
+      fireEvent.change(textarea, { target: { value: JSON.stringify({
+        exerciseName: 'Test',
+        continuationTasks: [{ name: 'Bad task' }],
+      }) } });
+      fireEvent.click(screen.getByText('Import'));
+
+      expect(screen.getByText('Invalid task at continuationTasks[0]: must have name, responseType, role, and prompt (all strings).')).toBeInTheDocument();
+    });
+
+    it('should show error when starters have invalid shape', () => {
+      const onSubmit = vi.fn();
+      render(<ExerciseForm onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
+
+      fireEvent.click(screen.getByText('Import JSON'));
+      const textarea = screen.getByPlaceholderText('Paste exported exercise JSON here...');
+      fireEvent.change(textarea, { target: { value: JSON.stringify({
+        exerciseName: 'Test',
+        starters: [{ text: 123 }],
+      }) } });
+      fireEvent.click(screen.getByText('Import'));
+
+      expect(screen.getByText('Invalid starter at index 0: must have text (string), context (string), and attributes (object).')).toBeInTheDocument();
+    });
+
+    it('should reset omitted fields to defaults on import', () => {
+      const onSubmit = vi.fn();
+      const exercise = createExercise();
+      render(<ExerciseForm exercise={exercise} onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
+
+      // Verify initial state has values from the exercise
+      expect(screen.getByDisplayValue('Welcome!')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Be helpful')).toBeInTheDocument();
+
+      // Import with only exerciseName — other fields should reset to defaults, not keep old values
+      const importData = {
+        exerciseName: 'Minimal Import',
+        continuationTasks: [{
+          name: 'Conversation',
+          responseType: MessageType.CONVERSATION,
+          role: 'Role',
+          prompt: 'Prompt.',
+          responseSchema: { conversation: 'Desc.' },
+          enabled: true,
+        }],
+        completionTasks: [],
+      };
+
+      fireEvent.click(screen.getByText('Import JSON'));
+      fireEvent.change(screen.getByPlaceholderText('Paste exported exercise JSON here...'), {
+        target: { value: JSON.stringify(importData) },
+      });
+      fireEvent.click(screen.getByText('Import'));
+
+      // exerciseName should be the imported value
+      expect(screen.getByDisplayValue('Minimal Import')).toBeInTheDocument();
+
+      // welcomeMessage and guidelines should have been reset to defaults (empty), NOT preserved from old exercise
+      expect(screen.queryByDisplayValue('Welcome!')).not.toBeInTheDocument();
+      expect(screen.queryByDisplayValue('Be helpful')).not.toBeInTheDocument();
+    });
+
     it('should disable Import button when textarea is empty', () => {
       const onSubmit = vi.fn();
       render(<ExerciseForm onSubmit={onSubmit} availableModels={DEFAULT_MODELS} />);
