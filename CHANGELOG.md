@@ -7,6 +7,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Changed
+- Pre-publish verification and changesets setup (#150)
+- Set up changesets for coordinated versioning (#152)
+- Run pre-publish verification: tests, builds, npm pack, check tarball contents (#151)
 - Update main README: quickstart demo, Firebase, and Auth sections (#146)
 - Add author field to all package.json files (#144)
 - Fallback to in-memory storage when Firebase credentials missing + UI warning banner
