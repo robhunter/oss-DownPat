@@ -270,14 +270,27 @@ describe('ExerciseEditorPage', () => {
       expect(onNavigate).toHaveBeenCalledWith('/admin/exercises');
     });
 
-    it('should show success toast after successful create', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 201,
-        json: () => Promise.resolve({ ...mockExercise, exerciseId: 'new-id' }),
+    it('should show success toast and navigate to edit page after successful create', async () => {
+      const onNavigate = vi.fn();
+      mockFetch.mockImplementation((url: string) => {
+        if (url.endsWith('/exercises') || url.includes('/exercises?')) {
+          return Promise.resolve({
+            ok: true,
+            status: 201,
+            json: () => Promise.resolve({ ...mockExercise, exerciseId: 'new-id' }),
+          });
+        }
+        if (url.includes('/exercises/with-metadata')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve([]),
+          });
+        }
+        return Promise.reject(new Error(`Unexpected URL: ${url}`));
       });
 
-      renderWithProvider();
+      renderWithProvider({}, createConfig({ onNavigate }));
 
       // Fill in required fields
       fireEvent.change(screen.getByPlaceholderText('Enter exercise name'), {
@@ -286,7 +299,6 @@ describe('ExerciseEditorPage', () => {
       fireEvent.change(screen.getByPlaceholderText('Message shown when conversation starts...'), {
         target: { value: 'Welcome!' },
       });
-      // Fill conversation task fields (required)
       fireEvent.change(screen.getByPlaceholderText('Who is the user talking to?'), {
         target: { value: 'Customer' },
       });
@@ -302,6 +314,9 @@ describe('ExerciseEditorPage', () => {
       await waitFor(() => {
         expect(screen.getByText('Exercise saved successfully')).toBeInTheDocument();
       });
+
+      // Should navigate to the edit page for the newly created exercise
+      expect(onNavigate).toHaveBeenCalledWith('/admin/exercises/my-exercise/edit');
     });
 
     it('should show success toast after successful update', async () => {
@@ -354,10 +369,22 @@ describe('ExerciseEditorPage', () => {
 
   describe('form submission', () => {
     it('should call create API for new exercise', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 201,
-        json: () => Promise.resolve({ ...mockExercise, exerciseId: 'new-id' }),
+      mockFetch.mockImplementation((url: string) => {
+        if (url.endsWith('/exercises') || url.includes('/exercises?')) {
+          return Promise.resolve({
+            ok: true,
+            status: 201,
+            json: () => Promise.resolve({ ...mockExercise, exerciseId: 'new-id' }),
+          });
+        }
+        if (url.includes('/exercises/with-metadata')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve([]),
+          });
+        }
+        return Promise.reject(new Error(`Unexpected URL: ${url}`));
       });
 
       renderWithProvider();

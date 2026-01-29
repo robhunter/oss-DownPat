@@ -95,8 +95,10 @@ export function ExerciseEditorPage({ slug }: ExerciseEditorPageProps): React.JSX
     try {
       if (isNew) {
         await api.createExercise(data);
-        // Switch to edit mode after successful create
+        // Switch to edit mode and navigate to the edit URL so the
+        // browser URL reflects the saved exercise (fixes GH #17)
         setIsNew(false);
+        navigate(`/exercises/${data.slug}/edit`);
       } else {
         await api.updateExercise(data.exerciseId, data);
       }
@@ -113,7 +115,7 @@ export function ExerciseEditorPage({ slug }: ExerciseEditorPageProps): React.JSX
     } finally {
       setIsSubmitting(false);
     }
-  }, [api, isNew]);
+  }, [api, isNew, navigate]);
 
   const handleCancel = useCallback(() => {
     navigate('/exercises');
