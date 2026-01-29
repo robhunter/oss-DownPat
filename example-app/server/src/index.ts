@@ -56,8 +56,8 @@ const mockAuthProvider = createMockAuthProvider();
  * Initialize and start the server.
  */
 async function startServer() {
-  // Create storage (auto-detects test mode for in-memory)
-  const { exerciseStorage, conversationStorage, userStateStorage } = createFirebaseStorage();
+  // Create storage (falls back to in-memory if Firebase credentials are missing)
+  const { exerciseStorage, conversationStorage, userStateStorage, storageMode } = createFirebaseStorage();
 
   // Create AI adapter registry (auto-detects API keys from environment)
   const aiRegistry = await createAdapterRegistryFromEnv();
@@ -73,6 +73,11 @@ async function startServer() {
   // Get AI adapter (uses preference order: openai > anthropic > gemini)
   const aiAdapter = aiRegistry.getDefaultAdapter();
   const moderationAdapter = aiRegistry.getModerationAdapter();
+
+  // Expose storage mode for client warning banners (app-level concern, not framework)
+  app.get('/api/downpat/storage-info', (_req, res) => {
+    res.json({ storageMode });
+  });
 
   // Create DownPat server with all routes and Socket.io
   const { httpServer } = createDownpatServer(app, {
@@ -90,6 +95,11 @@ async function startServer() {
   httpServer.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
     console.log(`API endpoints available at http://localhost:${PORT}/api/downpat`);
+    if (storageMode === 'in-memory') {
+      console.log('WARNING: Using in-memory storage - data will be lost on server restart');
+    } else {
+      console.log('Storage: Firebase Firestore');
+    }
     if (aiAdapter) {
       console.log('AI adapter configured for conversations');
     }

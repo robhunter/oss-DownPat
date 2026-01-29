@@ -107,12 +107,22 @@ export function initializeFirebaseFromEnv(options: InitializeFirebaseOptions = {
 }
 
 /**
+ * The storage backend in use.
+ */
+export type StorageMode = 'firebase' | 'in-memory';
+
+/**
  * Storage instances returned by createFirebaseStorage.
  */
 export interface DownpatStorage {
   exerciseStorage: ExerciseStorage;
   conversationStorage: ConversationStorage;
   userStateStorage: UserStateStorage;
+  /**
+   * Indicates which storage backend is active.
+   * 'firebase' when using Firestore, 'in-memory' when using ephemeral storage.
+   */
+  storageMode: StorageMode;
 }
 
 /**
@@ -151,13 +161,30 @@ export function createFirebaseStorage(options: CreateFirebaseStorageOptions = {}
   const useInMemory = options.forceInMemory || process.env.NODE_ENV === 'test';
 
   if (useInMemory) {
-    return createInMemoryStorage();
+    return { ...createInMemoryStorage(), storageMode: 'in-memory' };
   }
 
-  const db = initializeFirebaseFromEnv(options);
+  let db;
+  try {
+    db = initializeFirebaseFromEnv(options);
+  } catch (error) {
+    if (process.env.NODE_ENV === 'production') {
+      throw error;
+    }
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(
+      `[DownPat] Firebase initialization failed, falling back to in-memory storage.\n` +
+      `  Reason: ${message}\n` +
+      `  Data will be lost on server restart.\n` +
+      `  NOTE: In production (NODE_ENV=production), this error will not be caught.`
+    );
+    return { ...createInMemoryStorage(), storageMode: 'in-memory' };
+  }
+
   return {
     exerciseStorage: new FirebaseExerciseStorage(db),
     conversationStorage: new FirebaseConversationStorage(db),
     userStateStorage: new FirebaseUserStateStorage(db),
+    storageMode: 'firebase',
   };
 }

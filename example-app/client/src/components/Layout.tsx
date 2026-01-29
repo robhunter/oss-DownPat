@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from './AuthProvider';
 
@@ -8,6 +9,21 @@ import { useAuth } from './AuthProvider';
 export function Layout() {
   const { user, isAuthenticated, logout } = useAuth();
   const location = useLocation();
+  const [isInMemoryStorage, setIsInMemoryStorage] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/downpat/storage-info')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.storageMode === 'in-memory') {
+          setIsInMemoryStorage(true);
+        }
+      })
+      .catch(() => {
+        // Server not available yet, ignore
+      });
+  }, []);
 
   const isActive = (path: string) => location.pathname.startsWith(path);
 
@@ -66,6 +82,22 @@ export function Layout() {
           </div>
         </div>
       </nav>
+
+      {isInMemoryStorage && !bannerDismissed && (
+        <div style={styles.warningBanner}>
+          <span style={styles.warningText}>
+            <strong>In-memory storage:</strong> No database configured. All data will be lost when the server restarts.
+            See the <a href="https://github.com/robhunter/oss-DownPat#firebase" style={styles.warningLink}>Firebase setup guide</a> to configure persistent storage.
+          </span>
+          <button
+            onClick={() => setBannerDismissed(true)}
+            style={styles.warningDismiss}
+            aria-label="Dismiss warning"
+          >
+            &times;
+          </button>
+        </div>
+      )}
 
       <main style={styles.main}>
         <Outlet />
@@ -162,6 +194,32 @@ const styles: Record<string, React.CSSProperties> = {
     textDecoration: 'none',
     borderRadius: '6px',
     fontWeight: '500',
+  },
+  warningBanner: {
+    backgroundColor: '#fef3c7',
+    borderBottom: '1px solid #f59e0b',
+    padding: '10px 20px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '12px',
+  },
+  warningText: {
+    fontSize: '0.875rem',
+    color: '#92400e',
+  },
+  warningLink: {
+    color: '#92400e',
+    fontWeight: '500',
+  },
+  warningDismiss: {
+    background: 'none',
+    border: 'none',
+    color: '#92400e',
+    fontSize: '1.25rem',
+    cursor: 'pointer',
+    padding: '0 4px',
+    lineHeight: '1',
   },
   main: {
     maxWidth: '1200px',

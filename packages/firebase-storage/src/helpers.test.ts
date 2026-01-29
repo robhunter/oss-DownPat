@@ -151,6 +151,7 @@ describe('createFirebaseStorage', () => {
     expect(createInMemoryStorage).toHaveBeenCalled();
     expect(result.exerciseStorage).toEqual({ type: 'in-memory-exercise' });
     expect(result.conversationStorage).toEqual({ type: 'in-memory-conversation' });
+    expect(result.storageMode).toBe('in-memory');
   });
 
   it('should use in-memory storage when forceInMemory is true', () => {
@@ -160,6 +161,7 @@ describe('createFirebaseStorage', () => {
 
     expect(createInMemoryStorage).toHaveBeenCalled();
     expect(result.exerciseStorage).toEqual({ type: 'in-memory-exercise' });
+    expect(result.storageMode).toBe('in-memory');
   });
 
   it('should use Firebase storage in production', () => {
@@ -171,9 +173,9 @@ describe('createFirebaseStorage', () => {
 
     expect(createInMemoryStorage).not.toHaveBeenCalled();
     expect(initializeApp).toHaveBeenCalled();
-    // Should return Firebase storage instances (constructor called)
     expect(result.exerciseStorage).toBeDefined();
     expect(result.conversationStorage).toBeDefined();
+    expect(result.storageMode).toBe('firebase');
   });
 
   it('should use Firebase storage in development', () => {
@@ -185,6 +187,7 @@ describe('createFirebaseStorage', () => {
 
     expect(createInMemoryStorage).not.toHaveBeenCalled();
     expect(initializeApp).toHaveBeenCalled();
+    expect(result.storageMode).toBe('firebase');
   });
 
   it('should pass options to initializeFirebaseFromEnv', () => {
@@ -200,5 +203,52 @@ describe('createFirebaseStorage', () => {
       credential: expect.anything(),
       projectId: 'custom-project',
     });
+  });
+
+  it('should fallback to in-memory storage when Firebase init fails in development', () => {
+    process.env.NODE_ENV = 'development';
+    delete process.env.FIREBASE_PROJECT_ID;
+    delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    delete process.env.FIREBASE_SERVICE_ACCOUNT_BASE64;
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const result = createFirebaseStorage();
+
+    expect(createInMemoryStorage).toHaveBeenCalled();
+    expect(result.storageMode).toBe('in-memory');
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Firebase initialization failed')
+    );
+
+    warnSpy.mockRestore();
+  });
+
+  it('should fallback to in-memory when credentials file is missing in development', () => {
+    process.env.NODE_ENV = 'development';
+    process.env.FIREBASE_PROJECT_ID = 'test-project';
+    process.env.GOOGLE_APPLICATION_CREDENTIALS = '/nonexistent/path.json';
+    vi.mocked(cert).mockImplementation(() => { throw new Error('File not found'); });
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const result = createFirebaseStorage();
+
+    expect(createInMemoryStorage).toHaveBeenCalled();
+    expect(result.storageMode).toBe('in-memory');
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Data will be lost on server restart')
+    );
+
+    warnSpy.mockRestore();
+  });
+
+  it('should throw in production when Firebase init fails', () => {
+    process.env.NODE_ENV = 'production';
+    delete process.env.FIREBASE_PROJECT_ID;
+    delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    delete process.env.FIREBASE_SERVICE_ACCOUNT_BASE64;
+
+    expect(() => createFirebaseStorage()).toThrow('Firebase project ID is required');
   });
 });
