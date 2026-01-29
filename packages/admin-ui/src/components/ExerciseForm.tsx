@@ -503,8 +503,8 @@ export function ExerciseForm({
       typeof obj.attributes === 'object' && obj.attributes !== null && !Array.isArray(obj.attributes);
   };
 
-  /** Validate that a value looks like a task object (has required base fields) */
-  const isValidTaskShape = (t: unknown): boolean => {
+  /** Type guard: validates that a value has the required base task fields */
+  const isValidTaskShape = (t: unknown): t is Pick<Task, 'name' | 'responseType' | 'role' | 'prompt'> & Record<string, unknown> => {
     if (typeof t !== 'object' || t === null) return false;
     const obj = t as Record<string, unknown>;
     return typeof obj.name === 'string' &&
