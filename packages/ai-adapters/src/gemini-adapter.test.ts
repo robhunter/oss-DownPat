@@ -37,11 +37,6 @@ describe('GeminiAdapter', () => {
       response: {
         text: () => 'Hello from Gemini!',
         candidates: [{ finishReason: 'STOP' }],
-        usageMetadata: {
-          promptTokenCount: 10,
-          candidatesTokenCount: 5,
-          totalTokenCount: 15,
-        },
       },
     });
 
@@ -53,11 +48,8 @@ describe('GeminiAdapter', () => {
 
     expect(result.content).toBe('Hello from Gemini!');
     expect(result.finishReason).toBe('stop');
-    expect(result.usage).toEqual({
-      promptTokens: 10,
-      completionTokens: 5,
-      totalTokens: 15,
-    });
+    // v0.2.x SDK does not provide usage metadata
+    expect(result.usage).toBeUndefined();
   });
 
   it('completes streaming request', async () => {
@@ -89,17 +81,12 @@ describe('GeminiAdapter', () => {
     expect(receivedChunks).toEqual(['Hello', ' from Gemini!']);
   });
 
-  it('returns usage metadata in streaming mode', async () => {
+  it('does not return usage metadata in streaming mode (v0.2.x SDK)', async () => {
     const chunks = [
       { text: () => 'Hello' },
       {
         text: () => '',
         candidates: [{ finishReason: 'STOP' }],
-        usageMetadata: {
-          promptTokenCount: 5,
-          candidatesTokenCount: 10,
-          totalTokenCount: 15,
-        },
       },
     ];
 
@@ -118,11 +105,8 @@ describe('GeminiAdapter', () => {
       onChunk: () => {},
     });
 
-    expect(result.usage).toEqual({
-      promptTokens: 5,
-      completionTokens: 10,
-      totalTokens: 15,
-    });
+    // v0.2.x SDK does not provide usage metadata
+    expect(result.usage).toBeUndefined();
   });
 
   it('handles MAX_TOKENS finish reason', async () => {
@@ -159,7 +143,7 @@ describe('GeminiAdapter', () => {
     expect(result.finishReason).toBe('content_filter');
   });
 
-  it('passes system message as systemInstruction parameter', async () => {
+  it('folds system message into first user content (v0.2.x compatibility)', async () => {
     mockModel.generateContent.mockResolvedValue({
       response: {
         text: () => 'Response',
@@ -176,16 +160,14 @@ describe('GeminiAdapter', () => {
       ],
     });
 
+    // v0.2.x SDK has no systemInstruction; system text is prepended into the first user turn
     expect(mockModel.generateContent).toHaveBeenCalledWith({
       contents: [
         {
           role: 'user',
-          parts: [{ text: 'Hello' }],
+          parts: [{ text: 'You are helpful.' }, { text: 'Hello' }],
         },
       ],
-      systemInstruction: {
-        parts: [{ text: 'You are helpful.' }],
-      },
     });
   });
 
@@ -213,7 +195,6 @@ describe('GeminiAdapter', () => {
         { role: 'model', parts: [{ text: 'Hi!' }] },
         { role: 'user', parts: [{ text: 'How are you?' }] },
       ],
-      systemInstruction: undefined,
     });
   });
 
@@ -255,7 +236,6 @@ describe('GeminiAdapter', () => {
         { role: 'model', parts: [{ text: 'Yes!' }, { text: 'How can I help?' }] },
         { role: 'user', parts: [{ text: 'Thanks' }] },
       ],
-      systemInstruction: undefined,
     });
   });
 

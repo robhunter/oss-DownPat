@@ -125,7 +125,8 @@ export class AnthropicAdapter implements AIAdapter {
 
     let content = '';
     let finishReason: AICompletionResult['finishReason'] = 'stop';
-    let usage: AICompletionResult['usage'] | undefined;
+    let inputTokens = 0;
+    let outputTokens = 0;
 
     for await (const event of stream) {
       if (signal?.aborted) {
@@ -137,17 +138,21 @@ export class AnthropicAdapter implements AIAdapter {
         onChunk(event.delta.text);
       }
 
-      if (event.type === 'message_stop' && event.message) {
-        finishReason = this.mapStopReason(event.message.stop_reason);
-        if (event.message.usage) {
-          usage = {
-            promptTokens: event.message.usage.input_tokens,
-            completionTokens: event.message.usage.output_tokens,
-            totalTokens: event.message.usage.input_tokens + event.message.usage.output_tokens,
-          };
-        }
+      if (event.type === 'message_start') {
+        inputTokens = event.message.usage.input_tokens;
+      }
+
+      if (event.type === 'message_delta') {
+        finishReason = this.mapStopReason(event.delta.stop_reason);
+        outputTokens = event.usage.output_tokens;
       }
     }
+
+    const usage: AICompletionResult['usage'] = {
+      promptTokens: inputTokens,
+      completionTokens: outputTokens,
+      totalTokens: inputTokens + outputTokens,
+    };
 
     return {
       content,

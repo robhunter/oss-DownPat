@@ -9,6 +9,32 @@ import type { GoogleGenerativeAI, GenerativeModel, Content } from '@google/gener
 const DEFAULT_GEMINI_MODELS = ['gemini-pro', 'gemini-1.5-pro', 'gemini-1.5-flash'];
 
 /**
+ * Prepend system messages as the first user content entry.
+ * The Gemini v0.2.x SDK does not support a dedicated systemInstruction parameter,
+ * so we fold system messages into the conversation as a leading user turn.
+ */
+function prependSystemContent(
+  systemMessages: AIMessage[],
+  contents: Content[]
+): Content[] {
+  if (systemMessages.length === 0) return contents;
+
+  const systemText = systemMessages.map((m) => m.content).join('\n\n');
+  const first = contents[0];
+
+  // If the first message is already from the user, merge the system text in
+  if (first && first.role === 'user') {
+    return [
+      { role: 'user', parts: [{ text: systemText }, ...first.parts] },
+      ...contents.slice(1),
+    ];
+  }
+
+  // Otherwise prepend a new user turn with the system text
+  return [{ role: 'user', parts: [{ text: systemText }] }, ...contents];
+}
+
+/**
  * Google Gemini adapter for Gemini models.
  * Supports streaming via callbacks.
  */
@@ -44,18 +70,16 @@ export class GeminiAdapter implements AIAdapter {
       throw new Error('At least one non-system message is required');
     }
 
-    // Build systemInstruction if present
-    const systemInstruction = systemMessages.length > 0
-      ? { parts: [{ text: systemMessages.map(m => m.content).join('\n\n') }] }
-      : undefined;
+    // Prepend system messages into the conversation contents
+    const allContents = prependSystemContent(systemMessages, contents);
 
     if (onChunk) {
       // Streaming mode
-      return await this.completeStreaming(geminiModel, contents, systemInstruction, onChunk, signal);
+      return await this.completeStreaming(geminiModel, allContents, onChunk, signal);
     }
 
     // Non-streaming mode
-    const response = await geminiModel.generateContent({ contents, systemInstruction });
+    const response = await geminiModel.generateContent({ contents: allContents });
     const text = response.response.text();
     const finishReason = this.mapFinishReason(
       response.response.candidates?.[0]?.finishReason
@@ -64,13 +88,6 @@ export class GeminiAdapter implements AIAdapter {
     return {
       content: text,
       finishReason,
-      usage: response.response.usageMetadata
-        ? {
-            promptTokens: response.response.usageMetadata.promptTokenCount,
-            completionTokens: response.response.usageMetadata.candidatesTokenCount,
-            totalTokens: response.response.usageMetadata.totalTokenCount,
-          }
-        : undefined,
     };
   }
 
@@ -101,15 +118,13 @@ export class GeminiAdapter implements AIAdapter {
   private async completeStreaming(
     model: GenerativeModel,
     contents: Content[],
-    systemInstruction: { parts: Array<{ text: string }> } | undefined,
     onChunk: (chunk: string) => void,
     signal?: AbortSignal
   ): Promise<AICompletionResult> {
-    const result = await model.generateContentStream({ contents, systemInstruction });
+    const result = await model.generateContentStream({ contents });
 
     let content = '';
     let finishReason: AICompletionResult['finishReason'] = 'stop';
-    let usage: AICompletionResult['usage'] | undefined;
 
     for await (const chunk of result.stream) {
       if (signal?.aborted) {
@@ -125,21 +140,11 @@ export class GeminiAdapter implements AIAdapter {
       if (chunk.candidates?.[0]?.finishReason) {
         finishReason = this.mapFinishReason(chunk.candidates[0].finishReason);
       }
-
-      // Extract usage metadata if available (sent in final chunks)
-      if (chunk.usageMetadata) {
-        usage = {
-          promptTokens: chunk.usageMetadata.promptTokenCount,
-          completionTokens: chunk.usageMetadata.candidatesTokenCount,
-          totalTokens: chunk.usageMetadata.totalTokenCount,
-        };
-      }
     }
 
     return {
       content,
       finishReason,
-      usage,
     };
   }
 

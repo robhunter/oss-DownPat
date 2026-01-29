@@ -346,10 +346,21 @@ export class OpenAIModerationAdapter implements ModerationAdapter {
 
     const result = response.results[0];
 
+    // Spread SDK types to plain records; coerce null → false for boolean categories
+    const categories: Record<string, boolean> = {};
+    for (const [key, value] of Object.entries(result.categories)) {
+      categories[key] = value ?? false;
+    }
+
+    const categoryScores: Record<string, number> = {};
+    for (const [key, value] of Object.entries(result.category_scores)) {
+      categoryScores[key] = value;
+    }
+
     return {
       flagged: result.flagged,
-      categories: result.categories,
-      categoryScores: result.category_scores,
+      categories,
+      categoryScores,
     };
   }
 }
