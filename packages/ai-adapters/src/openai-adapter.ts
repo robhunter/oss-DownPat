@@ -68,7 +68,7 @@ export class OpenAIAdapter implements AIAdapter {
       {
         model,
         messages: openaiMessages,
-        max_tokens: maxTokens,
+        max_completion_tokens: maxTokens,
         temperature: temperature ?? 0.7,
       },
       { signal }
@@ -103,7 +103,7 @@ export class OpenAIAdapter implements AIAdapter {
       {
         model,
         messages,
-        max_tokens: maxTokens,
+        max_completion_tokens: maxTokens,
         temperature: temperature ?? 0.7,
         stream: true,
         stream_options: { include_usage: true },
@@ -226,7 +226,7 @@ export class OpenAIAdapter implements AIAdapter {
       {
         model,
         messages: openaiMessages,
-        max_tokens: maxTokens,
+        max_completion_tokens: maxTokens,
         temperature: temperature ?? 0.7,
         tools: [openaiTool],
         tool_choice: { type: 'function', function: { name: tool.name } },
@@ -236,7 +236,8 @@ export class OpenAIAdapter implements AIAdapter {
 
     const choice = response.choices[0];
     const toolCall = choice?.message?.tool_calls?.[0];
-    const argsString = toolCall?.function?.arguments || '{}';
+    const argsString =
+      toolCall && 'function' in toolCall ? toolCall.function.arguments : '{}';
     const finishReason = this.mapFinishReason(choice?.finish_reason);
 
     let parsedArgs: Record<string, unknown> = {};
@@ -279,7 +280,7 @@ export class OpenAIAdapter implements AIAdapter {
       {
         model,
         messages,
-        max_tokens: maxTokens,
+        max_completion_tokens: maxTokens,
         temperature: temperature ?? 0.7,
         tools: [tool],
         tool_choice: { type: 'function', function: { name: tool.function.name } },
@@ -346,10 +347,19 @@ export class OpenAIModerationAdapter implements ModerationAdapter {
 
     const result = response.results[0];
 
+    // OpenAI SDK v6 types some category fields as `boolean | null`.
+    // Coerce to Record<string, boolean> / Record<string, number> to match ModerationResult.
+    const categories: Record<string, boolean> = {};
+    for (const [key, value] of Object.entries(result.categories)) {
+      categories[key] = value ?? false;
+    }
+
+    const categoryScores: Record<string, number> = { ...result.category_scores };
+
     return {
       flagged: result.flagged,
-      categories: result.categories,
-      categoryScores: result.category_scores,
+      categories,
+      categoryScores,
     };
   }
 }

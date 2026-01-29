@@ -145,6 +145,33 @@ describe('OpenAIAdapter', () => {
     expect(result.finishReason).toBe('length');
   });
 
+  it('passes max_completion_tokens instead of max_tokens', async () => {
+    mockClient.chat.completions.create.mockResolvedValue({
+      choices: [
+        {
+          message: { content: 'Done' },
+          finish_reason: 'stop',
+        },
+      ],
+      usage: { prompt_tokens: 5, completion_tokens: 1, total_tokens: 6 },
+    });
+
+    const adapter = new OpenAIAdapter(mockClient);
+    await adapter.complete({
+      model: 'gpt-4',
+      messages: [{ role: 'user', content: 'Hi' }],
+      maxTokens: 256,
+    });
+
+    expect(mockClient.chat.completions.create).toHaveBeenCalledWith(
+      expect.objectContaining({ max_completion_tokens: 256 }),
+      expect.anything()
+    );
+    // Ensure old parameter name is not sent
+    const callArgs = mockClient.chat.completions.create.mock.calls[0][0];
+    expect(callArgs).not.toHaveProperty('max_tokens');
+  });
+
   it('returns error result on API failure', async () => {
     mockClient.chat.completions.create.mockRejectedValue(new Error('Network error'));
 
@@ -187,6 +214,34 @@ describe('OpenAIModerationAdapter', () => {
     expect(result.flagged).toBe(true);
     expect(result.categories).toEqual({ violence: true, harassment: false });
     expect(result.categoryScores).toEqual({ violence: 0.95, harassment: 0.1 });
+  });
+
+  it('coerces null category values to false', async () => {
+    mockClient.moderations.create.mockResolvedValue({
+      results: [
+        {
+          flagged: false,
+          categories: { violence: false, illicit: null, 'illicit/violent': null, harassment: true },
+          category_scores: { violence: 0.01, illicit: 0.0, 'illicit/violent': 0.0, harassment: 0.8 },
+        },
+      ],
+    });
+
+    const adapter = new OpenAIModerationAdapter(mockClient);
+    const result = await adapter.checkContent('Test content');
+
+    expect(result.categories).toEqual({
+      violence: false,
+      illicit: false,
+      'illicit/violent': false,
+      harassment: true,
+    });
+    expect(result.categoryScores).toEqual({
+      violence: 0.01,
+      illicit: 0.0,
+      'illicit/violent': 0.0,
+      harassment: 0.8,
+    });
   });
 
   it('returns safe result for clean content', async () => {
