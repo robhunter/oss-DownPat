@@ -10,7 +10,16 @@ import type {
 import type { OpenAI } from 'openai';
 import { initializeParserState, parseJsonToken } from './streaming-json-parser.js';
 
-const DEFAULT_OPENAI_MODELS = ['gpt-4', 'gpt-4-turbo', 'gpt-4o', 'gpt-4o-mini', 'gpt-3.5-turbo'];
+const DEFAULT_OPENAI_MODELS = [
+  'gpt-4.1',
+  'gpt-4.1-mini',
+  'gpt-4.1-nano',
+  'gpt-4o',
+  'gpt-4o-mini',
+  'gpt-4',
+  'gpt-4-turbo',
+  'gpt-3.5-turbo',
+];
 
 /**
  * OpenAI adapter for chat completions.
