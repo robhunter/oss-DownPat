@@ -8,7 +8,10 @@ export const DEFAULT_AVAILABLE_MODELS = [
   'gpt-4.1-nano',
   'gpt-4o',
   'gpt-4o-mini',
-  'claude-3-5-sonnet',
+  'claude-sonnet-4-5-20250929',
+  'claude-sonnet-4-20250514',
+  'claude-haiku-4-5-20251001',
+  'claude-3-haiku-20240307',
 ] as const;
 
 export type DefaultAvailableModel = (typeof DEFAULT_AVAILABLE_MODELS)[number];

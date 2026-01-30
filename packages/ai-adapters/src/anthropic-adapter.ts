@@ -7,9 +7,9 @@ import type {
 import type { Anthropic } from '@anthropic-ai/sdk';
 
 const DEFAULT_ANTHROPIC_MODELS = [
-  'claude-3-5-sonnet',
-  'claude-3-opus-20240229',
-  'claude-3-sonnet-20240229',
+  'claude-sonnet-4-5-20250929',
+  'claude-sonnet-4-20250514',
+  'claude-haiku-4-5-20251001',
   'claude-3-haiku-20240307',
 ];
 
@@ -125,34 +125,39 @@ export class AnthropicAdapter implements AIAdapter {
 
     let content = '';
     let finishReason: AICompletionResult['finishReason'] = 'stop';
-    let usage: AICompletionResult['usage'] | undefined;
+    let inputTokens = 0;
+    let outputTokens = 0;
 
     for await (const event of stream) {
       if (signal?.aborted) {
         throw new DOMException('The operation was aborted', 'AbortError');
       }
 
-      if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
+      if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
         content += event.delta.text;
         onChunk(event.delta.text);
       }
 
-      if (event.type === 'message_stop' && event.message) {
-        finishReason = this.mapStopReason(event.message.stop_reason);
-        if (event.message.usage) {
-          usage = {
-            promptTokens: event.message.usage.input_tokens,
-            completionTokens: event.message.usage.output_tokens,
-            totalTokens: event.message.usage.input_tokens + event.message.usage.output_tokens,
-          };
-        }
+      // input_tokens arrive in message_start
+      if (event.type === 'message_start') {
+        inputTokens = event.message.usage.input_tokens;
+      }
+
+      // stop_reason and output_tokens arrive in message_delta
+      if (event.type === 'message_delta') {
+        finishReason = this.mapStopReason(event.delta.stop_reason);
+        outputTokens = event.usage.output_tokens;
       }
     }
 
     return {
       content,
       finishReason,
-      usage,
+      usage: {
+        promptTokens: inputTokens,
+        completionTokens: outputTokens,
+        totalTokens: inputTokens + outputTokens,
+      },
     };
   }
 
