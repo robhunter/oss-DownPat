@@ -125,9 +125,7 @@ const myAuthProvider: ServerAuthProvider = {
 Pass your auth provider when creating the server:
 
 ```typescript
-const { httpServer } = await createDownpatServer({
-  app,
-  basePath: '/api/downpat',
+const { httpServer } = createDownpatServer(app, {
   serverAuth: myAuthProvider,
   // ...other options
 });
@@ -153,14 +151,14 @@ const { exerciseStorage, conversationStorage, userStateStorage } = createFirebas
 const aiAdapters = await createAdapterRegistryFromEnv();
 
 // Initialize DownPat with all dependencies
-const { httpServer } = await createDownpatServer({
-  app,
-  basePath: '/api/downpat',
+const { httpServer } = createDownpatServer(app, {
   serverAuth: createMockAuthProvider(), // Replace with real auth in production
   exerciseStorage,
   conversationStorage,
   userStateStorage,
-  aiAdapters,
+  aiAdapter: aiAdapters.getDefaultAdapter(),
+  moderationAdapter: aiAdapters.getModerationAdapter() ?? undefined,
+  availableModels: aiAdapters.getAllModels(),
 });
 
 httpServer.listen(3001);
