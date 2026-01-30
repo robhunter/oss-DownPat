@@ -30,7 +30,8 @@
     "test:e2e:ui": "playwright test --ui",
     "changeset": "changeset",
     "version-packages": "changeset version",
-    "release": "npm run build --workspaces && changeset publish"
+    "build:packages": "npm run build --workspace=@downpat/core --workspace=@downpat/api-client --workspace=@downpat/ai-adapters --workspace=@downpat/firebase-storage --workspace=@downpat/ui-components --workspace=@downpat/express --workspace=@downpat/admin-ui --workspace=@downpat/react",
+    "release": "npm run build:packages && changeset publish"
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.8",
