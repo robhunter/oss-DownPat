@@ -4,20 +4,29 @@ import type {
   AICompletionResult,
   AIMessage,
 } from '@downpat/core';
-import type { GoogleGenerativeAI, GenerativeModel, Content } from '@google/generative-ai';
+import type { GoogleGenAI, Content } from '@google/genai';
 
-const DEFAULT_GEMINI_MODELS = ['gemini-pro', 'gemini-1.5-pro', 'gemini-1.5-flash'];
+const DEFAULT_GEMINI_MODELS = [
+  'gemini-2.5-flash',
+  'gemini-2.5-pro',
+  'gemini-2.0-flash',
+];
 
 /**
- * Google Gemini adapter for Gemini models.
+ * Google Gemini adapter using the @google/genai SDK.
  * Supports streaming via callbacks.
+ *
+ * System Message Handling:
+ * - System messages are concatenated and passed via config.systemInstruction
+ * - Gemini requires strictly alternating user/model turns, so consecutive
+ *   same-role messages are merged automatically
  */
 export class GeminiAdapter implements AIAdapter {
   readonly provider = 'gemini';
   private models: string[];
-  private client: GoogleGenerativeAI;
+  private client: GoogleGenAI;
 
-  constructor(client: GoogleGenerativeAI, models: string[] = DEFAULT_GEMINI_MODELS) {
+  constructor(client: GoogleGenAI, models: string[] = DEFAULT_GEMINI_MODELS) {
     this.client = client;
     this.models = models;
   }
@@ -31,13 +40,12 @@ export class GeminiAdapter implements AIAdapter {
   }
 
   async complete(options: AICompletionOptions): Promise<AICompletionResult> {
-    const { model, messages, onChunk, signal } = options;
+    const { model, messages, maxTokens, temperature, onChunk, signal } = options;
 
     // Extract system messages and convert remaining messages to Gemini format
     const systemMessages = messages.filter((m) => m.role === 'system');
     const conversationMessages = messages.filter((m) => m.role !== 'system');
     const contents = this.convertMessages(conversationMessages);
-    const geminiModel = this.client.getGenerativeModel({ model });
 
     // Validate that we have at least one non-system message
     if (contents.length === 0) {
@@ -46,36 +54,43 @@ export class GeminiAdapter implements AIAdapter {
 
     // Build systemInstruction if present
     const systemInstruction = systemMessages.length > 0
-      ? { parts: [{ text: systemMessages.map(m => m.content).join('\n\n') }] }
+      ? systemMessages.map((m) => m.content).join('\n\n')
       : undefined;
 
     if (onChunk) {
-      // Streaming mode
-      return await this.completeStreaming(geminiModel, contents, systemInstruction, onChunk, signal);
+      return await this.completeStreaming(model, contents, systemInstruction, maxTokens, temperature, onChunk, signal);
     }
 
     // Non-streaming mode
-    const response = await geminiModel.generateContent({ contents, systemInstruction });
-    const text = response.response.text();
+    const response = await this.client.models.generateContent({
+      model,
+      contents,
+      config: {
+        systemInstruction,
+        maxOutputTokens: maxTokens,
+        temperature,
+      },
+    });
+
+    const text = response.text ?? '';
     const finishReason = this.mapFinishReason(
-      response.response.candidates?.[0]?.finishReason
+      response.candidates?.[0]?.finishReason
     );
 
     return {
       content: text,
       finishReason,
-      usage: response.response.usageMetadata
+      usage: response.usageMetadata
         ? {
-            promptTokens: response.response.usageMetadata.promptTokenCount,
-            completionTokens: response.response.usageMetadata.candidatesTokenCount,
-            totalTokens: response.response.usageMetadata.totalTokenCount,
+            promptTokens: response.usageMetadata.promptTokenCount ?? 0,
+            completionTokens: response.usageMetadata.candidatesTokenCount ?? 0,
+            totalTokens: response.usageMetadata.totalTokenCount ?? 0,
           }
         : undefined,
     };
   }
 
   private convertMessages(messages: AIMessage[]): Content[] {
-    // Convert messages to Gemini format (system messages should be filtered out before calling this)
     // Gemini requires strictly alternating user/model turns, so we merge consecutive same-role messages
     const result: Content[] = [];
 
@@ -84,10 +99,8 @@ export class GeminiAdapter implements AIAdapter {
       const lastMessage = result[result.length - 1];
 
       if (lastMessage && lastMessage.role === role) {
-        // Merge with previous message of same role
-        lastMessage.parts.push({ text: msg.content });
+        lastMessage.parts!.push({ text: msg.content });
       } else {
-        // Start new message
         result.push({
           role,
           parts: [{ text: msg.content }],
@@ -99,24 +112,34 @@ export class GeminiAdapter implements AIAdapter {
   }
 
   private async completeStreaming(
-    model: GenerativeModel,
+    model: string,
     contents: Content[],
-    systemInstruction: { parts: Array<{ text: string }> } | undefined,
+    systemInstruction: string | undefined,
+    maxTokens: number | undefined,
+    temperature: number | undefined,
     onChunk: (chunk: string) => void,
     signal?: AbortSignal
   ): Promise<AICompletionResult> {
-    const result = await model.generateContentStream({ contents, systemInstruction });
+    const stream = await this.client.models.generateContentStream({
+      model,
+      contents,
+      config: {
+        systemInstruction,
+        maxOutputTokens: maxTokens,
+        temperature,
+      },
+    });
 
     let content = '';
     let finishReason: AICompletionResult['finishReason'] = 'stop';
     let usage: AICompletionResult['usage'] | undefined;
 
-    for await (const chunk of result.stream) {
+    for await (const chunk of stream) {
       if (signal?.aborted) {
         throw new DOMException('The operation was aborted', 'AbortError');
       }
 
-      const text = chunk.text();
+      const text = chunk.text;
       if (text) {
         content += text;
         onChunk(text);
@@ -126,12 +149,11 @@ export class GeminiAdapter implements AIAdapter {
         finishReason = this.mapFinishReason(chunk.candidates[0].finishReason);
       }
 
-      // Extract usage metadata if available (sent in final chunks)
       if (chunk.usageMetadata) {
         usage = {
-          promptTokens: chunk.usageMetadata.promptTokenCount,
-          completionTokens: chunk.usageMetadata.candidatesTokenCount,
-          totalTokens: chunk.usageMetadata.totalTokenCount,
+          promptTokens: chunk.usageMetadata.promptTokenCount ?? 0,
+          completionTokens: chunk.usageMetadata.candidatesTokenCount ?? 0,
+          totalTokens: chunk.usageMetadata.totalTokenCount ?? 0,
         };
       }
     }
@@ -145,8 +167,7 @@ export class GeminiAdapter implements AIAdapter {
 
   /**
    * Maps Gemini finish reasons to standardized adapter finish reasons.
-   * Uses string literals to avoid static imports of the optional peer dependency.
-   * Values match the FinishReason enum from @google/generative-ai.
+   * Values match the FinishReason enum from @google/genai.
    */
   private mapFinishReason(reason?: string): AICompletionResult['finishReason'] {
     switch (reason) {
@@ -161,7 +182,6 @@ export class GeminiAdapter implements AIAdapter {
         return 'error';
       case 'FINISH_REASON_UNSPECIFIED':
       default:
-        // Unspecified or unknown finish reasons
         return reason ? 'error' : 'stop';
     }
   }
@@ -169,15 +189,14 @@ export class GeminiAdapter implements AIAdapter {
 
 /**
  * Factory function to create Gemini adapter from API key.
- * Requires '@google/generative-ai' package to be installed.
+ * Requires '@google/genai' package to be installed.
  */
 export async function createGeminiAdapter(
   apiKey: string,
   models?: string[]
 ): Promise<GeminiAdapter> {
-  // Dynamically import Gemini to avoid requiring it at compile time
-  const { GoogleGenerativeAI } = await import('@google/generative-ai');
-  const client = new GoogleGenerativeAI(apiKey);
+  const { GoogleGenAI } = await import('@google/genai');
+  const client = new GoogleGenAI({ apiKey });
 
   return new GeminiAdapter(client, models);
 }

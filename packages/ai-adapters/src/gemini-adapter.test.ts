@@ -1,53 +1,50 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GeminiAdapter } from './gemini-adapter.js';
 
 describe('GeminiAdapter', () => {
-  const mockModel = {
+  const mockModels = {
     generateContent: vi.fn(),
     generateContentStream: vi.fn(),
   };
 
   const mockClient = {
-    getGenerativeModel: vi.fn(() => mockModel),
+    models: mockModels,
   };
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockClient.getGenerativeModel.mockReturnValue(mockModel);
   });
 
   it('returns provider name', () => {
-    const adapter = new GeminiAdapter(mockClient);
+    const adapter = new GeminiAdapter(mockClient as never);
     expect(adapter.provider).toBe('gemini');
   });
 
   it('returns available models', () => {
-    const adapter = new GeminiAdapter(mockClient, ['gemini-pro', 'gemini-1.5-pro']);
-    expect(adapter.getModels()).toEqual(['gemini-pro', 'gemini-1.5-pro']);
+    const adapter = new GeminiAdapter(mockClient as never, ['gemini-2.5-flash', 'gemini-2.5-pro']);
+    expect(adapter.getModels()).toEqual(['gemini-2.5-flash', 'gemini-2.5-pro']);
   });
 
   it('checks if model is supported', () => {
-    const adapter = new GeminiAdapter(mockClient, ['gemini-pro', 'gemini-1.5-pro']);
-    expect(adapter.supportsModel('gemini-pro')).toBe(true);
+    const adapter = new GeminiAdapter(mockClient as never, ['gemini-2.5-flash', 'gemini-2.5-pro']);
+    expect(adapter.supportsModel('gemini-2.5-flash')).toBe(true);
     expect(adapter.supportsModel('gpt-4')).toBe(false);
   });
 
   it('completes non-streaming request', async () => {
-    mockModel.generateContent.mockResolvedValue({
-      response: {
-        text: () => 'Hello from Gemini!',
-        candidates: [{ finishReason: 'STOP' }],
-        usageMetadata: {
-          promptTokenCount: 10,
-          candidatesTokenCount: 5,
-          totalTokenCount: 15,
-        },
+    mockModels.generateContent.mockResolvedValue({
+      text: 'Hello from Gemini!',
+      candidates: [{ finishReason: 'STOP' }],
+      usageMetadata: {
+        promptTokenCount: 10,
+        candidatesTokenCount: 5,
+        totalTokenCount: 15,
       },
     });
 
-    const adapter = new GeminiAdapter(mockClient);
+    const adapter = new GeminiAdapter(mockClient as never);
     const result = await adapter.complete({
-      model: 'gemini-pro',
+      model: 'gemini-2.5-flash',
       messages: [{ role: 'user', content: 'Hello' }],
     });
 
@@ -60,26 +57,56 @@ describe('GeminiAdapter', () => {
     });
   });
 
+  it('passes model and config to generateContent', async () => {
+    mockModels.generateContent.mockResolvedValue({
+      text: 'Response',
+      candidates: [{ finishReason: 'STOP' }],
+    });
+
+    const adapter = new GeminiAdapter(mockClient as never);
+    await adapter.complete({
+      model: 'gemini-2.5-flash',
+      messages: [
+        { role: 'system', content: 'You are helpful.' },
+        { role: 'user', content: 'Hello' },
+      ],
+      maxTokens: 1024,
+      temperature: 0.5,
+    });
+
+    expect(mockModels.generateContent).toHaveBeenCalledWith({
+      model: 'gemini-2.5-flash',
+      contents: [
+        { role: 'user', parts: [{ text: 'Hello' }] },
+      ],
+      config: {
+        systemInstruction: 'You are helpful.',
+        maxOutputTokens: 1024,
+        temperature: 0.5,
+      },
+    });
+  });
+
   it('completes streaming request', async () => {
     const chunks = [
-      { text: () => 'Hello' },
-      { text: () => ' from Gemini!' },
-      { text: () => '', candidates: [{ finishReason: 'STOP' }] },
+      { text: 'Hello' },
+      { text: ' from Gemini!' },
+      { text: undefined, candidates: [{ finishReason: 'STOP' }] },
     ];
 
-    mockModel.generateContentStream.mockResolvedValue({
-      stream: (async function* () {
+    mockModels.generateContentStream.mockResolvedValue(
+      (async function* () {
         for (const chunk of chunks) {
           yield chunk;
         }
-      })(),
-    });
+      })()
+    );
 
-    const adapter = new GeminiAdapter(mockClient);
+    const adapter = new GeminiAdapter(mockClient as never);
     const receivedChunks: string[] = [];
 
     const result = await adapter.complete({
-      model: 'gemini-pro',
+      model: 'gemini-2.5-flash',
       messages: [{ role: 'user', content: 'Hello' }],
       onChunk: (chunk) => receivedChunks.push(chunk),
     });
@@ -91,9 +118,9 @@ describe('GeminiAdapter', () => {
 
   it('returns usage metadata in streaming mode', async () => {
     const chunks = [
-      { text: () => 'Hello' },
+      { text: 'Hello' },
       {
-        text: () => '',
+        text: undefined,
         candidates: [{ finishReason: 'STOP' }],
         usageMetadata: {
           promptTokenCount: 5,
@@ -103,17 +130,17 @@ describe('GeminiAdapter', () => {
       },
     ];
 
-    mockModel.generateContentStream.mockResolvedValue({
-      stream: (async function* () {
+    mockModels.generateContentStream.mockResolvedValue(
+      (async function* () {
         for (const chunk of chunks) {
           yield chunk;
         }
-      })(),
-    });
+      })()
+    );
 
-    const adapter = new GeminiAdapter(mockClient);
+    const adapter = new GeminiAdapter(mockClient as never);
     const result = await adapter.complete({
-      model: 'gemini-pro',
+      model: 'gemini-2.5-flash',
       messages: [{ role: 'user', content: 'Hello' }],
       onChunk: () => {},
     });
@@ -126,16 +153,14 @@ describe('GeminiAdapter', () => {
   });
 
   it('handles MAX_TOKENS finish reason', async () => {
-    mockModel.generateContent.mockResolvedValue({
-      response: {
-        text: () => 'Truncated...',
-        candidates: [{ finishReason: 'MAX_TOKENS' }],
-      },
+    mockModels.generateContent.mockResolvedValue({
+      text: 'Truncated...',
+      candidates: [{ finishReason: 'MAX_TOKENS' }],
     });
 
-    const adapter = new GeminiAdapter(mockClient);
+    const adapter = new GeminiAdapter(mockClient as never);
     const result = await adapter.complete({
-      model: 'gemini-pro',
+      model: 'gemini-2.5-flash',
       messages: [{ role: 'user', content: 'Test' }],
     });
 
@@ -143,63 +168,78 @@ describe('GeminiAdapter', () => {
   });
 
   it('handles SAFETY finish reason', async () => {
-    mockModel.generateContent.mockResolvedValue({
-      response: {
-        text: () => '',
-        candidates: [{ finishReason: 'SAFETY' }],
-      },
+    mockModels.generateContent.mockResolvedValue({
+      text: '',
+      candidates: [{ finishReason: 'SAFETY' }],
     });
 
-    const adapter = new GeminiAdapter(mockClient);
+    const adapter = new GeminiAdapter(mockClient as never);
     const result = await adapter.complete({
-      model: 'gemini-pro',
+      model: 'gemini-2.5-flash',
       messages: [{ role: 'user', content: 'Test' }],
     });
 
     expect(result.finishReason).toBe('content_filter');
   });
 
-  it('passes system message as systemInstruction parameter', async () => {
-    mockModel.generateContent.mockResolvedValue({
-      response: {
-        text: () => 'Response',
-        candidates: [{ finishReason: 'STOP' }],
-      },
+  it('passes system message as config.systemInstruction', async () => {
+    mockModels.generateContent.mockResolvedValue({
+      text: 'Response',
+      candidates: [{ finishReason: 'STOP' }],
     });
 
-    const adapter = new GeminiAdapter(mockClient);
+    const adapter = new GeminiAdapter(mockClient as never);
     await adapter.complete({
-      model: 'gemini-pro',
+      model: 'gemini-2.5-flash',
       messages: [
         { role: 'system', content: 'You are helpful.' },
         { role: 'user', content: 'Hello' },
       ],
     });
 
-    expect(mockModel.generateContent).toHaveBeenCalledWith({
-      contents: [
-        {
-          role: 'user',
-          parts: [{ text: 'Hello' }],
-        },
-      ],
-      systemInstruction: {
-        parts: [{ text: 'You are helpful.' }],
-      },
+    expect(mockModels.generateContent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        config: expect.objectContaining({
+          systemInstruction: 'You are helpful.',
+        }),
+      })
+    );
+  });
+
+  it('concatenates multiple system messages', async () => {
+    mockModels.generateContent.mockResolvedValue({
+      text: 'Response',
+      candidates: [{ finishReason: 'STOP' }],
     });
+
+    const adapter = new GeminiAdapter(mockClient as never);
+    await adapter.complete({
+      model: 'gemini-2.5-flash',
+      messages: [
+        { role: 'system', content: 'You are helpful.' },
+        { role: 'system', content: 'Be concise.' },
+        { role: 'user', content: 'Hello' },
+      ],
+    });
+
+    expect(mockModels.generateContent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        config: expect.objectContaining({
+          systemInstruction: 'You are helpful.\n\nBe concise.',
+        }),
+      })
+    );
   });
 
   it('converts assistant role to model role', async () => {
-    mockModel.generateContent.mockResolvedValue({
-      response: {
-        text: () => 'Response',
-        candidates: [{ finishReason: 'STOP' }],
-      },
+    mockModels.generateContent.mockResolvedValue({
+      text: 'Response',
+      candidates: [{ finishReason: 'STOP' }],
     });
 
-    const adapter = new GeminiAdapter(mockClient);
+    const adapter = new GeminiAdapter(mockClient as never);
     await adapter.complete({
-      model: 'gemini-pro',
+      model: 'gemini-2.5-flash',
       messages: [
         { role: 'user', content: 'Hello' },
         { role: 'assistant', content: 'Hi!' },
@@ -207,39 +247,38 @@ describe('GeminiAdapter', () => {
       ],
     });
 
-    expect(mockModel.generateContent).toHaveBeenCalledWith({
-      contents: [
-        { role: 'user', parts: [{ text: 'Hello' }] },
-        { role: 'model', parts: [{ text: 'Hi!' }] },
-        { role: 'user', parts: [{ text: 'How are you?' }] },
-      ],
-      systemInstruction: undefined,
-    });
+    expect(mockModels.generateContent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contents: [
+          { role: 'user', parts: [{ text: 'Hello' }] },
+          { role: 'model', parts: [{ text: 'Hi!' }] },
+          { role: 'user', parts: [{ text: 'How are you?' }] },
+        ],
+      })
+    );
   });
 
   it('returns error result on API failure', async () => {
-    mockModel.generateContent.mockRejectedValue(new Error('Network error'));
+    mockModels.generateContent.mockRejectedValue(new Error('Network error'));
 
-    const adapter = new GeminiAdapter(mockClient);
+    const adapter = new GeminiAdapter(mockClient as never);
     await expect(
       adapter.complete({
-        model: 'gemini-pro',
+        model: 'gemini-2.5-flash',
         messages: [{ role: 'user', content: 'Hello' }],
       })
     ).rejects.toThrow('Network error');
   });
 
   it('merges consecutive same-role messages for Gemini alternating turns requirement', async () => {
-    mockModel.generateContent.mockResolvedValue({
-      response: {
-        text: () => 'Response',
-        candidates: [{ finishReason: 'STOP' }],
-      },
+    mockModels.generateContent.mockResolvedValue({
+      text: 'Response',
+      candidates: [{ finishReason: 'STOP' }],
     });
 
-    const adapter = new GeminiAdapter(mockClient);
+    const adapter = new GeminiAdapter(mockClient as never);
     await adapter.complete({
-      model: 'gemini-pro',
+      model: 'gemini-2.5-flash',
       messages: [
         { role: 'user', content: 'Hello' },
         { role: 'user', content: 'Are you there?' },
@@ -249,26 +288,27 @@ describe('GeminiAdapter', () => {
       ],
     });
 
-    expect(mockModel.generateContent).toHaveBeenCalledWith({
-      contents: [
-        { role: 'user', parts: [{ text: 'Hello' }, { text: 'Are you there?' }] },
-        { role: 'model', parts: [{ text: 'Yes!' }, { text: 'How can I help?' }] },
-        { role: 'user', parts: [{ text: 'Thanks' }] },
-      ],
-      systemInstruction: undefined,
-    });
+    expect(mockModels.generateContent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contents: [
+          { role: 'user', parts: [{ text: 'Hello' }, { text: 'Are you there?' }] },
+          { role: 'model', parts: [{ text: 'Yes!' }, { text: 'How can I help?' }] },
+          { role: 'user', parts: [{ text: 'Thanks' }] },
+        ],
+      })
+    );
   });
 
   it('throws error when only system messages provided (empty contents)', async () => {
-    const adapter = new GeminiAdapter(mockClient);
+    const adapter = new GeminiAdapter(mockClient as never);
 
     await expect(
       adapter.complete({
-        model: 'gemini-pro',
+        model: 'gemini-2.5-flash',
         messages: [{ role: 'system', content: 'You are helpful.' }],
       })
     ).rejects.toThrow('At least one non-system message is required');
 
-    expect(mockModel.generateContent).not.toHaveBeenCalled();
+    expect(mockModels.generateContent).not.toHaveBeenCalled();
   });
 });
