@@ -7,9 +7,9 @@ import type {
 import type { Anthropic } from '@anthropic-ai/sdk';
 
 const DEFAULT_ANTHROPIC_MODELS = [
-  'claude-3-5-sonnet',
-  'claude-3-opus-20240229',
-  'claude-3-sonnet-20240229',
+  'claude-sonnet-4-5-20250929',
+  'claude-sonnet-4-20250514',
+  'claude-haiku-4-5-20251001',
   'claude-3-haiku-20240307',
 ];
 
