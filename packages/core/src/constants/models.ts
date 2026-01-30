@@ -12,6 +12,9 @@ export const DEFAULT_AVAILABLE_MODELS = [
   'claude-sonnet-4-20250514',
   'claude-haiku-4-5-20251001',
   'claude-3-haiku-20240307',
+  'gemini-2.5-flash',
+  'gemini-2.5-pro',
+  'gemini-2.0-flash',
 ] as const;
 
 export type DefaultAvailableModel = (typeof DEFAULT_AVAILABLE_MODELS)[number];
