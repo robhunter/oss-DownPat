@@ -4,7 +4,7 @@ import { app, startTestServer, stopServer } from './index.js';
 
 describe('Server', () => {
   beforeAll(() => {
-    startTestServer(3099); // Use different port to avoid conflicts
+    startTestServer();
   });
 
   afterAll(() => {
