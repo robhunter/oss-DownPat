@@ -220,8 +220,13 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
     console.log('Socket connected:', socket.id);
     socket.data.user = null;
 
-    // Track active AI stream controllers per conversation to prevent race conditions
-    // When a new stream starts, abort any existing stream for the same conversation
+    // Track active AI stream controllers per conversation to prevent race conditions.
+    // When a new stream starts, abort any existing stream for the same conversation.
+    //
+    // NOTE: This map is scoped to a single socket connection. If the same user opens
+    // multiple tabs or devices, each connection has its own independent stream tracker.
+    // Cross-connection coordination (e.g., via Redis) is not currently implemented.
+    // See the @downpat/express README for details.
     const activeStreams = new Map<string, AbortController>();
 
     /**
