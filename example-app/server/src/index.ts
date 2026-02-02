@@ -90,6 +90,7 @@ async function startServer() {
     moderationAdapter: moderationAdapter ?? undefined,
     defaultModel: 'gpt-4',
     availableModels,
+    corsOrigin: '*',
   });
 
   // Start listening
