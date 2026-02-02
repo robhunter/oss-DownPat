@@ -69,6 +69,36 @@ httpServer.listen(3001, () => {
 - `send-message`: Send user message
 - `message`: Receive AI response (streamed)
 
+## Production Considerations
+
+### Rate Limiting
+
+`@downpat/express` does not include rate limiting middleware. This is intentional — rate limiting strategies vary widely by deployment (API gateway, reverse proxy, application-level) and bundling one would likely conflict with your existing setup.
+
+You should add rate limiting before exposing the server to untrusted traffic. For example, with `express-rate-limit`:
+
+```typescript
+import rateLimit from 'express-rate-limit';
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100,
+});
+
+app.use('/api/downpat', limiter);
+```
+
+At minimum, rate limit the authentication and conversation creation endpoints to prevent brute-force and abuse.
+
+### Multi-Tab / Multi-Device Streaming
+
+AI response streaming is coordinated per Socket.io connection. Each browser tab or device opens its own connection with an independent stream tracker. This means:
+
+- Within a single tab, rapid messages correctly abort the previous AI stream before starting a new one.
+- Across multiple tabs or devices on the same conversation, each connection streams independently. This can result in duplicate AI responses being saved if the same user sends messages from two tabs simultaneously.
+
+If your application needs cross-connection coordination (e.g., ensuring only one AI stream runs per conversation globally), you'll need to implement a shared stream registry (e.g., backed by Redis) and integrate it with the Socket.io layer.
+
 ## Documentation
 
 See the [main repository](https://github.com/robhunter/oss-DownPat) for full documentation.
