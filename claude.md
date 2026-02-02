@@ -5,6 +5,7 @@
 Follow all guidelines in `.claude-tools/instructions/`. These are portable standards shared across projects:
 - `chainlink.md` — Issue tracking workflow
 - `definition-of-done.md` — Verification, approval, and completion standards
+- `general-guidelines.md` — User approval, context compaction, frustration handling
 - `github-prs.md` — Git commit rules and stacked PR workflow
 - `pr-reviews.md` — Automated PR self-review workflow
 - `parallel-agents.md` — Parallel subagent workspace isolation
