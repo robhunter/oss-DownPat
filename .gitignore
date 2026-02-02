@@ -140,3 +140,5 @@ code_review.md
 .claude-tools/
 
 .env.gemini
+
+.npmrc
