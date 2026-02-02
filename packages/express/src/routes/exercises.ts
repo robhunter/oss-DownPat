@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import type { Request, Response, NextFunction } from 'express';
 import { randomUUID } from 'crypto';
-import { ExerciseController } from '@downpat/core';
+import { ExerciseController, NotFoundError, UnauthorizedError, ValidationError } from '@downpat/core';
 import type { ExerciseStorage, ServerAuthProvider } from '@downpat/core';
 import { createAuthMiddleware, requireAdmin, type AuthenticatedRequest } from '../middleware/auth.js';
 
@@ -88,7 +88,7 @@ export function createExerciseRouter(
         const exercise = await controller.getExercise(req.params.id, authReq.user);
         res.json(exercise);
       } catch (error) {
-        if (error instanceof Error && error.message === 'Exercise not found') {
+        if (error instanceof NotFoundError) {
           res.status(404).json({ error: error.message });
           return;
         }
@@ -112,7 +112,7 @@ export function createExerciseRouter(
         );
         res.json(exercise);
       } catch (error) {
-        if (error instanceof Error && error.message === 'Exercise not found') {
+        if (error instanceof NotFoundError) {
           res.status(404).json({ error: error.message });
           return;
         }
@@ -137,7 +137,7 @@ export function createExerciseRouter(
         const exercise = await controller.createExercise(exerciseData, authReq.user);
         res.status(201).json(exercise);
       } catch (error) {
-        if (error instanceof Error && error.message.includes('Unauthorized')) {
+        if (error instanceof UnauthorizedError) {
           res.status(403).json({ error: error.message });
           return;
         }
@@ -157,15 +157,15 @@ export function createExerciseRouter(
         await controller.updateExercise({ ...req.body, exerciseId: req.params.id }, authReq.user);
         res.json({ success: true });
       } catch (error) {
-        if (error instanceof Error && error.message.includes('Unauthorized')) {
+        if (error instanceof UnauthorizedError) {
           res.status(403).json({ error: error.message });
           return;
         }
-        if (error instanceof Error && error.message.includes('slug is immutable')) {
+        if (error instanceof ValidationError) {
           res.status(400).json({ error: error.message });
           return;
         }
-        if (error instanceof Error && error.message === 'Exercise not found') {
+        if (error instanceof NotFoundError) {
           res.status(404).json({ error: error.message });
           return;
         }
@@ -185,7 +185,7 @@ export function createExerciseRouter(
         await controller.publishExercise(req.params.slug, authReq.user);
         res.json({ success: true });
       } catch (error) {
-        if (error instanceof Error && error.message.includes('Unauthorized')) {
+        if (error instanceof UnauthorizedError) {
           res.status(403).json({ error: error.message });
           return;
         }
@@ -205,7 +205,7 @@ export function createExerciseRouter(
         await controller.unpublishExercise(req.params.slug, authReq.user);
         res.json({ success: true });
       } catch (error) {
-        if (error instanceof Error && error.message.includes('Unauthorized')) {
+        if (error instanceof UnauthorizedError) {
           res.status(403).json({ error: error.message });
           return;
         }
@@ -225,7 +225,7 @@ export function createExerciseRouter(
         await controller.restoreFromPublished(req.params.slug, authReq.user);
         res.json({ success: true });
       } catch (error) {
-        if (error instanceof Error && error.message.includes('Unauthorized')) {
+        if (error instanceof UnauthorizedError) {
           res.status(403).json({ error: error.message });
           return;
         }
@@ -245,7 +245,7 @@ export function createExerciseRouter(
         await controller.deleteExercise(req.params.slug, authReq.user);
         res.json({ success: true });
       } catch (error) {
-        if (error instanceof Error && error.message.includes('Unauthorized')) {
+        if (error instanceof UnauthorizedError) {
           res.status(403).json({ error: error.message });
           return;
         }

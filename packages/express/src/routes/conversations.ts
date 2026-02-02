@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import type { Request, Response, NextFunction } from 'express';
-import { ConversationController } from '@downpat/core';
+import { ConversationController, NotFoundError, UnauthorizedError, ValidationError } from '@downpat/core';
 import type { ConversationStorage, ExerciseStorage, ServerAuthProvider, UserStateStorage, User } from '@downpat/core';
 import { createAuthMiddleware, requireSubscriber, type AuthenticatedRequest } from '../middleware/auth.js';
 
@@ -18,8 +18,8 @@ interface ExerciseResolutionResult {
  * @param exerciseStorage - Storage to look up exercise by slug
  * @param user - User making the request (admins can access unpublished)
  * @returns Resolved exercise ID
- * @throws Error with message 'exerciseId or exerciseSlug is required' if neither provided
- * @throws Error with message 'Exercise not found' if slug lookup fails
+ * @throws ValidationError if neither exerciseId nor exerciseSlug is provided
+ * @throws NotFoundError if slug lookup fails
  */
 async function resolveExerciseId(
   exerciseId: string | undefined,
@@ -32,14 +32,14 @@ async function resolveExerciseId(
   }
 
   if (!exerciseSlug) {
-    throw new Error('exerciseId or exerciseSlug is required');
+    throw new ValidationError('exerciseId or exerciseSlug is required');
   }
 
   // Look up exercise by slug (published only for non-admins)
   const publishedOnly = !user.isAdmin;
   const exercise = await exerciseStorage.getExerciseBySlug(exerciseSlug, publishedOnly);
   if (!exercise) {
-    throw new Error('Exercise not found');
+    throw new NotFoundError('Exercise not found');
   }
 
   return { exerciseId: exercise.exerciseId };
@@ -83,15 +83,13 @@ export function createConversationRouter(
         const conversation = await controller.getConversation(req.params.id, authReq.user);
         res.json(conversation);
       } catch (error) {
-        if (error instanceof Error) {
-          if (error.message === 'Conversation not found') {
-            res.status(404).json({ error: error.message });
-            return;
-          }
-          if (error.message.includes('Unauthorized')) {
-            res.status(403).json({ error: error.message });
-            return;
-          }
+        if (error instanceof NotFoundError) {
+          res.status(404).json({ error: error.message });
+          return;
+        }
+        if (error instanceof UnauthorizedError) {
+          res.status(403).json({ error: error.message });
+          return;
         }
         next(error);
       }
@@ -132,19 +130,17 @@ export function createConversationRouter(
 
         res.status(201).json(conversation);
       } catch (error) {
-        if (error instanceof Error) {
-          if (error.message === 'exerciseId or exerciseSlug is required') {
-            res.status(400).json({ error: error.message });
-            return;
-          }
-          if (error.message === 'Exercise not found') {
-            res.status(404).json({ error: error.message });
-            return;
-          }
-          if (error.message.includes('Unauthorized')) {
-            res.status(403).json({ error: error.message });
-            return;
-          }
+        if (error instanceof ValidationError) {
+          res.status(400).json({ error: error.message });
+          return;
+        }
+        if (error instanceof NotFoundError) {
+          res.status(404).json({ error: error.message });
+          return;
+        }
+        if (error instanceof UnauthorizedError) {
+          res.status(403).json({ error: error.message });
+          return;
         }
         next(error);
       }
@@ -188,19 +184,17 @@ export function createConversationRouter(
         const isResumed = !result.wasCreated;
         res.json({ ...result.conversation, isResumed });
       } catch (error) {
-        if (error instanceof Error) {
-          if (error.message === 'exerciseId or exerciseSlug is required') {
-            res.status(400).json({ error: error.message });
-            return;
-          }
-          if (error.message === 'Exercise not found') {
-            res.status(404).json({ error: error.message });
-            return;
-          }
-          if (error.message.includes('Unauthorized')) {
-            res.status(403).json({ error: error.message });
-            return;
-          }
+        if (error instanceof ValidationError) {
+          res.status(400).json({ error: error.message });
+          return;
+        }
+        if (error instanceof NotFoundError) {
+          res.status(404).json({ error: error.message });
+          return;
+        }
+        if (error instanceof UnauthorizedError) {
+          res.status(403).json({ error: error.message });
+          return;
         }
         next(error);
       }
@@ -224,19 +218,17 @@ export function createConversationRouter(
         const result = await controller.addUserMessage(req.params.id, content, authReq.user);
         res.json(result);
       } catch (error) {
-        if (error instanceof Error) {
-          if (error.message === 'Conversation not found') {
-            res.status(404).json({ error: error.message });
-            return;
-          }
-          if (error.message === 'Conversation is already complete') {
-            res.status(400).json({ error: error.message });
-            return;
-          }
-          if (error.message.includes('Unauthorized')) {
-            res.status(403).json({ error: error.message });
-            return;
-          }
+        if (error instanceof NotFoundError) {
+          res.status(404).json({ error: error.message });
+          return;
+        }
+        if (error instanceof ValidationError) {
+          res.status(400).json({ error: error.message });
+          return;
+        }
+        if (error instanceof UnauthorizedError) {
+          res.status(403).json({ error: error.message });
+          return;
         }
         next(error);
       }
@@ -253,15 +245,13 @@ export function createConversationRouter(
         await controller.completeConversation(req.params.id, authReq.user);
         res.json({ success: true });
       } catch (error) {
-        if (error instanceof Error) {
-          if (error.message === 'Conversation not found') {
-            res.status(404).json({ error: error.message });
-            return;
-          }
-          if (error.message.includes('Unauthorized')) {
-            res.status(403).json({ error: error.message });
-            return;
-          }
+        if (error instanceof NotFoundError) {
+          res.status(404).json({ error: error.message });
+          return;
+        }
+        if (error instanceof UnauthorizedError) {
+          res.status(403).json({ error: error.message });
+          return;
         }
         next(error);
       }
@@ -278,15 +268,13 @@ export function createConversationRouter(
         await controller.deleteConversation(req.params.id, authReq.user);
         res.json({ success: true });
       } catch (error) {
-        if (error instanceof Error) {
-          if (error.message === 'Conversation not found') {
-            res.status(404).json({ error: error.message });
-            return;
-          }
-          if (error.message.includes('Unauthorized')) {
-            res.status(403).json({ error: error.message });
-            return;
-          }
+        if (error instanceof NotFoundError) {
+          res.status(404).json({ error: error.message });
+          return;
+        }
+        if (error instanceof UnauthorizedError) {
+          res.status(403).json({ error: error.message });
+          return;
         }
         next(error);
       }

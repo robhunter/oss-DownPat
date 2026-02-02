@@ -1,5 +1,6 @@
 import { Exercise, User } from '../types/index.js';
 import { ExerciseStorage } from '../interfaces/index.js';
+import { NotFoundError, UnauthorizedError, ValidationError } from '../errors.js';
 
 /**
  * Framework-agnostic exercise controller.
@@ -16,7 +17,7 @@ export class ExerciseController {
    */
   async createExercise(exercise: Exercise, user: User): Promise<Exercise> {
     if (!user.isAdmin) {
-      throw new Error('Unauthorized: Only admins can create exercises');
+      throw new UnauthorizedError('Unauthorized: Only admins can create exercises');
     }
 
     await this.storage.createExercise(exercise);
@@ -31,7 +32,7 @@ export class ExerciseController {
   async getExercise(exerciseId: string, _user: User): Promise<Exercise> {
     const exercise = await this.storage.getExercise(exerciseId);
     if (!exercise) {
-      throw new Error('Exercise not found');
+      throw new NotFoundError('Exercise not found');
     }
 
     // All authenticated users can view exercises
@@ -52,7 +53,7 @@ export class ExerciseController {
   ): Promise<Exercise> {
     const exercise = await this.storage.getExerciseBySlug(slug, publishedOnly);
     if (!exercise) {
-      throw new Error('Exercise not found');
+      throw new NotFoundError('Exercise not found');
     }
 
     return exercise;
@@ -75,18 +76,18 @@ export class ExerciseController {
    */
   async updateExercise(exercise: Exercise, user: User): Promise<void> {
     if (!user.isAdmin) {
-      throw new Error('Unauthorized: Only admins can update exercises');
+      throw new UnauthorizedError('Unauthorized: Only admins can update exercises');
     }
 
     // Fetch the existing exercise to check if slug is being changed
     const existing = await this.storage.getExercise(exercise.exerciseId);
     if (!existing) {
-      throw new Error('Exercise not found');
+      throw new NotFoundError('Exercise not found');
     }
 
     // Slug is immutable since it's used as the metadata document ID
     if (exercise.slug && exercise.slug !== existing.slug) {
-      throw new Error('Cannot change exercise slug: slug is immutable');
+      throw new ValidationError('Cannot change exercise slug: slug is immutable');
     }
 
     await this.storage.updateExercise(exercise);
@@ -100,7 +101,7 @@ export class ExerciseController {
    */
   async publishExercise(slug: string, user: User): Promise<void> {
     if (!user.isAdmin) {
-      throw new Error('Unauthorized: Only admins can publish exercises');
+      throw new UnauthorizedError('Unauthorized: Only admins can publish exercises');
     }
 
     await this.storage.publishExercise(slug);
@@ -114,7 +115,7 @@ export class ExerciseController {
    */
   async unpublishExercise(slug: string, user: User): Promise<void> {
     if (!user.isAdmin) {
-      throw new Error('Unauthorized: Only admins can unpublish exercises');
+      throw new UnauthorizedError('Unauthorized: Only admins can unpublish exercises');
     }
 
     await this.storage.unpublishExercise(slug);
@@ -128,7 +129,7 @@ export class ExerciseController {
    */
   async restoreFromPublished(slug: string, user: User): Promise<void> {
     if (!user.isAdmin) {
-      throw new Error('Unauthorized: Only admins can restore exercises');
+      throw new UnauthorizedError('Unauthorized: Only admins can restore exercises');
     }
 
     await this.storage.restoreFromPublished(slug);
@@ -142,7 +143,7 @@ export class ExerciseController {
    */
   async deleteExercise(slug: string, user: User): Promise<void> {
     if (!user.isAdmin) {
-      throw new Error('Unauthorized: Only admins can delete exercises');
+      throw new UnauthorizedError('Unauthorized: Only admins can delete exercises');
     }
 
     await this.storage.deleteExercise(slug);
