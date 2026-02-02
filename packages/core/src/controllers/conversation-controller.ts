@@ -7,6 +7,7 @@ import {
   starterToMessages,
   createWelcomeMessage,
 } from '../utils/index.js';
+import { NotFoundError, UnauthorizedError, ValidationError } from '../errors.js';
 
 /**
  * Check if a user can start conversations.
@@ -40,12 +41,12 @@ export class ConversationController {
     query?: Record<string, string>
   ): Promise<Conversation> {
     if (!canStartConversation(user)) {
-      throw new Error('Unauthorized: Only subscribers can start conversations');
+      throw new UnauthorizedError('Unauthorized: Only subscribers can start conversations');
     }
 
     const exercise = await this.exerciseStorage.getExercise(exerciseId);
     if (!exercise) {
-      throw new Error('Exercise not found');
+      throw new NotFoundError('Exercise not found');
     }
 
     // Build initial messages array with welcome and starter messages
@@ -97,12 +98,12 @@ export class ConversationController {
   private async verifyAccess(conversationId: string, user: User): Promise<ConversationMetadata> {
     const metadata = await this.conversationStorage.getConversationMetadata(conversationId);
     if (!metadata) {
-      throw new Error('Conversation not found');
+      throw new NotFoundError('Conversation not found');
     }
 
     // Users can only access their own conversations (unless admin)
     if (metadata.userId !== user.userId && !user.isAdmin) {
-      throw new Error('Unauthorized: Cannot access this conversation');
+      throw new UnauthorizedError('Unauthorized: Cannot access this conversation');
     }
 
     return metadata;
@@ -139,13 +140,13 @@ export class ConversationController {
     const metadata = await this.verifyAccess(conversationId, user);
 
     if (metadata.isComplete) {
-      throw new Error('Conversation is already complete');
+      throw new ValidationError('Conversation is already complete');
     }
 
     // Get exercise to check max messages
     const exercise = await this.exerciseStorage.getExercise(metadata.exerciseId);
     if (!exercise) {
-      throw new Error('Exercise not found');
+      throw new NotFoundError('Exercise not found');
     }
 
     const message: Message = {
@@ -260,7 +261,7 @@ export class ConversationController {
     query?: Record<string, string>
   ): Promise<{ conversation: Conversation; wasCreated: boolean }> {
     if (!canStartConversation(user)) {
-      throw new Error('Unauthorized: Only subscribers can start conversations');
+      throw new UnauthorizedError('Unauthorized: Only subscribers can start conversations');
     }
 
     // Check for existing active conversation
@@ -319,13 +320,13 @@ export class ConversationController {
     const metadata = await this.verifyAccess(conversationId, user);
 
     if (metadata.isComplete) {
-      throw new Error('Cannot edit a completed conversation');
+      throw new ValidationError('Cannot edit a completed conversation');
     }
 
     // Fetch full conversation to get messages
     const conversation = await this.conversationStorage.getConversation(conversationId);
     if (!conversation) {
-      throw new Error('Conversation not found');
+      throw new NotFoundError('Conversation not found');
     }
 
     // Find the message to edit - must be a USER message
@@ -334,7 +335,7 @@ export class ConversationController {
     );
 
     if (messageIndex === -1) {
-      throw new Error('User message not found');
+      throw new NotFoundError('User message not found');
     }
 
     // Keep messages up to (not including) the edited message
@@ -384,7 +385,7 @@ export class ConversationController {
     const metadata = await this.verifyAccess(conversationId, user);
 
     if (metadata.isComplete) {
-      throw new Error('Conversation is already complete');
+      throw new ValidationError('Conversation is already complete');
     }
 
     // Mark as complete

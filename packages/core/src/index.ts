@@ -69,6 +69,9 @@ export type {
 
 export { getAvailableModels } from './interfaces/index.js';
 
+// Errors
+export { NotFoundError, UnauthorizedError, ValidationError } from './errors.js';
+
 // Controllers
 export { ExerciseController } from './controllers/index.js';
 export { ConversationController } from './controllers/index.js';
