@@ -1,6 +1,6 @@
 {
   "name": "@downpat/ai-adapters",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "AI provider adapters for DownPat (OpenAI, Anthropic, Gemini)",
   "type": "module",
   "main": "./dist/index.js",
@@ -22,7 +22,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.72.0",
-    "@downpat/core": "^0.0.1",
+    "@downpat/core": "^0.0.2",
     "@google/genai": "^1.38.0",
     "openai": "^6.0.0"
   },

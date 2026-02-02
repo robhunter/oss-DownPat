@@ -1,6 +1,6 @@
 {
   "name": "@downpat/api-client",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Shared API client for DownPat applications",
   "type": "module",
   "main": "./dist/index.js",
@@ -18,7 +18,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@downpat/core": "^0.0.1"
+    "@downpat/core": "^0.0.2"
   },
   "devDependencies": {
     "typescript": "^5.3.3",

@@ -1,6 +1,6 @@
 {
   "name": "@downpat/react",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "React integration for DownPat - API client, hooks, and route builder",
   "type": "module",
   "main": "./dist/index.js",
@@ -23,10 +23,10 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@downpat/api-client": "^0.0.1",
-    "@downpat/core": "^0.0.1",
-    "@downpat/ui-components": "^0.0.1",
-    "@downpat/admin-ui": "^0.0.1"
+    "@downpat/api-client": "^0.0.2",
+    "@downpat/core": "^0.0.2",
+    "@downpat/ui-components": "^0.0.2",
+    "@downpat/admin-ui": "^0.0.2"
   },
   "peerDependencies": {
     "react": "^18.0.0",
