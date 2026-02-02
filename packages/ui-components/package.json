@@ -1,6 +1,6 @@
 {
   "name": "@downpat/ui-components",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "React UI components for DownPat conversations",
   "type": "module",
   "main": "./dist/index.js",
@@ -24,7 +24,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@downpat/core": "^0.0.1",
+    "@downpat/core": "^0.0.2",
     "markdown-to-jsx": "^9.6.1",
     "socket.io-client": "^4.7.0"
   },
