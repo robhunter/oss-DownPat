@@ -73,7 +73,7 @@ export interface CreateDownpatServerConfig {
 
   /**
    * CORS origins for Socket.io.
-   * @default '*'
+   * Required for cross-origin access. Omit to reject cross-origin requests.
    */
   corsOrigin?: string | string[];
 }

@@ -180,7 +180,7 @@ export interface SocketConfig {
   moderationAdapter?: ModerationAdapter;
   /** Default AI model to use */
   defaultModel?: string;
-  /** CORS origins to allow (default: '*') */
+  /** CORS origins to allow. Required for cross-origin access. Omit to reject cross-origin requests. */
   corsOrigin?: string | string[];
 }
 
@@ -205,10 +205,9 @@ export function attachSocketIO(httpServer: HTTPServer, config: SocketConfig): So
     Record<string, never>,
     SocketData
   >(httpServer, {
-    cors: {
-      origin: config.corsOrigin ?? '*',
-      methods: ['GET', 'POST'],
-    },
+    cors: config.corsOrigin
+      ? { origin: config.corsOrigin, methods: ['GET', 'POST'] }
+      : undefined,
   });
 
   const controller = new ConversationController(
